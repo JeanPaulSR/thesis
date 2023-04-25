@@ -47,7 +47,7 @@ fn main() {
         .add_startup_system(world::setup.system())
         
         // Add a system that moves agents to a village.
-        .add_startup_system(agent_test.system())
+        .add_startup_system(npc::agent_test.system())
         //.add_startup_system(test_create.system())
 
         // Add the DebugPlugin to the app.
@@ -63,35 +63,4 @@ fn main() {
         .run();
 }
 
-fn move_sprite_handle(
-    mut materials: ResMut<Assets<ColorMaterial>>,
-    asset_server: Res<AssetServer>,
-) -> Handle<ColorMaterial> {
-    
-    materials.add(asset_server.load("textures/agent.png").into())
-}
-
-fn agent_test(
-    mut commands: Commands,
-    mut materials: ResMut<Assets<ColorMaterial>>,
-    asset_server: Res<AssetServer>,
-) {
-    // Spawn an agent using the `new_random` function
-    let mut agent = Agent::new_random(5.0 * 32.0, 5.0 * 32.0, &mut commands, &mut materials, &asset_server);
-    
-    let agent2 = Agent::new_random(5.0 * 32.0, 5.0 * 32.0, &mut commands, &mut materials, &asset_server);
-    let new_transform = Transform::from_translation(Vec3::new(5.0* 32.0, 6.0, 1.0));
-    update_agent_transform(&mut agent, new_transform, &mut commands);
-}
-
-//Update based on the agent
-//Remember to multiply by 32
-fn update_agent_transform(
-    agent: &mut Agent,
-    new_transform: Transform,
-    commands: &mut Commands,
-) {
-    agent.transform = new_transform;
-    commands.entity(agent.entity).insert(agent.transform.clone());
-}
 
