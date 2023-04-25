@@ -71,7 +71,6 @@ for (y, row) in world_grid.grid.iter().rev().enumerate() {
             }
     
             
-            
         }
     }
     
@@ -85,6 +84,12 @@ for (y, row) in world_grid.grid.iter().rev().enumerate() {
     // Set up the 2D camera at the center of the grid
     commands.spawn_bundle(OrthographicCameraBundle::new_2d())
     .insert(Transform::from_xyz(half_grid_width, half_grid_height, 1000.0));
+
+    if let Some(tile_type) = world_grid.get(5, 5) {
+        println!("TileType at position (5, 5): {:?}", tile_type);
+    } else {
+        println!("Invalid position (5, 5)");
+    }
 }
 
 
@@ -131,6 +136,12 @@ pub fn create_world_grid() -> Vec<Vec<TileType>> {
 }
 pub struct WorldGrid {
     pub grid: Vec<Vec<TileType>>,
+}
+
+impl WorldGrid {
+    pub fn get(&self, x: usize, y: usize) -> Option<&TileType> {
+        self.grid.get(y)?.get(x)
+    }
 }
 
 pub struct Agents {
