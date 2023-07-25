@@ -8,18 +8,16 @@ mod camera;
 mod world;
 mod npc;
 mod debug;
-//use debug::DebugPlugin;
-use world::WorldGrid;
-use world::Agents;
-use crate::tile::TileType;
-use crate::components::Position;
-use rand::distributions::Uniform;
-use rand::distributions::Distribution;
-use bevy::asset::AssetServer;
-use crate::npc::Agent;
+mod behavior;
+use world::World;
+mod movement; 
+mod mcst;
+mod entities {
+    pub mod monster;
+    pub mod agent;
+}
 
 fn main() {
-    
 
     // Begin building the Bevy app.
     App::build()
@@ -33,11 +31,9 @@ fn main() {
         // Add default Bevy plugins to the app. This includes basic functionality like rendering, input handling, etc.
         .add_plugins(DefaultPlugins)
 
-         // Insert a WorldGrid resource that contains the game world's grid.
-         .insert_resource(WorldGrid {grid: world::create_world_grid(),})
+         // Insert a World resource that contains the game world's grid.
+         .insert_resource(World {agents: Vec::new(), grid: world::create_world(),})
         
-        
-         .insert_resource(Agents { vec: Vec::new() })
 
          
          // Add a system that handles camera drag functionality.
@@ -47,8 +43,7 @@ fn main() {
         .add_startup_system(world::setup.system())
         
         // Add a system that moves agents to a village.
-        .add_startup_system(npc::agent_test.system())
-        //.add_startup_system(test_create.system())
+        .add_startup_system(npc::debug.system())
 
         // Add the DebugPlugin to the app.
         //.add_plugin(DebugPlugin)

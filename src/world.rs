@@ -1,46 +1,67 @@
 use bevy::prelude::*;
 use crate::components::{Position, TileComponent, TreasureComponent};
-use crate::npc::{Agent};
+use crate::entities::agent::Agent;
 use crate::tile::TileType;
+
+
+const _WORLD_WIDTH: usize = 30;
+const _WORLD_HEIGHT: usize = 30;
+const START_AGENT_COUNT: usize = 50;
 
 pub fn setup(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
     mut materials: ResMut<Assets<ColorMaterial>>,
-    world_grid: Res<WorldGrid>,
+    mut world: ResMut<World>,
 ) {
-// Load the individual textures
+    // Load the individual textures
+    /*
+    let forest_texture = asset_server.load("textures/forest.png");
+    let mountain_texture = asset_server.load("textures/mountain.png");
+    let lake_texture = asset_server.load("textures/water.png");
+    let village_texture = asset_server.load("textures/village.png");
+    let dungeon_texture = asset_server.load("textures/dungeon.png");
+    let agent_texture = asset_server.load("textures/agent.png");
+    let monster_texture = asset_server.load("textures/enemy.png");
+    let materials = [
+        materials.add(forest_texture.into()),
+        materials.add(mountain_texture.into()),
+        materials.add(lake_texture.into()),
+        materials.add(village_texture.into()),
+        materials.add(dungeon_texture.into()),
+        materials.add(agent_texture.into()),
+        materials.add(monster_texture.into()),
+    ];
+    /*
+    let materials = [
+        materials.add(Color::NONE.into()),
+        materials.add(Color::NONE.into()),
+        materials.add(Color::NONE.into()),
+        materials.add(Color::NONE.into()),
+        materials.add(Color::NONE.into()),
+        materials.add(Color::NONE.into()),
+        materials.add(Color::NONE.into()),
+    ];
+    */
+    */
+    // Load the individual textures
+    let forest_texture = asset_server.load("textures/forest.png");
+    let mountain_texture = asset_server.load("textures/mountain.png");
+    let lake_texture = asset_server.load("textures/water.png");
+    let village_texture = asset_server.load("textures/village.png");
+    let dungeon_texture = asset_server.load("textures/dungeon.png");
 
-let forest_texture = asset_server.load("textures/forest.png");
-let mountain_texture = asset_server.load("textures/mountain.png");
-let lake_texture = asset_server.load("textures/water.png");
-let village_texture = asset_server.load("textures/village.png");
-let dungeon_texture = asset_server.load("textures/dungeon.png");
-let agent_texture = asset_server.load("textures/agent.png");
-let monster_texture = asset_server.load("textures/enemy.png");
-let materials = [
-    materials.add(forest_texture.into()),
-    materials.add(mountain_texture.into()),
-    materials.add(lake_texture.into()),
-    materials.add(village_texture.into()),
-    materials.add(dungeon_texture.into()),
-    materials.add(agent_texture.into()),
-    materials.add(monster_texture.into()),
-];
-/*
-let materials = [
-    materials.add(Color::NONE.into()),
-    materials.add(Color::NONE.into()),
-    materials.add(Color::NONE.into()),
-    materials.add(Color::NONE.into()),
-    materials.add(Color::NONE.into()),
-    materials.add(Color::NONE.into()),
-    materials.add(Color::NONE.into()),
-];
-*/
-for (y, row) in world_grid.grid.iter().rev().enumerate() {
+    // Add the materials directly to the `materials` variable
+    let forest_material = materials.add(forest_texture.into());
+    let mountain_material = materials.add(mountain_texture.into());
+    let lake_material = materials.add(lake_texture.into());
+    let village_material = materials.add(village_texture.into());
+    let dungeon_material = materials.add(dungeon_texture.into());
+
+    for (y, row) in world.grid.iter().rev().enumerate() {
         for (x, tile_type) in row.iter().enumerate() {
             let treasure = None; // Replace with actual treasure if desired
+            /*
             let material_index = match tile_type {
                 TileType::Forest => 0,
                 TileType::Mountain => 1,
@@ -49,7 +70,17 @@ for (y, row) in world_grid.grid.iter().rev().enumerate() {
                 TileType::Dungeon => 4,
             };
             let sprite_bundle = SpriteBundle {
-                material: materials[material_index].clone(),
+                material: materials[material_index].clone(),*/
+            let material_handle = match tile_type {
+                TileType::Forest => forest_material.clone(),
+                TileType::Mountain => mountain_material.clone(),
+                TileType::Lake => lake_material.clone(),
+                TileType::Village => village_material.clone(),
+                TileType::Dungeon => dungeon_material.clone(),
+            };
+
+            let sprite_bundle = SpriteBundle {
+                material: material_handle,
                 transform: Transform::from_xyz(
                     (x as f32)   * 32.0,
                     (y as f32) * 32.0,
@@ -75,8 +106,8 @@ for (y, row) in world_grid.grid.iter().rev().enumerate() {
     }
     
     // Calculate the center of the grid
-    let grid_width = world_grid.grid[0].len() as f32;
-    let grid_height = world_grid.grid.len() as f32;
+    let grid_width = world.grid[0].len() as f32;
+    let grid_height = world.grid.len() as f32;
     let half_grid_width = grid_width * 16.0;
     let half_grid_height = grid_height * 16.0;
     
@@ -85,19 +116,41 @@ for (y, row) in world_grid.grid.iter().rev().enumerate() {
     commands.spawn_bundle(OrthographicCameraBundle::new_2d())
     .insert(Transform::from_xyz(half_grid_width, half_grid_height, 1000.0));
 
-    if let Some(tile_type) = world_grid.get(5, 5) {
-        println!("TileType at position (5, 5): {:?}", tile_type);
-    } else {
-        println!("Invalid position (5, 5)");
+    
+    let mut villages: Vec<(f32, f32)> = Vec::new();
+    for (y, row) in world.grid.iter().rev().enumerate() {
+        for (x, tile_type) in row.iter().enumerate() {
+                if let TileType::Village = tile_type {
+                    villages.push((x as f32, y as f32));
+                }
+            }
     }
+    for i in 0..START_AGENT_COUNT {
+        let tuple = villages[i % villages.len()];
+
+        let mut agent = Agent::new_agent(
+            tuple.0 ,
+            tuple.1 ,
+            &mut commands,
+            &mut materials,
+            &asset_server,
+        );
+        world.agents.push(agent);
+    }
+
+    let agent1 = world.get_agent(0);
+    if let Some(agent) = agent1 {
+        agent.travel(2.0, 3.0, &mut commands);
+    }
+
 }
 
 
 
-pub fn create_world_grid() -> Vec<Vec<TileType>> {
+pub fn create_world() -> Vec<Vec<TileType>> {
     let map_data: Vec<&str> = vec![
-        "fffffffffffffffffffm",
-        "fffffffffffffffffflm",
+        "vffffffffffffffffffm",
+        "fmfffffffffffffffflm",
         "fffffffvfffffffffllm",
         "ffffffffffffffffllfm",
         "fffffffffffffffllffm",
@@ -108,16 +161,16 @@ pub fn create_world_grid() -> Vec<Vec<TileType>> {
         "ffffmfffffffffmllllm",
         "fffffmffffffffffmllm",
         "fffffffmfffffmmmmllm",
-        "mmmmmmmmmmmmmmmmlllm",
+        "mmmmmmmmmmmfmmmmlllm",
         "fffffffffffffffflllm",
         "fffffffffffffffflllm",
         "fffffffffffffffflllm",
         "fffffffffffffffflllm",
-        "fffffffffffffffflllm",
-        "fffffffffffffffflllm",
+        "ffffffffvffffffflllm",
+        "fmfffffffffffffflllm",
         "fffffffffffffffflllm",
     ];
-    let world_grid: Vec<Vec<TileType>> = map_data
+    let world: Vec<Vec<TileType>> = map_data
         .iter()
         .map(|row| {
             row.chars()
@@ -132,18 +185,61 @@ pub fn create_world_grid() -> Vec<Vec<TileType>> {
                 .collect()
         })
         .collect();
-    world_grid
+    world
 }
-pub struct WorldGrid {
+pub struct World {
+    pub agents: Vec<Agent>,
     pub grid: Vec<Vec<TileType>>,
 }
 
-impl WorldGrid {
+impl World {
+    
+    fn _new() -> Self {
+        let agents = Vec::new();
+        let grid: Vec<Vec<TileType>> = vec![vec![TileType::Forest; _WORLD_HEIGHT]; _WORLD_WIDTH];
+        World { agents, grid }
+    }
+
     pub fn get(&self, x: usize, y: usize) -> Option<&TileType> {
         self.grid.get(y)?.get(x)
     }
-}
 
-pub struct Agents {
-    pub vec: Vec<Agent>,
+    // Function to add an agent to the world
+    pub fn add_agent(&mut self, agent: Agent) {
+        // Add the agent to the world's list of agents
+        self.agents.push(agent);
+    }
+
+    // Function to get a reference to an agent by ID
+    pub fn get_agent(&mut self, id: u32) -> Option<&mut Agent> {
+        self.agents.iter_mut().find(|a| a.id == id)
+    }
+
+    // Function to remove an agent from the world by ID
+    pub fn _remove_agent(&mut self, id: u32) -> Option<Agent> {
+        // Remove the agent from the world's list of agents
+        let index = self.agents.iter().position(|a| a.id == id)?;
+        let removed_agent = self.agents.remove(index);
+        Some(removed_agent)
+    }
+
+
+
+    pub fn find_agents_within_distance(&self, agent: &Agent, distance: f32) -> Vec<&Agent> {
+        let mut nearby_agents = Vec::new();
+    
+        for other_agent in &self.agents {
+            if agent.id != other_agent.id {
+                let dx = (agent.transform.translation.x - other_agent.transform.translation.x).abs() / 32.0;
+                let dy = (agent.transform.translation.y - other_agent.transform.translation.y).abs() / 32.0;
+                let squared_distance = dx * dx + dy * dy;
+                let calculated_distance = squared_distance.sqrt();
+                if calculated_distance <= distance {
+                    nearby_agents.push(other_agent);
+                }
+            }
+        }
+    
+        nearby_agents
+    }
 }
