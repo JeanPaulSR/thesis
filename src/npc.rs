@@ -4,6 +4,8 @@ use crate::movement::find_path;
 use crate::tile::TileType;
 use crate::entities::monster::Monster;
 use crate::entities::agent::Agent;
+use rand::distributions::{Distribution, Uniform};
+use crate::mcst::NpcAction;
 
 pub fn debug(
     mut commands: Commands,
@@ -54,4 +56,3 @@ pub fn debug(
         a.print();
     }
 }
-

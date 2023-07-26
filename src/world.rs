@@ -2,6 +2,7 @@ use bevy::prelude::*;
 use crate::components::{Position, TileComponent, TreasureComponent};
 use crate::entities::agent::Agent;
 use crate::tile::TileType;
+use crate::tile::Tile;
 
 
 const _WORLD_WIDTH: usize = 30;
@@ -14,36 +15,6 @@ pub fn setup(
     mut materials: ResMut<Assets<ColorMaterial>>,
     mut world: ResMut<World>,
 ) {
-    // Load the individual textures
-    /*
-    let forest_texture = asset_server.load("textures/forest.png");
-    let mountain_texture = asset_server.load("textures/mountain.png");
-    let lake_texture = asset_server.load("textures/water.png");
-    let village_texture = asset_server.load("textures/village.png");
-    let dungeon_texture = asset_server.load("textures/dungeon.png");
-    let agent_texture = asset_server.load("textures/agent.png");
-    let monster_texture = asset_server.load("textures/enemy.png");
-    let materials = [
-        materials.add(forest_texture.into()),
-        materials.add(mountain_texture.into()),
-        materials.add(lake_texture.into()),
-        materials.add(village_texture.into()),
-        materials.add(dungeon_texture.into()),
-        materials.add(agent_texture.into()),
-        materials.add(monster_texture.into()),
-    ];
-    /*
-    let materials = [
-        materials.add(Color::NONE.into()),
-        materials.add(Color::NONE.into()),
-        materials.add(Color::NONE.into()),
-        materials.add(Color::NONE.into()),
-        materials.add(Color::NONE.into()),
-        materials.add(Color::NONE.into()),
-        materials.add(Color::NONE.into()),
-    ];
-    */
-    */
     // Load the individual textures
     let forest_texture = asset_server.load("textures/forest.png");
     let mountain_texture = asset_server.load("textures/mountain.png");
@@ -60,17 +31,7 @@ pub fn setup(
 
     for (y, row) in world.grid.iter().rev().enumerate() {
         for (x, tile_type) in row.iter().enumerate() {
-            let treasure = None; // Replace with actual treasure if desired
-            /*
-            let material_index = match tile_type {
-                TileType::Forest => 0,
-                TileType::Mountain => 1,
-                TileType::Lake => 2,
-                TileType::Village => 3,
-                TileType::Dungeon => 4,
-            };
-            let sprite_bundle = SpriteBundle {
-                material: materials[material_index].clone(),*/
+            let treasure = None;
             let material_handle = match tile_type {
                 TileType::Forest => forest_material.clone(),
                 TileType::Mountain => mountain_material.clone(),
@@ -126,11 +87,11 @@ pub fn setup(
             }
     }
     for i in 0..START_AGENT_COUNT {
-        let tuple = villages[i % villages.len()];
+        let village = villages[i % villages.len()];
 
         let mut agent = Agent::new_agent(
-            tuple.0 ,
-            tuple.1 ,
+            village.0 ,
+            village.1 ,
             &mut commands,
             &mut materials,
             &asset_server,
