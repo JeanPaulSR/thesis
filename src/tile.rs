@@ -1,14 +1,16 @@
 use crate::entities::monster::Monster;
 use crate::entities::agent::Agent;
 
+
+#[derive(Clone)]
 pub struct Tile {
     pub tile_type: TileType,
     pub agents: Vec<Agent>,
-    pub monsters: Vec<Monster>, // Replace `Monster` with the actual Monster struct if you have one
+    pub monsters: Vec<Monster>, 
     pub treasures: Vec<Treasure>,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 #[derive(PartialEq)]
 pub enum TileType {
     Forest,
@@ -45,7 +47,7 @@ impl Tile {
     // You can add functions to get agents, monsters, and treasures on this tile if needed
 }
 
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub struct Treasure {
     // Add treasure properties
 }

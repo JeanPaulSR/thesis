@@ -1,7 +1,8 @@
 use bevy::prelude::*;
 use crate::components::{Position, TileComponent, TreasureComponent};
 use crate::entities::agent::Agent;
-use crate::tile::TileType;
+use crate::entities::monster::Monster;
+use crate::tile::{TileType, Treasure};
 use crate::tile::Tile;
 
 
@@ -29,10 +30,10 @@ pub fn setup(
     let village_material = materials.add(village_texture.into());
     let dungeon_material = materials.add(dungeon_texture.into());
 
-    for (y, row) in world.grid.iter().rev().enumerate() {
-        for (x, tile_type) in row.iter().enumerate() {
+    for (y, mut row) in world.grid.iter_mut().rev().enumerate() {
+        for (x, tile) in row.iter_mut().enumerate() {
             let treasure = None;
-            let material_handle = match tile_type {
+            let material_handle = match tile.tile_type {
                 TileType::Forest => forest_material.clone(),
                 TileType::Mountain => mountain_material.clone(),
                 TileType::Lake => lake_material.clone(),
@@ -42,73 +43,65 @@ pub fn setup(
 
             let sprite_bundle = SpriteBundle {
                 material: material_handle,
-                transform: Transform::from_xyz(
-                    (x as f32)   * 32.0,
-                    (y as f32) * 32.0,
-                    0.0,
-                    ),
-                    sprite: Sprite::new(Vec2::new(32.0, 32.0)),
-                    ..Default::default()
+                transform: Transform::from_xyz((x as f32) * 32.0, (y as f32) * 32.0, 0.0),
+                sprite: Sprite::new(Vec2::new(32.0, 32.0)),
+                ..Default::default()
             };
-    
-            
+
             let mut tile_entity = commands.spawn_bundle(sprite_bundle);
             tile_entity.insert(Position { x: x as i32, y: y as i32 });
-            tile_entity.insert(TileComponent { tile_type: tile_type.clone() });
+            tile_entity.insert(TileComponent { tile_type: tile.tile_type.clone() });
             tile_entity.insert(Position { x: x as i32, y: y as i32 });
-    
-    
+
             if let Some(treasure) = treasure {
                 tile_entity.insert(TreasureComponent { treasure });
             }
-    
-            
+
         }
     }
-    
+
+
     // Calculate the center of the grid
     let grid_width = world.grid[0].len() as f32;
     let grid_height = world.grid.len() as f32;
     let half_grid_width = grid_width * 16.0;
     let half_grid_height = grid_height * 16.0;
-    
 
     // Set up the 2D camera at the center of the grid
-    commands.spawn_bundle(OrthographicCameraBundle::new_2d())
-    .insert(Transform::from_xyz(half_grid_width, half_grid_height, 1000.0));
+    commands
+        .spawn_bundle(OrthographicCameraBundle::new_2d())
+        .insert(Transform::from_xyz(half_grid_width, half_grid_height, 1000.0));
 
-    
     let mut villages: Vec<(f32, f32)> = Vec::new();
     for (y, row) in world.grid.iter().rev().enumerate() {
-        for (x, tile_type) in row.iter().enumerate() {
-                if let TileType::Village = tile_type {
-                    villages.push((x as f32, y as f32));
-                }
+        for (x, tile) in row.iter().enumerate() {
+            if let TileType::Village = tile.tile_type {
+                villages.push((x as f32, y as f32));
             }
+        }
     }
+
     for i in 0..START_AGENT_COUNT {
         let village = villages[i % villages.len()];
 
         let mut agent = Agent::new_agent(
-            village.0 ,
-            village.1 ,
+            village.0,
+            village.1,
             &mut commands,
             &mut materials,
             &asset_server,
         );
+
+        // Save the agent into its corresponding tile
+        if let Some(tile) = world.grid.get_mut(village.1 as usize).and_then(|row| row.get_mut(village.0 as usize)) {
+            tile.add_agent(agent.clone());
+        }
+
         world.agents.push(agent);
     }
-
-    let agent1 = world.get_agent(0);
-    if let Some(agent) = agent1 {
-        agent.travel(2.0, 3.0, &mut commands);
-    }
-
 }
 
-
-
-pub fn create_world() -> Vec<Vec<TileType>> {
+pub fn create_world() -> Vec<Vec<Tile>> {
     let map_data: Vec<&str> = vec![
         "vffffffffffffffffffm",
         "fmfffffffffffffffflm",
@@ -131,37 +124,57 @@ pub fn create_world() -> Vec<Vec<TileType>> {
         "fmfffffffffffffflllm",
         "fffffffffffffffflllm",
     ];
-    let world: Vec<Vec<TileType>> = map_data
+    
+    let mut world: Vec<Vec<Tile>> = map_data
         .iter()
         .map(|row| {
             row.chars()
                 .map(|c| match c {
-                    'm' => TileType::Mountain,
-                    'l' => TileType::Lake,
-                    'v' => TileType::Village,
-                    'd' => TileType::Dungeon,
-                    'f' => TileType::Forest,
+                    'm' => Tile::new(TileType::Mountain),
+                    'l' => Tile::new(TileType::Lake),
+                    'v' => Tile::new(TileType::Village),
+                    'd' => Tile::new(TileType::Dungeon),
+                    'f' => Tile::new(TileType::Forest),
                     _ => panic!("Invalid tile character: {}", c),
                 })
                 .collect()
         })
         .collect();
+
+    // Initialize monsters and treasures vectors for each tile in the world
+    for row in &mut world {
+        for tile in row {
+            tile.monsters = Vec::new();
+            tile.treasures = Vec::new();
+        }
+    }
+
     world
 }
+
 pub struct World {
     pub agents: Vec<Agent>,
-    pub grid: Vec<Vec<TileType>>,
+    pub monsters: Vec<Monster>,
+    pub treasures: Vec<Treasure>,
+    pub grid: Vec<Vec<Tile>>,
 }
 
 impl World {
     
     fn _new() -> Self {
         let agents = Vec::new();
-        let grid: Vec<Vec<TileType>> = vec![vec![TileType::Forest; _WORLD_HEIGHT]; _WORLD_WIDTH];
-        World { agents, grid }
+        let monsters = Vec::new(); 
+        let treasures = Vec::new(); 
+        let grid: Vec<Vec<Tile>> = vec![vec![Tile::new(TileType::Forest); _WORLD_HEIGHT]; _WORLD_WIDTH];
+        World {
+            agents,
+            monsters,
+            treasures,
+            grid,
+        }
     }
 
-    pub fn get(&self, x: usize, y: usize) -> Option<&TileType> {
+    pub fn get(&self, x: usize, y: usize) -> Option<&Tile> {
         self.grid.get(y)?.get(x)
     }
 
@@ -177,7 +190,7 @@ impl World {
     }
 
     // Function to remove an agent from the world by ID
-    pub fn _remove_agent(&mut self, id: u32) -> Option<Agent> {
+    pub fn remove_agent(&mut self, id: u32) -> Option<Agent> {
         // Remove the agent from the world's list of agents
         let index = self.agents.iter().position(|a| a.id == id)?;
         let removed_agent = self.agents.remove(index);

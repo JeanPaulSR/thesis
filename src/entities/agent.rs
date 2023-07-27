@@ -81,6 +81,10 @@ impl Agent {
         commands.entity(self.entity).insert(self.transform.clone());
     }
 
+    pub fn get_position(&self) -> (f32, f32) {
+        (self.transform.translation.x / 32.0, self.transform.translation.y / 32.0)
+    }
+
     pub fn print(&self) {
         println!("Agent ID: {}", self.id);
         println!("Greed: {}", self.greed);
@@ -92,11 +96,11 @@ impl Agent {
         // Add more fields as needed
     }
 
-    fn set_action(&mut self, action: NpcAction) {
+    fn _set_action(&mut self, action: NpcAction) {
         self.action = Some(action);
     }
 
-    fn perform_action(&mut self) {
+    fn _perform_action(&mut self) {
         if let Some(ref action) = self.action {
             match action {
                 NpcAction::MoveToVillage => {

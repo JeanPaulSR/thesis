@@ -1,5 +1,6 @@
 #[allow(dead_code)]
 #[derive(Clone)]
+#[derive(Debug)]
 pub enum NpcAction {
     MoveToVillage,
     MoveToTreasure,
