@@ -1,8 +1,20 @@
 use bevy::prelude::*;
 use rand::distributions::{Distribution, Uniform};
 use crate::mcst::NpcAction;
+use crate::tile::Tile;
+use crate::tile::Treasure;
+use crate::entities::monster::Monster;
 
 static mut A_COUNTER: u32 = 0;
+
+
+
+#[derive(Clone)]
+pub enum Status {
+    Idle,
+    Finished,
+    Working,
+}
 
 #[derive(Clone)]
 pub struct Agent {
@@ -16,7 +28,9 @@ pub struct Agent {
     pub sprite_bundle: SpriteBundle,
     pub action: Option<NpcAction>,
     pub id: u32,
+    pub status: Status,
 }
+
 
 //Test
 impl Agent {
@@ -67,6 +81,7 @@ impl Agent {
                 ..Default::default()
             },
             action: None::<NpcAction>,
+            status: Status::Idle,
         }
     }
 
@@ -93,7 +108,14 @@ impl Agent {
         println!("Self Preservation: {}", self.self_preservation);
         println!("Vision: {}", self.vision);
         println!("Position: x={}, y={}", self.transform.translation.x/32.0, self.transform.translation.y/32.0);
-        // Add more fields as needed
+    }
+
+    pub fn set_status(&mut self, status: Status) {
+        self.status = status;
+    }
+
+    pub fn get_status(&self) -> Status {
+        self.status.clone()
     }
 
     fn _set_action(&mut self, action: NpcAction) {

@@ -60,7 +60,7 @@ impl MonteCarloTreeSearch {
         }
     }
 
-    fn select_node(&self, node: &Node) -> Node {
+    fn select_node(&self, _node: &Node) -> Node {
         // Implement the selection strategy here
         // Choose a child node based on a selection policy, e.g., UCB1
         // You can use the visits and wins information in each node to guide the selection process
@@ -68,14 +68,14 @@ impl MonteCarloTreeSearch {
         unimplemented!()
     }
 
-    fn simulate(&self, state: GameState) -> f32 {
+    fn simulate(&self, _state: GameState) -> f32 {
         // Implement the simulation phase here
         // Perform random or heuristic simulations of the game from the given state
         // Return a value that represents the result or utility of the simulated game
         unimplemented!()
     }
 
-    fn backpropagate(&mut self, node: &Node, result: f32) {
+    fn backpropagate(&mut self, _node: &Node, _result: f32) {
         // Update the visits and wins count in the node and its ancestors
         // Traverse up the tree and update the statistics based on the simulation result
         unimplemented!()

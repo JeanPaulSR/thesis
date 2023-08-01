@@ -1,5 +1,5 @@
 use std::collections::{HashSet, HashMap};
-use crate::tile::{TileType, Tile};
+use crate::tile::{TileType};
 use crate::World;
 
 #[derive(Eq, Hash, Debug)]
