@@ -1,9 +1,9 @@
 use bevy::prelude::*;
 use rand::distributions::{Distribution, Uniform};
 use crate::mcst::NpcAction;
-use crate::tile::Tile;
-use crate::tile::Treasure;
-use crate::entities::monster::Monster;
+use crate::tile::{Treasure, Tile};
+
+use super::monster::Monster;
 
 static mut A_COUNTER: u32 = 0;
 
@@ -14,6 +14,7 @@ pub enum Status {
     Idle,
     Finished,
     Working,
+    Dead,
 }
 
 #[derive(Clone)]
@@ -29,6 +30,11 @@ pub struct Agent {
     pub action: Option<NpcAction>,
     pub id: u32,
     pub status: Status,
+    pub monster_target: Option<Monster>,
+    pub agent_target_id: Option<u32>,
+    pub treasure_target: Option<Treasure>,
+    pub tile_target: Option<Tile>,
+    pub path: Option<Vec<(i32, i32)>>,
 }
 
 
@@ -82,6 +88,11 @@ impl Agent {
             },
             action: None::<NpcAction>,
             status: Status::Idle,
+            monster_target: None::<Monster>,
+            agent_target_id: None::<u32>,
+            treasure_target: None::<Treasure>,
+            tile_target: None::<Tile>,
+            path: None::<Vec<(i32, i32)>>,
         }
     }
 

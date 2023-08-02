@@ -47,8 +47,6 @@ fn main() {
         .add_startup_system(setup.system())
         // Add a system that moves agents to a village.
         .add_startup_system(npc::debug.system())
-        // Add the DebugPlugin to the app.
-        //.add_plugin(DebugPlugin)
         // Insert a CameraDragging resource to track the camera dragging state.
         .insert_resource(CameraDragging {
             is_dragging: false,
