@@ -14,7 +14,7 @@ pub fn debug(
     let mut villages: Vec<(f32, f32)> = Vec::new();
     for (y, row) in world.grid.iter().rev().enumerate() {
         for (x, tile) in row.iter().enumerate() {
-            if tile.tile_type == TileType::Village {
+            if tile.get_tile_type() == TileType::Village {
                 villages.push((x as f32, y as f32));
             }
         }
@@ -37,8 +37,8 @@ pub fn debug(
     let _agent2 = Agent::new_agent(1.0, 1.0, &mut commands, &mut materials, &asset_server);
     let _agent3 = Agent::new_agent(2.0, 2.0, &mut commands, &mut materials, &asset_server);
 
-    world.add_agent(_agent2);
-    world.add_agent(agent.clone());
+    world.add_agent(_agent2).ok();
+    world.add_agent(agent.clone()).ok();
 
     let mut monster = Monster::new_monster(3.0 * 32.0, 3.0 * 32.0, &mut commands, &mut materials, &asset_server);
     monster.travel(7.0, 1.0, &mut commands);
@@ -46,20 +46,20 @@ pub fn debug(
     let start_pos = (0, 0);
     let end_pos = (5, 5);
 
-    if let Some(_) = world.get(1, 1) {
-        println!("TileType at position (1, 1): Found tile"); // Custom message when a tile is found
-    } else {
-        println!("Invalid position (5, 5)");
-    }
+    // if let Ok(Some(_)) = world.get_tile_type(1000, 1000) {
+    //     println!("TileType at position (1, 1): Found tile"); 
+    // } else {
+    //     println!("Invalid position (5, 5)");
+    // }
 
-    if let Some(path) = find_path(&world, start_pos, end_pos) {
-        println!("Found path: {:?}", path);
-    } else {
-        println!("Failed to find path.");
-    }
+    // if let Some(path) = find_path(&world, start_pos, end_pos) {
+    //     println!("Found path: {:?}", path);
+    // } else {
+    //     println!("Failed to find path.");
+    // }
 
-    let nearby = world.find_agents_within_distance(&agent.clone(), 3.0);
-    for a in nearby {
-        a.print();
-    }
+    // let nearby = world.find_agents_within_distance(&agent.clone(), 3.0);
+    // for a in nearby {
+    //     a.print();
+    // }
 }

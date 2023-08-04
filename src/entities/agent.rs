@@ -1,7 +1,8 @@
 use bevy::prelude::*;
 use rand::distributions::{Distribution, Uniform};
 use crate::mcst::NpcAction;
-use crate::tile::{Treasure, Tile};
+use crate::tile::Tile;
+use crate::entities::treasure::Treasure;
 
 use super::monster::Monster;
 
@@ -96,7 +97,8 @@ impl Agent {
         }
     }
 
-    pub fn travel(
+    // Function to move the agent to a specific position
+    pub fn move_to(
         &mut self,
         x: f32,
         y: f32,
@@ -106,6 +108,28 @@ impl Agent {
         self.transform = new_transform;
         commands.entity(self.entity).insert(self.transform.clone());
     }
+
+    // Updated travel function to use the path
+    pub fn travel(
+        &mut self,
+        commands: &mut Commands,
+    ) -> Result<(), &'static str> {
+        // Check if there is a path available
+        if let Some(path) = &mut self.path {
+            // If the path is not empty, pop the first position and move the agent to that position
+            if let Some((x, y)) = path.pop() {
+                self.move_to(x as f32, y as f32, commands);
+            } else {
+                // If the path is empty, clear it to indicate that the agent has reached its destination
+                self.path = None;
+            }
+            Ok(())
+        } else {
+            // If there is no path, return an error
+            Err("Agent has no path to follow.")
+        }
+    }
+
 
     pub fn get_position(&self) -> (f32, f32) {
         (self.transform.translation.x / 32.0, self.transform.translation.y / 32.0)

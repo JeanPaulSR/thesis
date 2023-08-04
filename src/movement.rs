@@ -70,7 +70,7 @@ fn get_neighbors(grid: &World, node: &Node) -> Vec<Node> {
                 continue;
             }
 
-            let tile = &grid.grid[x as usize][y as usize].tile_type;
+            let tile = &grid.grid[x as usize][y as usize].get_tile_type();
 
             if *tile == TileType::Lake || *tile == TileType::Mountain {
                 continue;

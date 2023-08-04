@@ -12,9 +12,11 @@ mod behavior;
 use world::World;
 mod movement; 
 mod mcst;
+mod errors;
 mod entities {
     pub mod monster;
     pub mod agent;
+    pub mod treasure;
 }
 use crate::components::{Position, TileComponent, TreasureComponent};
 use crate::entities::agent::Agent;
@@ -79,7 +81,7 @@ pub fn setup(
     for (y, row) in world.grid.iter_mut().rev().enumerate() {
         for (x, tile) in row.iter_mut().enumerate() {
             let treasure = None;
-            let material_handle = match tile.tile_type {
+            let material_handle = match tile.get_tile_type() {
                 TileType::Forest => forest_material.clone(),
                 TileType::Mountain => mountain_material.clone(),
                 TileType::Lake => lake_material.clone(),
@@ -96,7 +98,7 @@ pub fn setup(
 
             let mut tile_entity = commands.spawn_bundle(sprite_bundle);
             tile_entity.insert(Position { x: x as i32, y: y as i32 });
-            tile_entity.insert(TileComponent { tile_type: tile.tile_type.clone() });
+            tile_entity.insert(TileComponent { tile_type: tile.get_tile_type().clone() });
             tile_entity.insert(Position { x: x as i32, y: y as i32 });
 
             if let Some(treasure) = treasure {
@@ -121,7 +123,7 @@ pub fn setup(
     let mut villages: Vec<(f32, f32)> = Vec::new();
     for (y, row) in world.grid.iter().rev().enumerate() {
         for (x, tile) in row.iter().enumerate() {
-            if let TileType::Village = tile.tile_type {
+            if let TileType::Village = tile.get_tile_type() {
                 villages.push((x as f32, y as f32));
             }
         }

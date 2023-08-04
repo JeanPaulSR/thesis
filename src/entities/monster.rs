@@ -54,6 +54,10 @@ impl Monster {
         }
     }
 
+    pub fn get_position(&self) -> (f32, f32) {
+        (self.transform.translation.x / 32.0, self.transform.translation.y / 32.0)
+    }
+    
     pub fn travel(
         &mut self,
         x: f32,

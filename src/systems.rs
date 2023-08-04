@@ -1,5 +1,5 @@
 use bevy::prelude::*;
-use crate::components::{Position};
+use crate::components::Position;
 use crate::debug::debug;
 use std::collections::HashSet;
 use crate::World;

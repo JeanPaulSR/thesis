@@ -1,5 +1,5 @@
-use crate::tile::{TileType};
-use crate::tile::Treasure;
+use crate::tile::TileType;
+use crate::entities::treasure::Treasure;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct Position {
