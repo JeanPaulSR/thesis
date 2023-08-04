@@ -9,7 +9,6 @@ use super::monster::Monster;
 static mut A_COUNTER: u32 = 0;
 
 
-
 #[derive(Clone)]
 pub enum Status {
     Idle,

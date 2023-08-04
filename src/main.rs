@@ -24,6 +24,7 @@ use crate::tile::TileType;
 
 const START_AGENT_COUNT: usize = 50;
 
+#[allow(dead_code)]
 fn main() {
     // Begin building the Bevy app.
     App::build()

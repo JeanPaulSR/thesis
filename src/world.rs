@@ -21,7 +21,7 @@ pub fn create_world() -> Vec<Vec<Tile>> {
         "ffffffffffffffllfffm",
         "fffffffffffffllffffm",
         "ffffffffffffffmffllm",
-        "fffffffffffffffmlllm",
+        "ffffmmfffffffffmlllm",
         "ffffmfffffffffmllllm",
         "fffffmffffffffffmllm",
         "fffffffmfffffmmmmllm",
@@ -29,7 +29,7 @@ pub fn create_world() -> Vec<Vec<Tile>> {
         "fffffffffffffffflllm",
         "fffffffffffffffflllm",
         "fffffffffffffffflllm",
-        "fffffffffffffffflllm",
+        "ffffffllfffffffflllm",
         "ffffffffvffffffflllm",
         "fmfffffffffffffflllm",
         "fffffffffffffffflllm",
@@ -76,13 +76,6 @@ impl World {
         }
     }
 
-    
-// ___________.__.__          
-// \__    ___/|__|  |   ____  
-//   |    |   |  |  | _/ __ \ 
-//   |    |   |  |  |_\  ___/ 
-//   |____|   |__|____/\___  >
-//                         \/ 
 
     // Function to check if the position (x, y) is within the grid's bounds
     fn is_valid_position(&self, x: usize, y: usize) -> Result<(), MyError> {
@@ -91,8 +84,15 @@ impl World {
                 return Ok(());
             }
         }
+        println!("Asked for position ({}, {}), was not found.", x, y);
         Err(MyError::PositionError)
     }
+    
+// ___________.__.__          
+// \__    ___/|__|  |   ____  
+//   |    |   |  |  | _/ __ \ 
+//   |    |   |  |  |_\  ___/ 
+//   |____|   |__|____/\____>
 
 
     // Function to get the Tile at position (x, y)
@@ -101,6 +101,15 @@ impl World {
         self.is_valid_position(x, y)?;
         // The position is valid, proceed to get the Tile
         Ok(self.grid.get(y).and_then(|row| row.get(x)))
+    }
+    
+    // Function to get a mutable reference to the Tile at position (x, y)
+    fn get_tile_mut(&mut self, x: usize, y: usize) -> Result<Option<&mut Tile>, MyError> {
+        // Check if the position is valid before attempting to get the Tile
+        self.is_valid_position(x, y)?;
+
+        // The position is valid, proceed to get the Tile
+        Ok(self.grid.get_mut(y).and_then(|row| row.get_mut(x)))
     }
 
     // Function to get the TileType at position (x, y)
@@ -121,41 +130,69 @@ impl World {
  
     // Function to add an agent to the world and its current tile
     pub fn add_agent(&mut self, agent: Agent) -> Result<(), MyError> {
-        // Find the tile the agent is currently in based on its position
+        // Find the position (x, y) of the agent in the world
         let (x, y) = agent.get_position();
 
         // Check if the position is valid before attempting to get the tile
-        if self.is_valid_position(x as usize, y as usize).is_err() {
-            return Err(MyError::PositionError);
-        }
-        
-        // Add the agent to the world's list of agents
-        self.agents.push(agent.clone());
+        self.is_valid_position(x as usize, y as usize)?;
 
+        // Attempt to find the tile in the grid that corresponds to the agent's position
         if let Some(tile) = self.grid.get_mut(y as usize).and_then(|row| row.get_mut(x as usize)) {
+            // Add the agent to the world's list of agents
+            self.agents.push(agent.clone());
+
             // Add the agent to the tile's list of agents
             tile.add_agent(agent);
+
+            // Return Ok(()) to indicate successful addition
             Ok(())
         } else {
-            // The position is out of bounds, return an error
-            Err(MyError::PositionError)
+            // The position is out of bounds or the tile is not found, return an error
+            // Note: It's a good practice to provide additional information in the error message.
+            print!("Attempted to add agent {} to tile at position ({}, {}), but the tile was not found.", agent.id, x, y);
+            Err(MyError::TileNotFound)
         }
     }
 
-    // Function to get a reference to a agent by ID
+    // Function to get a reference to an agent by ID
     pub fn get_agent(&self, id: u32) -> Result<&Agent, MyError> {
-        let agent = self.agents.iter().find(|agent: &&Agent| agent.id == id);
-        // Find the tile the agent is currently in based on its position
-        let (x, y) = agent.and_then(|a| Some(a.get_position())).ok_or(MyError::PositionError)?;
+        // Find the agent with the specified ID in the agents vector
+        let agent = self.agents.iter().find(|agent| agent.id == id);
 
-        // Check if the position is valid before attempting to get the tile
-        if self.is_valid_position(x as usize, y as usize).is_err() {
-            return Err(MyError::PositionError);
+        // Check if the agent is found in the agents vector; if not, return an error
+        let agent = agent.ok_or(MyError::AgentNotFound)?;
+
+        // Return a reference to the found agent
+        Ok(agent)
+    }       
+    
+    // Function to remove an agent from the world and its tile
+    pub fn remove_agent(&mut self, agent_id: u32) -> Result<(), MyError> {
+        // Check if the agent is found in the world's agents vector
+        if let Some(index) = self.agents.iter().position(|a| a.id == agent_id) {
+            // Agent found in the world, remove it from the world's agents vector
+            let agent = self.agents.remove(index);
+
+            // Find the tile the agent is currently in based on its position
+            let (x, y) = agent.get_position();
+
+            // Get the tile at position (x, y)
+            if let Some(tile) = self.get_tile_mut(x as usize, y as usize)? {
+                // Remove the agent from the tile
+                tile.remove_agent(agent_id)?;
+            } else {
+                // The position is out of bounds or the tile is not found, return an error
+                // Note: It's a good practice to provide additional information in the error message.
+                println!("Agent {} not found in tile at position ({}, {}).", agent_id, x, y);
+                return Err(MyError::AgentNotFound);
+            }
+
+            Ok(())
+        } else {
+            // Agent not found in the world's agents vector, return an error
+            Err(MyError::AgentNotFound)
         }
-
-        self.agents.iter().find(|a| a.id == id).ok_or(MyError::PositionError)
     }
-
     
 //     _____                          __                
 //    /     \   ____   ____   _______/  |_  ___________ 
@@ -201,6 +238,34 @@ impl World {
         self.monsters.iter().find(|m| m.id == id).ok_or(MyError::PositionError)
     }
 
+    // Function to remove a monster from the world and its tile
+    pub fn remove_monster(&mut self, monster_id: u32) -> Result<(), MyError> {
+        // Check if the monster is found in the world's monsters vector
+        if let Some(index) = self.monsters.iter().position(|m| m.id == monster_id) {
+            // Monster found in the world, remove it from the world's monsters vector
+            let monster = self.monsters.remove(index);
+
+            // Find the tile the monster is currently in based on its position
+            let (x, y) = monster.get_position();
+
+            // Get the tile at position (x, y)
+            if let Some(tile) = self.get_tile_mut(x as usize, y as usize)? {
+                // Remove the monster from the tile
+                tile.remove_monster(monster_id)?;
+            } else {
+                // The position is out of bounds or the tile is not found, return an error
+                // Note: It's a good practice to provide additional information in the error message.
+                println!("Monster {} not found in tile at position ({}, {}).", monster_id, x, y);
+                return Err(MyError::MonsterNotFound);
+            }
+
+            Ok(())
+        } else {
+            // Monster not found in the world's monsters vector, return an error
+            Err(MyError::MonsterNotFound)
+        }
+    }
+
 // ___________                                                  
 // \__    ___/______   ____ _____    ________ _________   ____  
 //   |    |  \_  __ \_/ __ \\__  \  /  ___/  |  \_  __ \_/ __ \ 
@@ -243,6 +308,34 @@ impl World {
         }
 
         self.treasures.iter().find(|t| t.id == id).ok_or(MyError::PositionError)
+    }
+
+    // Function to remove a treasure from the world and its tile
+    pub fn remove_treasure(&mut self, treasure_id: u32) -> Result<(), MyError> {
+        // Check if the treasure is found in the world's treasures vector
+        if let Some(index) = self.treasures.iter().position(|t| t.id == treasure_id) {
+            // Treasure found in the world, remove it from the world's treasures vector
+            let treasure = self.treasures.remove(index);
+
+            // Find the tile the treasure is currently in based on its position
+            let (x, y) = treasure.get_position();
+
+            // Get the tile at position (x, y)
+            if let Some(tile) = self.get_tile_mut(x as usize, y as usize)? {
+                // Remove the treasure from the tile
+                tile.remove_treasure(treasure_id)?;
+            } else {
+                // The position is out of bounds or the tile is not found, return an error
+                // Note: It's a good practice to provide additional information in the error message.
+                println!("Treasure {} not found in tile at position ({}, {}).", treasure_id, x, y);
+                return Err(MyError::TreasureNotFound);
+            }
+
+            Ok(())
+        } else {
+            // Treasure not found in the world's treasures vector, return an error
+            Err(MyError::TreasureNotFound)
+        }
     }
 
     pub fn find_agents_within_distance(&self, agent: &Agent, distance: f32) -> Vec<&Agent> {

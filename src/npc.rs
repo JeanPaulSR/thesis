@@ -5,6 +5,7 @@ use crate::tile::TileType;
 use crate::entities::monster::Monster;
 use crate::entities::agent::Agent;
 
+#[allow(dead_code)]
 pub fn debug(
     mut commands: Commands,
     mut materials: ResMut<Assets<ColorMaterial>>,
@@ -32,7 +33,8 @@ pub fn debug(
 
         world.agents.push(agent.clone());
     }
-
+    let start_pos = (0, 0);
+    let end_pos = (5, 5);
     let agent = Agent::new_agent(0.0, 0.0, &mut commands, &mut materials, &asset_server);
     let _agent2 = Agent::new_agent(1.0, 1.0, &mut commands, &mut materials, &asset_server);
     let _agent3 = Agent::new_agent(2.0, 2.0, &mut commands, &mut materials, &asset_server);
@@ -43,23 +45,21 @@ pub fn debug(
     let mut monster = Monster::new_monster(3.0 * 32.0, 3.0 * 32.0, &mut commands, &mut materials, &asset_server);
     monster.travel(7.0, 1.0, &mut commands);
 
-    let start_pos = (0, 0);
-    let end_pos = (5, 5);
 
-    // if let Ok(Some(_)) = world.get_tile_type(1000, 1000) {
-    //     println!("TileType at position (1, 1): Found tile"); 
-    // } else {
-    //     println!("Invalid position (5, 5)");
-    // }
+    if let Ok(Some(_)) = world.get_tile_type(100, 100) {
+        println!("TileType at position (1, 1): Found tile"); 
+    } else {
+        println!("Invalid position (5, 5)");
+    }
 
-    // if let Some(path) = find_path(&world, start_pos, end_pos) {
-    //     println!("Found path: {:?}", path);
-    // } else {
-    //     println!("Failed to find path.");
-    // }
+    if let Some(path) = find_path(&world, start_pos, end_pos) {
+        println!("Found path: {:?}", path);
+    } else {
+        println!("Failed to find path.");
+    }
 
-    // let nearby = world.find_agents_within_distance(&agent.clone(), 3.0);
-    // for a in nearby {
-    //     a.print();
-    // }
+    let nearby = world.find_agents_within_distance(&agent.clone(), 3.0);
+    for a in nearby {
+        a.print();
+    }
 }

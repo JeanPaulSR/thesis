@@ -1,7 +1,6 @@
 use std::collections::{HashSet, HashMap};
-use crate::tile::{TileType};
 use crate::World;
-
+#[allow(dead_code)]
 #[derive(Eq, Hash, Debug)]
 pub struct Node {
     pub pos: (i32, i32),
@@ -24,6 +23,7 @@ impl Node {
     }
 }
 
+#[allow(dead_code)]
 impl Node {
     pub fn new(pos: (i32, i32), g_score: i32, h_score: i32, f_score: i32, parent: Option<Box<Node>>) -> Self {
         Node {

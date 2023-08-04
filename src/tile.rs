@@ -1,6 +1,7 @@
 use crate::entities::monster::Monster;
 use crate::entities::agent::Agent;
 use crate::entities::treasure::Treasure;
+use crate::errors::MyError;
 
 #[derive(Clone)]
 pub struct Tile {
@@ -46,12 +47,15 @@ impl Tile {
     }
 
     // Function to remove an agent from the tile
-    pub fn remove_agent(&mut self, agent_id: u32) -> bool {
+    pub fn remove_agent(&mut self, agent_id: u32) -> Result<(), MyError> {
+        // Check if the agent is found in the tile's agents vector
         if let Some(index) = self.agents.iter().position(|a| a.id == agent_id) {
+            // Agent found, remove it from the tile's agents vector
             self.agents.remove(index);
-            true
+            Ok(())
         } else {
-            false
+            // Agent not found in the tile's agents vector, return an error
+            Err(MyError::AgentNotFound)
         }
     }
 
@@ -65,13 +69,16 @@ impl Tile {
         self.monsters.push(monster);
     }
 
-    // Function to remove an agent from the tile
-    pub fn remove_monster(&mut self, monster_id: u32) -> bool {
+   // Function to remove a monster from the tile
+   pub fn remove_monster(&mut self, monster_id: u32) -> Result<(), MyError> {
+        // Check if the monster is found in the tile's monsters vector
         if let Some(index) = self.monsters.iter().position(|m| m.id == monster_id) {
+            // Monster found, remove it from the tile's monsters vector
             self.monsters.remove(index);
-            true
+            Ok(())
         } else {
-            false
+            // Monster not found in the tile's monsters vector, return an error
+            Err(MyError::MonsterNotFound)
         }
     }
 
@@ -85,13 +92,16 @@ impl Tile {
         self.treasures.push(treasure);
     }
 
-    // Function to remove an agent from the tile
-    pub fn remove_treasure(&mut self, treasure_id: u32) -> bool {
+    // Function to remove a treasure from the tile
+    pub fn remove_treasure(&mut self, treasure_id: u32) -> Result<(), MyError> {
+        // Check if the treasure is found in the tile's treasures vector
         if let Some(index) = self.treasures.iter().position(|t| t.id == treasure_id) {
+            // Treasure found, remove it from the tile's treasures vector
             self.treasures.remove(index);
-            true
+            Ok(())
         } else {
-            false
+            // Treasure not found in the tile's treasures vector, return an error
+            Err(MyError::TreasureNotFound)
         }
     }
 

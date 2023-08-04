@@ -1,6 +1,5 @@
 use crate::tile::TileType;
 use crate::entities::treasure::Treasure;
-
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct Position {
     pub x: i32,
