@@ -1,4 +1,5 @@
 use std::collections::{HashSet, HashMap};
+use crate::tile::TileType;
 use crate::World;
 #[allow(dead_code)]
 #[derive(Eq, Hash, Debug)]

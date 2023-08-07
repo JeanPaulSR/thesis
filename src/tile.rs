@@ -41,6 +41,14 @@ impl Tile {
         self.tile_type = new_tile_type;
     }
 
+    
+//    _____                         __   
+//    /  _  \    ____   ____   _____/  |_ 
+//   /  /_\  \  / ___\_/ __ \ /    \   __\
+//  /    |    \/ /_/  >  ___/|   |  \  |  
+//  \____|__  /\___  / \___  >___|  /__|  
+//          \//_____/      \/     \/      
+ 
     // Function to add an agent to the tile
     pub fn add_agent(&mut self, agent: Agent) {
         self.agents.push(agent);
@@ -60,10 +68,25 @@ impl Tile {
     }
 
     // Function to get a reference to an agent by ID
-    pub fn get_agent(&mut self, id: u32) -> Option<&mut Agent> {
-        self.agents.iter_mut().find(|a| a.id == id)
+    pub fn get_agent(&mut self, id: u32) -> Result<&mut Agent, MyError> {
+        // Find the agent in the agents vector
+        if let Some(agent) = self.agents.iter_mut().find(|a| a.id == id) {
+            Ok(agent)
+        } else {
+            // Agent not found in the agents vector, return an error
+            println!("Agent {} not found in tile.", id);
+            Err(MyError::AgentNotFound)
+        }
     }
 
+    
+//     _____                          __                
+//    /     \   ____   ____   _______/  |_  ___________ 
+//   /  \ /  \ /  _ \ /    \ /  ___/\   __\/ __ \_  __ \
+//  /    Y    (  <_> )   |  \\___ \  |  | \  ___/|  | \/
+//  \____|__  /\____/|___|  /____  > |__|  \___  >__|   
+//          \/            \/     \/            \/       
+ 
     // Function to add a monster to the tile
     pub fn add_monster(&mut self, monster: Monster) {
         self.monsters.push(monster);
@@ -83,9 +106,24 @@ impl Tile {
     }
 
     // Function to get a reference to a monster by ID
-    pub fn get_monster(&mut self, id: u32) -> Option<&mut Monster> {
-        self.monsters.iter_mut().find(|m| m.id == id)
+    pub fn get_monster(&mut self, id: u32) -> Result<&mut Monster, MyError> {
+        // Find the monster in the monsters vector
+        if let Some(monster) = self.monsters.iter_mut().find(|m| m.id == id) {
+            Ok(monster)
+        } else {
+            // Monster not found in the monsters vector, return an error
+            println!("Monster {} not found in tile.", id);
+            Err(MyError::MonsterNotFound)
+        }
     }
+
+// ___________                                                  
+// \__    ___/______   ____ _____    ________ _________   ____  
+//   |    |  \_  __ \_/ __ \\__  \  /  ___/  |  \_  __ \_/ __ \ 
+//   |    |   |  | \/\  ___/ / __ \_\___ \|  |  /|  | \/\  ___/ 
+//   |____|   |__|    \___  >____  /____  >____/ |__|    \___  >
+//                        \/     \/     \/                   \/ 
+
 
     // Function to add a treasure to the tile
     pub fn add_treasure(&mut self, treasure: Treasure) {
@@ -106,8 +144,15 @@ impl Tile {
     }
 
     // Function to get a reference to a treasure by ID
-    pub fn get_treasure(&mut self, id: u32) -> Option<&mut Treasure> {
-        self.treasures.iter_mut().find(|t| t.id == id)
+    pub fn get_treasure(&mut self, id: u32) -> Result<&mut Treasure, MyError> {
+        // Find the treasure in the treasures vector
+        if let Some(treasure) = self.treasures.iter_mut().find(|t| t.id == id) {
+            Ok(treasure)
+        } else {
+            // Treasure not found in the treasures vector, return an error
+            println!("Treasure {} not found in tile.", id);
+            Err(MyError::TreasureNotFound)
+        }
     }
 }
 
