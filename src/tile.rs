@@ -3,12 +3,14 @@ use crate::entities::agent::Agent;
 use crate::entities::treasure::Treasure;
 use crate::errors::MyError;
 
+use std::sync::{Arc, Mutex};
+
 #[derive(Clone)]
 pub struct Tile {
     tile_type: TileType,
-    agents: Vec<Agent>,
-    monsters: Vec<Monster>, 
-    treasures: Vec<Treasure>,
+    agents: Arc<Mutex<Vec<Agent>>>,
+    monsters: Arc<Mutex<Vec<Monster>>>,
+    treasures: Arc<Mutex<Vec<Treasure>>>,
 }
 
 #[derive(Clone, Copy, PartialEq)]
@@ -25,9 +27,9 @@ impl Tile {
     pub fn new(tile_type: TileType) -> Self {
         Tile {
             tile_type,
-            agents: Vec::new(),
-            monsters: Vec::new(),
-            treasures: Vec::new(),
+            agents: Arc::new(Mutex::new(Vec::new())),
+            monsters: Arc::new(Mutex::new(Vec::new())),
+            treasures: Arc::new(Mutex::new(Vec::new())),
         }
     }
 
@@ -50,16 +52,17 @@ impl Tile {
 //          \//_____/      \/     \/      
  
     // Function to add an agent to the tile
-    pub fn add_agent(&mut self, agent: Agent) {
-        self.agents.push(agent);
+    pub fn add_agent(&self, agent: Agent) {
+        self.agents.lock().unwrap().push(agent);
     }
 
     // Function to remove an agent from the tile
     pub fn remove_agent(&mut self, agent_id: u32) -> Result<(), MyError> {
+        let mut agents = self.agents.lock().unwrap();
         // Check if the agent is found in the tile's agents vector
-        if let Some(index) = self.agents.iter().position(|a| a.id == agent_id) {
+        if let Some(index) = agents.iter().position(|a| a.id == agent_id) {
             // Agent found, remove it from the tile's agents vector
-            self.agents.remove(index);
+            agents.remove(index);
             Ok(())
         } else {
             // Agent not found in the tile's agents vector, return an error
@@ -67,18 +70,28 @@ impl Tile {
         }
     }
 
-    // Function to get a reference to an agent by ID
-    pub fn get_agent(&mut self, id: u32) -> Result<&mut Agent, MyError> {
-        // Find the agent in the agents vector
-        if let Some(agent) = self.agents.iter_mut().find(|a| a.id == id) {
-            Ok(agent)
-        } else {
-            // Agent not found in the agents vector, return an error
-            println!("Agent {} not found in tile.", id);
-            Err(MyError::AgentNotFound)
-        }
-    }
+    // //Function to get a reference to an agent by ID
+    // pub fn get_agent(&mut self, id: u32) -> Result<&mut Agent, MyError> {
+    //     // Find the agent in the agents vector
+    //     if let Some(agent) = self.agents.lock().unwrap().iter_mut().find(|a| a.id == id) {
+    //         Ok(agent)
+    //     } else {
+    //         // Agent not found in the agents vector, return an error
+    //         println!("Agent {} not found in tile.", id);
+    //         Err(MyError::AgentNotFound)
+    //     }
+    // }
 
+    // // Function to get a reference to the agents in the tile
+    // pub fn get_agents(&self) -> Result<Vec<&Agent>, MyError> {
+    //     // Lock the agents mutex
+    //     let agents_lock = self.agents.lock().unwrap();
+
+    //     // Create a vector of references to the agents
+    //     let agents_ref: Vec<&Agent> = agents_lock.iter().collect();
+
+    //     Ok(agents_ref)
+    // }
     
 //     _____                          __                
 //    /     \   ____   ____   _______/  |_  ___________ 
@@ -88,16 +101,19 @@ impl Tile {
 //          \/            \/     \/            \/       
  
     // Function to add a monster to the tile
-    pub fn add_monster(&mut self, monster: Monster) {
-        self.monsters.push(monster);
+    pub fn add_monster(&self, monster: Monster) {
+        self.monsters.lock().unwrap().push(monster);
     }
 
-   // Function to remove a monster from the tile
-   pub fn remove_monster(&mut self, monster_id: u32) -> Result<(), MyError> {
+    // Function to remove a monster from the tile
+    pub fn remove_monster(&mut self, monster_id: u32) -> Result<(), MyError> {
+        // Lock the monsters vector to ensure thread safety
+        let mut monsters = self.monsters.lock().unwrap();
+
         // Check if the monster is found in the tile's monsters vector
-        if let Some(index) = self.monsters.iter().position(|m| m.id == monster_id) {
+        if let Some(index) = monsters.iter().position(|m| m.id == monster_id) {
             // Monster found, remove it from the tile's monsters vector
-            self.monsters.remove(index);
+            monsters.remove(index);
             Ok(())
         } else {
             // Monster not found in the tile's monsters vector, return an error
@@ -105,18 +121,17 @@ impl Tile {
         }
     }
 
-    // Function to get a reference to a monster by ID
-    pub fn get_monster(&mut self, id: u32) -> Result<&mut Monster, MyError> {
-        // Find the monster in the monsters vector
-        if let Some(monster) = self.monsters.iter_mut().find(|m| m.id == id) {
-            Ok(monster)
-        } else {
-            // Monster not found in the monsters vector, return an error
-            println!("Monster {} not found in tile.", id);
-            Err(MyError::MonsterNotFound)
-        }
-    }
-
+    // // Function to get a mutable reference to a monster by ID
+    // pub fn get_monster(&mut self, id: u32) -> Result<&mut Monster, MyError> {
+    //     // Lock the monsters vector to ensure thread safety
+    //     if let Some(monster) = self.monsters.lock().unwrap().iter_mut().find(|m| m.id == id) {
+    //         Ok(monster)
+    //     } else {
+    //         // Monster not found in the monsters vector, return an error
+    //         println!("Monster {} not found in tile.", id);
+    //         Err(MyError::MonsterNotFound)
+    //     }
+    // }
 // ___________                                                  
 // \__    ___/______   ____ _____    ________ _________   ____  
 //   |    |  \_  __ \_/ __ \\__  \  /  ___/  |  \_  __ \_/ __ \ 
@@ -126,16 +141,19 @@ impl Tile {
 
 
     // Function to add a treasure to the tile
-    pub fn add_treasure(&mut self, treasure: Treasure) {
-        self.treasures.push(treasure);
+    pub fn add_treasure(&self, treasure: Treasure) {
+        self.treasures.lock().unwrap().push(treasure);
     }
 
     // Function to remove a treasure from the tile
     pub fn remove_treasure(&mut self, treasure_id: u32) -> Result<(), MyError> {
+        // Lock the treasures vector to safely remove a treasure
+        let mut treasures = self.treasures.lock().unwrap();
+
         // Check if the treasure is found in the tile's treasures vector
-        if let Some(index) = self.treasures.iter().position(|t| t.id == treasure_id) {
+        if let Some(index) = treasures.iter().position(|t| t.id == treasure_id) {
             // Treasure found, remove it from the tile's treasures vector
-            self.treasures.remove(index);
+            treasures.remove(index);
             Ok(())
         } else {
             // Treasure not found in the tile's treasures vector, return an error
@@ -143,17 +161,15 @@ impl Tile {
         }
     }
 
-    // Function to get a reference to a treasure by ID
-    pub fn get_treasure(&mut self, id: u32) -> Result<&mut Treasure, MyError> {
-        // Find the treasure in the treasures vector
-        if let Some(treasure) = self.treasures.iter_mut().find(|t| t.id == id) {
-            Ok(treasure)
-        } else {
-            // Treasure not found in the treasures vector, return an error
-            println!("Treasure {} not found in tile.", id);
-            Err(MyError::TreasureNotFound)
-        }
-    }
+    // // Function to get a mutable reference to a treasure by ID
+    // pub fn get_treasure(&mut self, id: u32) -> Result<&mut Treasure, MyError> {
+    //     if let Some(treasure) = self.treasures.lock().unwrap().iter_mut().find(|t| t.id == id) {
+    //         Ok(treasure)
+    //     } else {
+    //         println!("Treasure {} not found in tile.", id);
+    //         Err(MyError::TreasureNotFound)
+    //     }
+    // }
 }
 
 

@@ -4,14 +4,12 @@ use crate::entities::treasure::Treasure;
 use crate::tile::TileType;
 use crate::tile::Tile;
 use crate::errors::MyError;
-
-
-const _WORLD_WIDTH: usize = 30;
-const _WORLD_HEIGHT: usize = 30;
+use std::collections::HashMap;
+use std::sync::{Arc, Mutex};
 
 
 
-pub fn create_world() -> Vec<Vec<Tile>> {
+pub fn create_world() -> World {
     let map_data: Vec<&str> = vec![
         "vffffffffffffffffffm",
         "fmfffffffffffffffflm",
@@ -35,39 +33,54 @@ pub fn create_world() -> Vec<Vec<Tile>> {
         "fffffffffffffffflllm",
     ];
     
-    let world: Vec<Vec<Tile>> = map_data
-        .iter()
-        .map(|row| {
-            row.chars()
-                .map(|c| match c {
-                    'm' => Tile::new(TileType::Mountain),
-                    'l' => Tile::new(TileType::Lake),
-                    'v' => Tile::new(TileType::Village),
-                    'd' => Tile::new(TileType::Dungeon),
-                    'f' => Tile::new(TileType::Forest),
-                    _ => panic!("Invalid tile character: {}", c),
-                })
-                .collect()
-        })
-        .collect();
+    let mut world = World::new(); // Create the initial World structure
+
+    // Replace the entire grid with the appropriate tile types
+    world.grid = Vec::new(); // Clear the existing grid
+
+    for row_str in map_data.iter() {
+        let mut row = Vec::new();
+        for c in row_str.chars() {
+            let tile_type = match c {
+                'm' => TileType::Mountain,
+                'l' => TileType::Lake,
+                'v' => TileType::Village,
+                'd' => TileType::Dungeon,
+                'f' => TileType::Forest,
+                _ => panic!("Invalid tile character: {}", c),
+            };
+
+            let tile = Arc::new(Mutex::new(Tile::new(tile_type)));
+            row.push(tile);
+        }
+        world.grid.push(row);
+    }
 
     world
 }
 
 pub struct World {
-    pub agents: Vec<Agent>,
-    pub monsters: Vec<Monster>,
-    pub treasures: Vec<Treasure>,
-    pub grid: Vec<Vec<Tile>>,
+    pub agents: Arc<Mutex<HashMap<u32, (usize, usize)>>>,
+    pub monsters: Arc<Mutex<HashMap<u32, (usize, usize)>>>,
+    pub treasures: Arc<Mutex<HashMap<u32, (usize, usize)>>>,
+    pub grid: Vec<Vec<Arc<Mutex<Tile>>>>, 
 }
 
 impl World {
     
-    fn _new() -> Self {
-        let agents = Vec::new();
-        let monsters = Vec::new(); 
-        let treasures = Vec::new(); 
-        let grid: Vec<Vec<Tile>> = vec![vec![Tile::new(TileType::Forest); _WORLD_HEIGHT]; _WORLD_WIDTH];
+    fn new() -> Self {
+        let agents = Arc::new(Mutex::new(HashMap::new()));
+        let monsters = Arc::new(Mutex::new(HashMap::new()));
+        let treasures = Arc::new(Mutex::new(HashMap::new()));
+    
+        let mut grid: Vec<Vec<Arc<Mutex<Tile>>>> = Vec::new();
+        for _ in 0..30 {
+            let row = (0..30)
+                .map(|_| Arc::new(Mutex::new(Tile::new(TileType::Forest))))
+                .collect();
+            grid.push(row);
+        }
+    
         World {
             agents,
             monsters,
@@ -75,7 +88,6 @@ impl World {
             grid,
         }
     }
-
 
     // Function to check if the position (x, y) is within the grid's bounds
     fn is_valid_position(&self, x: usize, y: usize) -> Result<(), MyError> {
@@ -87,7 +99,6 @@ impl World {
         println!("Asked for position ({}, {}), was not found.", x, y);
         Err(MyError::PositionError)
     }
-    
 // ___________.__.__          
 // \__    ___/|__|  |   ____  
 //   |    |   |  |  | _/ __ \ 
@@ -96,28 +107,42 @@ impl World {
 
 
     // Function to get the Tile at position (x, y)
-    pub fn get_tile(&self, x: usize, y: usize) -> Result<Option<&Tile>, MyError> {
+    pub fn get_tile(&self, x: usize, y: usize) -> Result<Option<&Arc<Mutex<Tile>>>, MyError> {
         // Check if the position is valid before attempting to get the Tile
-        self.is_valid_position(x, y)?;
-        // The position is valid, proceed to get the Tile
-        Ok(self.grid.get(y).and_then(|row| row.get(x)))
+        match self.is_valid_position(x, y) {
+            Ok(_) => {
+                let grid_row = &self.grid[y];
+                Ok(grid_row.get(x))
+            }
+            Err(_) => Err(MyError::TileNotFound),
+        }
     }
     
     // Function to get a mutable reference to the Tile at position (x, y)
-    fn get_tile_mut(&mut self, x: usize, y: usize) -> Result<Option<&mut Tile>, MyError> {
+    pub fn get_tile_mut(&mut self, x: usize, y: usize) -> Result<Option<&mut Arc<Mutex<Tile>>>, MyError> {
         // Check if the position is valid before attempting to get the Tile
-        self.is_valid_position(x, y)?;
-
-        // The position is valid, proceed to get the Tile
-        Ok(self.grid.get_mut(y).and_then(|row| row.get_mut(x)))
+        match self.is_valid_position(x, y) {
+            Ok(_) => {
+                let grid_row = &mut self.grid[y];
+                Ok(grid_row.get_mut(x))
+            }
+            Err(_) => Err(MyError::TileNotFound),
+        }
     }
 
     // Function to get the TileType at position (x, y)
     pub fn get_tile_type(&self, x: usize, y: usize) -> Result<Option<TileType>, MyError> {
         // Check if the position is valid before attempting to get the TileType
         self.is_valid_position(x, y)?;
+    
         // The position is valid, proceed to get the TileType
-        Ok(self.get_tile(x, y)?.map(|tile| tile.get_tile_type()))
+        match self.get_tile(x, y) {
+            Ok(tile_option) => Ok(tile_option.map(|tile| {
+                let tile_lock = tile.lock().unwrap(); // Lock the tile to access its type
+                tile_lock.get_tile_type()
+            })),
+            Err(_) => Ok(None), // Handle the case when the tile is not found
+        }
     }
 
     
@@ -130,70 +155,106 @@ impl World {
  
     // Function to add an agent to the world and its current tile
     pub fn add_agent(&mut self, agent: Agent) -> Result<(), MyError> {
-        // Find the position (x, y) of the agent in the world
         let (x, y) = agent.get_position();
 
         // Check if the position is valid before attempting to get the tile
         self.is_valid_position(x as usize, y as usize)?;
 
         // Attempt to find the tile in the grid that corresponds to the agent's position
-        if let Some(tile) = self.grid.get_mut(y as usize).and_then(|row| row.get_mut(x as usize)) {
-            // Add the agent to the world's list of agents
-            self.agents.push(agent.clone());
+        if let Some(tile) = self.grid.get(y as usize).and_then(|row| row.get(x as usize)) {
+            // Lock the tile to safely add the agent
+            let tile_lock = tile.lock().unwrap();
+
+            // Lock the agents list to safely add the agent
+            let mut agents = self.agents.lock().unwrap();
+
+            // Add the agent's position to the agents hash map
+            agents.insert(agent.id, (x as usize, y as usize));
 
             // Add the agent to the tile's list of agents
-            tile.add_agent(agent);
+            tile_lock.add_agent(agent);
 
             // Return Ok(()) to indicate successful addition
             Ok(())
         } else {
             // The position is out of bounds or the tile is not found, return an error
-            // Note: It's a good practice to provide additional information in the error message.
-            print!("Attempted to add agent {} to tile at position ({}, {}), but the tile was not found.", agent.id, x, y);
+            println!("Attempted to add agent {} to tile at position ({}, {}), but the tile was not found.", agent.id, x, y);
             Err(MyError::TileNotFound)
         }
     }
 
-    // Function to get a reference to an agent by ID
-    pub fn get_agent(&self, id: u32) -> Result<&Agent, MyError> {
-        // Find the agent with the specified ID in the agents vector
-        let agent = self.agents.iter().find(|agent| agent.id == id);
-
-        // Check if the agent is found in the agents vector; if not, return an error
-        let agent = agent.ok_or(MyError::AgentNotFound)?;
-
-        // Return a reference to the found agent
-        Ok(agent)
-    }       
+    // pub fn get_agent(&self, agent_id: u32) -> Result<&Agent, MyError> {
+    //     // Lock the agents hash map
+    //     let agents_lock = self.agents.lock().unwrap();
     
+    //     // Check if the agent's position is saved in the hash map
+    //     if let Some((x, y)) = agents_lock.get(&agent_id) {
+    //         // Get the tile at the agent's position
+    //         if let Some(tile_mutex) = self.grid.get(*y as usize).and_then(|row| row.get(*x as usize)) {
+    //             let mut tile = tile_mutex.lock().unwrap();
+    
+    //             // Retrieve the agent from the tile
+    //             match tile.get_agent(agent_id) {
+    //                 Ok(agent) => Ok(agent),
+    //                 Err(_) => Err(MyError::AgentNotFound),
+    //             }
+    //         } else {
+    //             // Tile not found, return an error
+    //             Err(MyError::TileNotFound)
+    //         }
+    //     } else {
+    //         // Agent not found in the hash map, return an error
+    //         Err(MyError::AgentNotFound)
+    //     }
+    // }
+
     // Function to remove an agent from the world and its tile
     pub fn remove_agent(&mut self, agent_id: u32) -> Result<(), MyError> {
-        // Check if the agent is found in the world's agents vector
-        if let Some(index) = self.agents.iter().position(|a| a.id == agent_id) {
-            // Agent found in the world, remove it from the world's agents vector
-            let agent = self.agents.remove(index);
+        // Lock the agents hash map
+        let mut agents_lock = self.agents.lock().unwrap();
 
-            // Find the tile the agent is currently in based on its position
-            let (x, y) = agent.get_position();
+        // Check if the agent's position is saved in the hash map
+        if let Some((x, y)) = agents_lock.get(&agent_id) {
+            // Get the tile at the agent's position
+            if let Some(tile_mutex) = self.grid.get(*y as usize).and_then(|row| row.get(*x as usize)) {
+                let mut tile = tile_mutex.lock().unwrap();
 
-            // Get the tile at position (x, y)
-            if let Some(tile) = self.get_tile_mut(x as usize, y as usize)? {
-                // Remove the agent from the tile
+                // Remove the agent from the hash map and tile
+                agents_lock.remove(&agent_id);
                 tile.remove_agent(agent_id)?;
-            } else {
-                // The position is out of bounds or the tile is not found, return an error
-                // Note: It's a good practice to provide additional information in the error message.
-                println!("Agent {} not found in tile at position ({}, {}).", agent_id, x, y);
-                return Err(MyError::AgentNotFound);
-            }
 
-            Ok(())
-        } else {
-            // Agent not found in the world's agents vector, return an error
-            Err(MyError::AgentNotFound)
+                return Ok(());
+            }
         }
+
+        // Agent not found, return an error
+        Err(MyError::AgentNotFound)
     }
     
+    // // Function to print information about an agent by ID
+    // pub fn print_agent(&self, agent_id: u32) {
+    //     let agents_lock = self.agents.lock().unwrap();
+        
+    //     if let Some((x, y)) = agents_lock.get(&agent_id) {
+    //         if let Some(tile_mutex) = self.grid.get(*y as usize).and_then(|row| row.get(*x as usize)) {
+    //             let tile = tile_mutex.lock().unwrap();
+    //             match tile.get_agent(agent_id) {
+    //                 Ok(agent) => {
+    //                     println!("Agent ID: {}", agent.id);
+    //                     println!("Agent Position: ({}, {})", x, y);
+    //                     // Print other agent information here
+    //                 }
+    //                 Err(_) => {
+    //                     println!("Agent with ID {} not found in the tile at position ({}, {})", agent_id, x, y);
+    //                 }
+    //             }
+    //         } else {
+    //             println!("Tile at position ({}, {}) not found.", x, y);
+    //         }
+    //     } else {
+    //         println!("Agent with ID {} not found in the world.", agent_id);
+    //     }
+    // }
 //     _____                          __                
 //    /     \   ____   ____   _______/  |_  ___________ 
 //   /  \ /  \ /  _ \ /    \ /  ___/\   __\/ __ \_  __ \
@@ -203,67 +264,81 @@ impl World {
  
     // Function to add a monster to the world and its current tile
     pub fn add_monster(&mut self, monster: Monster) -> Result<(), MyError> {
-        // Find the tile the monster is currently in based on its position
         let (x, y) = monster.get_position();
 
         // Check if the position is valid before attempting to get the tile
-        if self.is_valid_position(x as usize, y as usize).is_err() {
-            return Err(MyError::PositionError);
-        }
+        self.is_valid_position(x as usize, y as usize)?;
 
-        // Add the monster to the world's list of monsters
-        self.monsters.push(monster.clone());
+        // Attempt to find the tile in the grid that corresponds to the monster's position
+        if let Some(tile) = self.grid.get(y as usize).and_then(|row| row.get(x as usize)) {
+            // Lock the tile to safely add the monster
+            let tile_lock = tile.lock().unwrap();
 
-        if let Some(tile) = self.grid.get_mut(y as usize).and_then(|row| row.get_mut(x as usize)) {
+            // Lock the monsters list to safely add the monster
+            let mut monsters = self.monsters.lock().unwrap();
+
+            // Add the monster's position to the monsters hash map
+            monsters.insert(monster.id, (x as usize, y as usize));
+
             // Add the monster to the tile's list of monsters
-            tile.add_monster(monster);
+            tile_lock.add_monster(monster);
+
+            // Return Ok(()) to indicate successful addition
             Ok(())
         } else {
-            // The position is out of bounds, return an error
-            Err(MyError::PositionError)
+            // The position is out of bounds or the tile is not found, return an error
+            println!("Attempted to add monster {} to tile at position ({}, {}), but the tile was not found.", monster.id, x, y);
+            Err(MyError::TileNotFound)
         }
     }
 
-    // Function to get a reference to a monster by ID
-    pub fn get_monster(&self, id: u32) -> Result<&Monster, MyError> {
-        let monster = self.monsters.iter().find(|monster| monster.id == id);
-        // Find the tile the monster is currently in based on its position
-        let (x, y) = monster.and_then(|m| Some(m.get_position())).ok_or(MyError::PositionError)?;
-
-        // Check if the position is valid before attempting to get the tile
-        if self.is_valid_position(x as usize, y as usize).is_err() {
-            return Err(MyError::PositionError);
-        }
-
-        self.monsters.iter().find(|m| m.id == id).ok_or(MyError::PositionError)
-    }
+    // // Function to get a reference to a monster by ID
+    // pub fn get_monster(&self, monster_id: u32) -> Result<&Monster, MyError> {
+    //     // Lock the monsters hash map
+    //     let monsters_lock = self.monsters.lock().unwrap();
+    
+    //     // Check if the monster's position is saved in the hash map
+    //     if let Some((x, y)) = monsters_lock.get(&monster_id) {
+    //         // Get the tile at the monster's position
+    //         if let Some(tile_mutex) = self.grid.get(*y as usize).and_then(|row| row.get(*x as usize)) {
+    //             let mut tile = tile_mutex.lock().unwrap();
+    
+    //             // Retrieve the monster from the tile
+    //             match tile.get_monster(monster_id) {
+    //                 Ok(monster) => Ok(monster),
+    //                 Err(_) => Err(MyError::MonsterNotFound),
+    //             }
+    //         } else {
+    //             // Tile not found, return an error
+    //             Err(MyError::TileNotFound)
+    //         }
+    //     } else {
+    //         // Monster not found in the hash map, return an error
+    //         Err(MyError::MonsterNotFound)
+    //     }
+    // }
 
     // Function to remove a monster from the world and its tile
     pub fn remove_monster(&mut self, monster_id: u32) -> Result<(), MyError> {
-        // Check if the monster is found in the world's monsters vector
-        if let Some(index) = self.monsters.iter().position(|m| m.id == monster_id) {
-            // Monster found in the world, remove it from the world's monsters vector
-            let monster = self.monsters.remove(index);
+        // Lock the monsters hash map
+        let mut monsters_lock = self.monsters.lock().unwrap();
 
-            // Find the tile the monster is currently in based on its position
-            let (x, y) = monster.get_position();
+        // Check if the monster's position is saved in the hash map
+        if let Some((x, y)) = monsters_lock.get(&monster_id) {
+            // Get the tile at the monster's position
+            if let Some(tile_mutex) = self.grid.get(*y as usize).and_then(|row| row.get(*x as usize)) {
+                let mut tile = tile_mutex.lock().unwrap();
 
-            // Get the tile at position (x, y)
-            if let Some(tile) = self.get_tile_mut(x as usize, y as usize)? {
-                // Remove the monster from the tile
+                // Remove the monster from the hash map and tile
+                monsters_lock.remove(&monster_id);
                 tile.remove_monster(monster_id)?;
-            } else {
-                // The position is out of bounds or the tile is not found, return an error
-                // Note: It's a good practice to provide additional information in the error message.
-                println!("Monster {} not found in tile at position ({}, {}).", monster_id, x, y);
-                return Err(MyError::MonsterNotFound);
-            }
 
-            Ok(())
-        } else {
-            // Monster not found in the world's monsters vector, return an error
-            Err(MyError::MonsterNotFound)
+                return Ok(());
+            }
         }
+
+        // Monster not found, return an error
+        Err(MyError::MonsterNotFound)
     }
 
 // ___________                                                  
@@ -275,84 +350,109 @@ impl World {
 
     // Function to add a treasure to the world and its current tile
     pub fn add_treasure(&mut self, treasure: Treasure) -> Result<(), MyError> {
-        // Find the tile the treasure is currently in based on its position
         let (x, y) = treasure.get_position();
 
         // Check if the position is valid before attempting to get the tile
-        if self.is_valid_position(x as usize, y as usize).is_err() {
-            return Err(MyError::PositionError);
-        }
+        self.is_valid_position(x as usize, y as usize)?;
 
-        // Add the treasure to the world's list of treasures
-        self.treasures.push(treasure.clone());
+        // Attempt to find the tile in the grid that corresponds to the treasure's position
+        if let Some(tile) = self.grid.get(y as usize).and_then(|row| row.get(x as usize)) {
+            // Lock the tile to safely add the treasure
+            let tile_lock = tile.lock().unwrap();
 
-        if let Some(tile) = self.grid.get_mut(y as usize).and_then(|row| row.get_mut(x as usize)) {
+            // Lock the treasures list to safely add the treasure
+            let mut treasures = self.treasures.lock().unwrap();
+
+            // Add the treasure's position to the treasures hash map
+            treasures.insert(treasure.id, (x as usize, y as usize));
+
             // Add the treasure to the tile's list of treasures
-            tile.add_treasure(treasure);
+            tile_lock.add_treasure(treasure);
+
+            // Return Ok(()) to indicate successful addition
             Ok(())
         } else {
-            // The position is out of bounds, return an error
-            Err(MyError::PositionError)
+            // The position is out of bounds or the tile is not found, return an error
+            println!("Attempted to add treasure {} to tile at position ({}, {}), but the tile was not found.", treasure.id, x, y);
+            Err(MyError::TileNotFound)
         }
     }
 
-    // Function to get a reference to a treasure by ID
-    pub fn get_treasure(&self, id: u32) -> Result<&Treasure, MyError> {
-        let treasure = self.treasures.iter().find(|treasure| treasure.id == id);
-        // Find the tile the treasure is currently in based on its position
-        let (x, y) = treasure.and_then(|t| Some(t.get_position())).ok_or(MyError::PositionError)?;
-
-        // Check if the position is valid before attempting to get the tile
-        if self.is_valid_position(x as usize, y as usize).is_err() {
-            return Err(MyError::PositionError);
-        }
-
-        self.treasures.iter().find(|t| t.id == id).ok_or(MyError::PositionError)
-    }
+    // // Function to get a reference to a treasure by ID
+    // pub fn get_treasure(&self, treasure_id: u32) -> Result<&Treasure, MyError> {
+    //     // Lock the treasures hash map
+    //     let treasures_lock = self.treasures.lock().unwrap();
+    
+    //     // Check if the treasure's position is saved in the hash map
+    //     if let Some((x, y)) = treasures_lock.get(&treasure_id) {
+    //         // Get the tile at the treasure's position
+    //         if let Some(tile_mutex) = self.grid.get(*y as usize).and_then(|row| row.get(*x as usize)) {
+    //             let mut tile = tile_mutex.lock().unwrap();
+    
+    //             // Retrieve the treasure from the tile
+    //             match tile.get_treasure(treasure_id) {
+    //                 Ok(treasure) => Ok(treasure),
+    //                 Err(_) => Err(MyError::TreasureNotFound),
+    //             }
+    //         } else {
+    //             // Tile not found, return an error
+    //             Err(MyError::TileNotFound)
+    //         }
+    //     } else {
+    //         // Treasure not found in the hash map, return an error
+    //         Err(MyError::TreasureNotFound)
+    //     }
+    // }
 
     // Function to remove a treasure from the world and its tile
     pub fn remove_treasure(&mut self, treasure_id: u32) -> Result<(), MyError> {
-        // Check if the treasure is found in the world's treasures vector
-        if let Some(index) = self.treasures.iter().position(|t| t.id == treasure_id) {
-            // Treasure found in the world, remove it from the world's treasures vector
-            let treasure = self.treasures.remove(index);
+        // Lock the treasures hash map
+        let mut treasures_lock = self.treasures.lock().unwrap();
 
-            // Find the tile the treasure is currently in based on its position
-            let (x, y) = treasure.get_position();
+        // Check if the treasure's position is saved in the hash map
+        if let Some((x, y)) = treasures_lock.get(&treasure_id) {
+            // Get the tile at the treasure's position
+            if let Some(tile_mutex) = self.grid.get(*y as usize).and_then(|row| row.get(*x as usize)) {
+                let mut tile = tile_mutex.lock().unwrap();
 
-            // Get the tile at position (x, y)
-            if let Some(tile) = self.get_tile_mut(x as usize, y as usize)? {
-                // Remove the treasure from the tile
+                // Remove the treasure from the hash map and tile
+                treasures_lock.remove(&treasure_id);
                 tile.remove_treasure(treasure_id)?;
-            } else {
-                // The position is out of bounds or the tile is not found, return an error
-                // Note: It's a good practice to provide additional information in the error message.
-                println!("Treasure {} not found in tile at position ({}, {}).", treasure_id, x, y);
-                return Err(MyError::TreasureNotFound);
-            }
 
-            Ok(())
-        } else {
-            // Treasure not found in the world's treasures vector, return an error
-            Err(MyError::TreasureNotFound)
-        }
-    }
-
-    pub fn find_agents_within_distance(&self, agent: &Agent, distance: f32) -> Vec<&Agent> {
-        let mut nearby_agents = Vec::new();
-    
-        for other_agent in &self.agents {
-            if agent.id != other_agent.id {
-                let dx = (agent.transform.translation.x - other_agent.transform.translation.x).abs() / 32.0;
-                let dy = (agent.transform.translation.y - other_agent.transform.translation.y).abs() / 32.0;
-                let squared_distance = dx * dx + dy * dy;
-                let calculated_distance = squared_distance.sqrt();
-                if calculated_distance <= distance {
-                    nearby_agents.push(other_agent);
-                }
+                return Ok(());
             }
         }
-    
-        nearby_agents
+
+        // Treasure not found, return an error
+        Err(MyError::TreasureNotFound)
     }
+
+    // pub fn find_agents_within_distance(&self, agent: &Agent, distance: f32) -> Vec<u32> {
+    //     let mut nearby_agent_ids = Vec::new();
+    
+    //     // Get the position of the agent
+    //     let (x, y) = agent.get_position();
+    
+    //     // Check if the position is valid before attempting to get the tile
+    //     if let Ok(Some(tile_mutex)) = self.get_tile(x as usize, y as usize) {
+    //         // Lock the tile mutex and get the agents
+    //         let tile_lock = tile_mutex.lock().unwrap();
+    //         let agents_in_tile = tile_lock.get_agents().unwrap();
+    
+    //         for other_agent in agents_in_tile {
+    //             if agent.id != other_agent.id {
+    //                 let dx = (x as f32 - other_agent.transform.translation.x).abs() / 32.0;
+    //                 let dy = (y as f32 - other_agent.transform.translation.y).abs() / 32.0;
+    //                 let squared_distance = dx * dx + dy * dy;
+    //                 let calculated_distance = squared_distance.sqrt();
+    //                 if calculated_distance <= distance {
+    //                     nearby_agent_ids.push(other_agent.id);
+    //                 }
+    //             }
+    //         }
+    //     }
+    
+    //     nearby_agent_ids
+    // }
+
 }

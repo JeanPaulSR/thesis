@@ -9,6 +9,7 @@ mod world;
 mod npc;
 mod debug;
 mod behavior;
+use errors::MyError;
 use world::World;
 mod movement; 
 mod mcst;
@@ -22,7 +23,7 @@ use crate::components::{Position, TileComponent, TreasureComponent};
 use crate::entities::agent::Agent;
 use crate::tile::TileType;
 
-const START_AGENT_COUNT: usize = 50;
+const START_AGENT_COUNT: usize = 5;
 
 #[allow(dead_code)]
 fn main() {
@@ -38,18 +39,13 @@ fn main() {
         // Add default Bevy plugins to the app. This includes basic functionality like rendering, input handling, etc.
         .add_plugins(DefaultPlugins)
         // Insert a World resource that contains the game world's grid.
-        .insert_resource(World {
-            agents: Vec::new(),
-            monsters: Vec::new(), // Add an empty vector for monsters
-            treasures: Vec::new(), // Add an empty vector for treasures
-            grid: world::create_world(),
-        })
+        .insert_resource(world::create_world())
         // Add a system that handles camera drag functionality.
         .add_system(camera_drag_system.system())
         // Add a startup system that sets up the initial state of the game (e.g., camera, entities, etc.).
         .add_startup_system(setup.system())
         // Add a system that moves agents to a village.
-        .add_startup_system(npc::debug.system())
+        //.add_startup_system(npc::debug.system())
         // Insert a CameraDragging resource to track the camera dragging state.
         .insert_resource(CameraDragging {
             is_dragging: false,
@@ -79,10 +75,10 @@ pub fn setup(
     let village_material = materials.add(village_texture.into());
     let dungeon_material = materials.add(dungeon_texture.into());
 
-    for (y, row) in world.grid.iter_mut().rev().enumerate() {
+    for (y, row) in world.grid.iter_mut().enumerate() {
         for (x, tile) in row.iter_mut().enumerate() {
             let treasure = None;
-            let material_handle = match tile.get_tile_type() {
+            let material_handle = match tile.lock().unwrap().get_tile_type() {
                 TileType::Forest => forest_material.clone(),
                 TileType::Mountain => mountain_material.clone(),
                 TileType::Lake => lake_material.clone(),
@@ -99,7 +95,7 @@ pub fn setup(
 
             let mut tile_entity = commands.spawn_bundle(sprite_bundle);
             tile_entity.insert(Position { x: x as i32, y: y as i32 });
-            tile_entity.insert(TileComponent { tile_type: tile.get_tile_type().clone() });
+            tile_entity.insert(TileComponent { tile_type: tile.lock().unwrap().get_tile_type().clone() });
             tile_entity.insert(Position { x: x as i32, y: y as i32 });
 
             if let Some(treasure) = treasure {
@@ -121,31 +117,40 @@ pub fn setup(
         .spawn_bundle(OrthographicCameraBundle::new_2d())
         .insert(Transform::from_xyz(half_grid_width, half_grid_height, 1000.0));
 
-    let mut villages: Vec<(f32, f32)> = Vec::new();
-    for (y, row) in world.grid.iter().rev().enumerate() {
-        for (x, tile) in row.iter().enumerate() {
-            if let TileType::Village = tile.get_tile_type() {
-                villages.push((x as f32, y as f32));
+    let mut villages: Vec<(usize, usize)> = Vec::new();
+    for (y, row) in world.grid.iter().enumerate() {
+        for (x, tile_mutex) in row.iter().enumerate() {
+            let tile = tile_mutex.lock().unwrap();
+            if tile.get_tile_type() == TileType::Village {
+                villages.push((x, y));
             }
         }
     }
-
+    
     for i in 0..START_AGENT_COUNT {
         let village = villages[i % villages.len()];
-
+    
         let agent = Agent::new_agent(
-            village.0,
-            village.1,
+            village.0 as f32,
+            village.1 as f32,
             &mut commands,
             &mut materials,
             &asset_server,
         );
+    
 
-        // Save the agent into its corresponding tile
-        if let Some(tile) = world.grid.get_mut(village.1 as usize).and_then(|row| row.get_mut(village.0 as usize)) {
-            tile.add_agent(agent.clone());
-        }
-
-        world.agents.push(agent);
+        // Try to add the agent to the world
+        if let Err(err) = world.add_agent(agent.clone()) {
+            // Handle the error here, e.g. print an error message
+            match err {
+                MyError::TileNotFound => {
+                    println!("Failed to add agent: Tile not found.");
+                }
+                // Handle other error cases if needed
+                _ => {
+                    println!("Failed to add agent: Unknown error.");
+                }
+            }
+        } 
     }
 }

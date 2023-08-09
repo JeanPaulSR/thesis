@@ -55,7 +55,7 @@ impl PartialEq for Node {
     }
 }
 
-fn get_neighbors(grid: &World, node: &Node) -> Vec<Node> {
+fn get_neighbors(world: &World, node: &Node) -> Vec<Node> {
     let mut neighbors = vec![];
 
     for i in -1..=1 {
@@ -67,17 +67,18 @@ fn get_neighbors(grid: &World, node: &Node) -> Vec<Node> {
             let x = node.pos.0 + i;
             let y = node.pos.1 + j;
 
-            if x < 0 || x >= grid.grid.len() as i32 || y < 0 || y >= grid.grid[0].len() as i32 {
+            if x < 0 || x >= world.grid.len() as i32 || y < 0 || y >= world.grid[0].len() as i32 {
                 continue;
             }
 
-            let tile = &grid.grid[x as usize][y as usize].get_tile_type();
+            let tile_lock = &world.grid[x as usize][y as usize];
+            let tile_type = tile_lock.lock().unwrap().get_tile_type();
 
-            if *tile == TileType::Lake || *tile == TileType::Mountain {
+            if tile_type == TileType::Lake || tile_type == TileType::Mountain {
                 continue;
             }
 
-            let weight = match tile {
+            let weight = match tile_type {
                 TileType::Forest | TileType::Village | TileType::Dungeon => 1,
                 _ => 100,
             };

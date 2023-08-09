@@ -17,14 +17,21 @@ pub enum Status {
     Dead,
 }
 
+// Define the Genes struct
 #[derive(Clone)]
-pub struct Agent {
-    pub entity: Entity,
+pub struct Genes {
     pub greed: f32,
     pub aggression: f32,
     pub social: f32,
     pub self_preservation: f32,
     pub vision: f32,
+}
+
+// Modify the Agent struct to include the Genes field
+#[derive(Clone)]
+pub struct Agent {
+    pub entity: Entity,
+    pub genes: Genes,
     pub transform: Transform,
     pub sprite_bundle: SpriteBundle,
     pub action: Option<NpcAction>,
@@ -37,8 +44,6 @@ pub struct Agent {
     pub path: Option<Vec<(i32, i32)>>,
 }
 
-
-//Test
 impl Agent {
     pub fn new_agent(
         mut x: f32,
@@ -47,43 +52,57 @@ impl Agent {
         materials: &mut ResMut<Assets<ColorMaterial>>,
         asset_server: &Res<AssetServer>,
     ) -> Self {
+        // Convert x and y to world coordinates
         x = x * 32.0;
         y = y * 32.0;
+    
+        // Initialize a random number generator
         let mut rng = rand::thread_rng();
+    
+        // Define distribution ranges for agent attributes
         let greed_distribution = Uniform::new(0.5, 1.0);
         let aggression_distribution = Uniform::new(0.3, 0.8);
         let common_distribution = Uniform::new(0.0, 1.0);
         let vision_distribution = Uniform::new(3.0, 8.0);
-
-        let sprite_size = Vec2::new(32.0, 32.0); // Adjust to your sprite size
-
+    
+        // Define the size of the agent's sprite
+        let sprite_size = Vec2::new(32.0, 32.0); 
+    
+        // Load the agent's sprite texture from the asset server
         let texture_handle = asset_server.load("textures/agent.png");
-
+    
+        // Spawn the agent's sprite using the Commands resource and get its entity ID
         let entity = commands.spawn_bundle(SpriteBundle {
             material: materials.add(texture_handle.clone().into()),
             sprite: Sprite::new(sprite_size),
             transform: Transform::from_translation(Vec3::new(x, y, 1.0)),
             ..Default::default()
         }).id();
-
+    
         // Increment the static counter variable after creating a new instance
         unsafe {
             A_COUNTER += 1;
         }
-
-        Agent {
+    
+        // Create a new instance of the Genes struct with random attribute values
+        let genes = Genes {
             greed: greed_distribution.sample(&mut rng),
             aggression: aggression_distribution.sample(&mut rng),
             social: common_distribution.sample(&mut rng),
             self_preservation: common_distribution.sample(&mut rng),
             vision: vision_distribution.sample(&mut rng),
+        };
+    
+        // Create and return a new instance of the Agent struct
+        Agent {
+            genes,
             id: unsafe { A_COUNTER },
             entity,
             transform: Transform::from_translation(Vec3::new(x , y , 0.0)),
             sprite_bundle: SpriteBundle {
                 material: materials.add(texture_handle.into()),
                 sprite: Sprite::new(sprite_size),
-                transform: Transform::from_translation(Vec3::new(0.0, 0.0, 0.0)), // Adjust position in relation to the agent transform
+                transform: Transform::from_translation(Vec3::new(0.0, 0.0, 1.0)), // Adjust position in relation to the agent transform
                 ..Default::default()
             },
             action: None::<NpcAction>,
@@ -94,6 +113,16 @@ impl Agent {
             tile_target: None::<Tile>,
             path: None::<Vec<(i32, i32)>>,
         }
+    }
+
+    pub fn print(&self) {
+        println!("Agent ID: {}", self.id);
+        println!("Greed: {}", self.genes.greed);
+        println!("Aggression: {}", self.genes.aggression);
+        println!("Social: {}", self.genes.social);
+        println!("Self Preservation: {}", self.genes.self_preservation);
+        println!("Vision: {}", self.genes.vision);
+        println!("Position: x={}, y={}", self.transform.translation.x/32.0, self.transform.translation.y/32.0);
     }
 
     // Function to move the agent to a specific position
@@ -134,15 +163,7 @@ impl Agent {
         (self.transform.translation.x / 32.0, self.transform.translation.y / 32.0)
     }
 
-    pub fn print(&self) {
-        println!("Agent ID: {}", self.id);
-        println!("Greed: {}", self.greed);
-        println!("Aggression: {}", self.aggression);
-        println!("Social: {}", self.social);
-        println!("Self Preservation: {}", self.self_preservation);
-        println!("Vision: {}", self.vision);
-        println!("Position: x={}, y={}", self.transform.translation.x/32.0, self.transform.translation.y/32.0);
-    }
+
 
     pub fn set_status(&mut self, status: Status) {
         self.status = status;

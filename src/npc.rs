@@ -1,5 +1,6 @@
 use bevy::prelude::*;
 use crate::World;
+use crate::errors::MyError;
 use crate::movement::find_path;
 use crate::tile::TileType;
 use crate::entities::monster::Monster;
@@ -12,44 +13,63 @@ pub fn debug(
     asset_server: Res<AssetServer>,
     mut world: ResMut<World>,
 ) {
-    let mut villages: Vec<(f32, f32)> = Vec::new();
-    for (y, row) in world.grid.iter().rev().enumerate() {
-        for (x, tile) in row.iter().enumerate() {
+    let mut villages: Vec<(usize, usize)> = Vec::new();
+    for (y, row) in world.grid.iter().enumerate() {
+        for (x, tile_mutex) in row.iter().enumerate() {
+            let tile = tile_mutex.lock().unwrap();
             if tile.get_tile_type() == TileType::Village {
-                villages.push((x as f32, y as f32));
+                villages.push((x, y));
             }
         }
     }
 
     let n = 10;
     for i in 0..n {
-        let tuple = villages[i % villages.len()];
-        let agent = Agent::new_agent(tuple.0 * 32.0, tuple.1 * 32.0, &mut commands, &mut materials, &asset_server);
+        let village = villages[i % villages.len()];
+        let agent = Agent::new_agent(
+            village.0 as f32,
+            village.1 as f32,
+            &mut commands,
+            &mut materials,
+            &asset_server,
+        );
 
-        // Save the agent into its corresponding tile
-        if let Some(tile) = world.grid.get_mut(tuple.1 as usize).and_then(|row| row.get_mut(tuple.0 as usize)) {
+        if let Ok(Some(tile_mutex)) = world.get_tile_mut(village.0, village.1) {
+            let tile = tile_mutex.lock().unwrap();
             tile.add_agent(agent.clone());
         }
 
-        world.agents.push(agent.clone());
+        // Try to add the agent to the world
+        if let Err(err) = world.add_agent(agent.clone()) {
+            // Handle the error here, e.g. print an error message
+            match err {
+                MyError::TileNotFound => {
+                    println!("Failed to add agent: Tile not found.");
+                }
+                // Handle other error cases if needed
+                _ => {
+                    println!("Failed to add agent: Unknown error.");
+                }
+            }
+        } 
     }
+
     let start_pos = (0, 0);
     let end_pos = (5, 5);
     let agent = Agent::new_agent(0.0, 0.0, &mut commands, &mut materials, &asset_server);
     let _agent2 = Agent::new_agent(1.0, 1.0, &mut commands, &mut materials, &asset_server);
     let _agent3 = Agent::new_agent(2.0, 2.0, &mut commands, &mut materials, &asset_server);
 
-    world.add_agent(_agent2).ok();
+    world.add_agent(_agent2.clone()).ok();
     world.add_agent(agent.clone()).ok();
 
     let mut monster = Monster::new_monster(3.0 * 32.0, 3.0 * 32.0, &mut commands, &mut materials, &asset_server);
     monster.travel(7.0, 1.0, &mut commands);
 
-
-    if let Ok(Some(_)) = world.get_tile_type(100, 100) {
-        println!("TileType at position (1, 1): Found tile"); 
+    if let Ok(Some(_)) = world.get_tile(100, 100) {
+        println!("Tile at position (100, 100): Found tile");
     } else {
-        println!("Invalid position (5, 5)");
+        println!("Invalid position (100, 100)");
     }
 
     if let Some(path) = find_path(&world, start_pos, end_pos) {
@@ -58,8 +78,8 @@ pub fn debug(
         println!("Failed to find path.");
     }
 
-    let nearby = world.find_agents_within_distance(&agent.clone(), 3.0);
-    for a in nearby {
-        a.print();
-    }
+    // let nearby = world.find_agents_within_distance(&agent, 3.0);
+    // for agent_id in nearby {
+    //     world.print_agent(agent_id);
+    // }
 }
