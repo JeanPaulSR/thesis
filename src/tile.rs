@@ -57,13 +57,13 @@ impl Tile {
     }
 
     // Function to remove an agent from the tile
-    pub fn remove_agent(&mut self, agent_id: u32) -> Result<(), MyError> {
+    pub fn remove_agent(&mut self, agent_id: u32) -> Result<Agent, MyError> {
         let mut agents = self.agents.lock().unwrap();
         // Check if the agent is found in the tile's agents vector
         if let Some(index) = agents.iter().position(|a| a.id == agent_id) {
             // Agent found, remove it from the tile's agents vector
-            agents.remove(index);
-            Ok(())
+            let removed_agent = agents.remove(index);
+            Ok(removed_agent)
         } else {
             // Agent not found in the tile's agents vector, return an error
             Err(MyError::AgentNotFound)
@@ -106,15 +106,13 @@ impl Tile {
     }
 
     // Function to remove a monster from the tile
-    pub fn remove_monster(&mut self, monster_id: u32) -> Result<(), MyError> {
-        // Lock the monsters vector to ensure thread safety
+    pub fn remove_monster(&mut self, monster_id: u32) -> Result<Monster, MyError> {
         let mut monsters = self.monsters.lock().unwrap();
-
         // Check if the monster is found in the tile's monsters vector
         if let Some(index) = monsters.iter().position(|m| m.id == monster_id) {
             // Monster found, remove it from the tile's monsters vector
-            monsters.remove(index);
-            Ok(())
+            let removed_monster = monsters.remove(index);
+            Ok(removed_monster)
         } else {
             // Monster not found in the tile's monsters vector, return an error
             Err(MyError::MonsterNotFound)
@@ -146,15 +144,13 @@ impl Tile {
     }
 
     // Function to remove a treasure from the tile
-    pub fn remove_treasure(&mut self, treasure_id: u32) -> Result<(), MyError> {
-        // Lock the treasures vector to safely remove a treasure
+    pub fn remove_treasure(&mut self, treasure_id: u32) -> Result<Treasure, MyError> {
         let mut treasures = self.treasures.lock().unwrap();
-
         // Check if the treasure is found in the tile's treasures vector
         if let Some(index) = treasures.iter().position(|t| t.id == treasure_id) {
             // Treasure found, remove it from the tile's treasures vector
-            treasures.remove(index);
-            Ok(())
+            let removed_treasure = treasures.remove(index);
+            Ok(removed_treasure)
         } else {
             // Treasure not found in the tile's treasures vector, return an error
             Err(MyError::TreasureNotFound)

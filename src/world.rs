@@ -1,3 +1,5 @@
+use bevy::prelude::Commands;
+
 use crate::entities::agent::Agent;
 use crate::entities::monster::Monster;
 use crate::entities::treasure::Treasure;
@@ -145,6 +147,52 @@ impl World {
         }
     }
 
+    //Currently posy and posx are flipped
+    pub fn move_between_tiles(
+        &self,
+        agent_id: u32,
+        pos_x2: usize,
+        pos_y2: usize,
+        commands: &mut Commands,
+    ) -> Result<(), MyError> {
+        let mut agents_positions = self.agents.lock().unwrap();
+        
+        // Check if the agent exists and get its position
+        if let Some((pos_y1, pos_x1)) = agents_positions.get_mut(&agent_id) {
+            // Lock both tiles' mutexes in a consistent order to avoid deadlocks
+            let (tile1, tile2) = if *pos_x1 < pos_x2 || (*pos_x1 == pos_x2 && *pos_y1 < pos_y2) {
+                let tile1 = self.grid[*pos_x1][*pos_y1].clone();
+                let tile2 = self.grid[pos_x2][pos_y2].clone();
+                (tile1, tile2)
+            } else {
+                let tile2 = self.grid[pos_x2][pos_y2].clone();
+                let tile1 = self.grid[*pos_x1][*pos_y1].clone();
+                (tile1, tile2)
+            };
+
+            // Lock the tiles' mutexes in the determined order
+            let mut lock1 = tile1.lock().unwrap();
+            let lock2 = tile2.lock().unwrap();
+
+            // Update the agent's position directly
+            *pos_x1 = pos_x2;
+            *pos_y1 = pos_y2;
+
+            // Remove the agent from Tile 1
+            let mut removed_agent = lock1.remove_agent(agent_id)?;
+
+            // Move the agent's sprite to the new position
+            removed_agent.move_to(pos_x2 as f32, pos_y2 as f32, commands);
+
+            // Add the agent to Tile 2
+            lock2.add_agent(removed_agent);
+
+            Ok(())
+        } else {
+            // Agent was not found in the agent HashMap
+            Err(MyError::AgentNotFound)
+        }
+    }
     
 //    _____                         __   
 //    /  _  \    ____   ____   _____/  |_ 
@@ -231,30 +279,15 @@ impl World {
         Err(MyError::AgentNotFound)
     }
     
-    // // Function to print information about an agent by ID
-    // pub fn print_agent(&self, agent_id: u32) {
-    //     let agents_lock = self.agents.lock().unwrap();
-        
-    //     if let Some((x, y)) = agents_lock.get(&agent_id) {
-    //         if let Some(tile_mutex) = self.grid.get(*y as usize).and_then(|row| row.get(*x as usize)) {
-    //             let tile = tile_mutex.lock().unwrap();
-    //             match tile.get_agent(agent_id) {
-    //                 Ok(agent) => {
-    //                     println!("Agent ID: {}", agent.id);
-    //                     println!("Agent Position: ({}, {})", x, y);
-    //                     // Print other agent information here
-    //                 }
-    //                 Err(_) => {
-    //                     println!("Agent with ID {} not found in the tile at position ({}, {})", agent_id, x, y);
-    //                 }
-    //             }
-    //         } else {
-    //             println!("Tile at position ({}, {}) not found.", x, y);
-    //         }
-    //     } else {
-    //         println!("Agent with ID {} not found in the world.", agent_id);
-    //     }
-    // }
+    // Function to print agents' positions
+    pub fn print_agents(&self) {
+        let agents_positions = self.agents.lock().unwrap();
+
+        println!("Agents:");
+        for (id, (pos_x, pos_y)) in agents_positions.iter() {
+            println!("Agent ID: {}, Position: ({}, {})", id, pos_x, pos_y);
+        }
+    }
 //     _____                          __                
 //    /     \   ____   ____   _______/  |_  ___________ 
 //   /  \ /  \ /  _ \ /    \ /  ___/\   __\/ __ \_  __ \

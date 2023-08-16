@@ -5,6 +5,7 @@ use crate::movement::find_path;
 use crate::tile::TileType;
 use crate::entities::monster::Monster;
 use crate::entities::agent::Agent;
+use bevy::prelude::Commands;
 
 #[allow(dead_code)]
 pub fn debug(
@@ -59,6 +60,18 @@ pub fn debug(
     let agent = Agent::new_agent(0.0, 0.0, &mut commands, &mut materials, &asset_server);
     let _agent2 = Agent::new_agent(1.0, 1.0, &mut commands, &mut materials, &asset_server);
     let _agent3 = Agent::new_agent(2.0, 2.0, &mut commands, &mut materials, &asset_server);
+
+    world.print_agents();
+    match world.move_between_tiles(3, 1, 10, &mut commands) {
+        Ok(()) => {
+            // Move successful
+            // Do something here if needed
+        }
+        Err(err) => {
+            // Handle the error
+            eprintln!("Could not move agent. Error: {:?}", err);
+        }
+    }
 
     world.add_agent(_agent2.clone()).ok();
     world.add_agent(agent.clone()).ok();

@@ -11,6 +11,7 @@ pub enum MyError {
     AgentNotFound,
     MonsterNotFound,
     TreasureNotFound,
+    OutOfBounds,
     OtherError,
     // Add more error variants here
 }
@@ -27,6 +28,7 @@ impl fmt::Display for MyError {
             MyError::AgentNotFound => write!(f, "Agent not found"),
             MyError::MonsterNotFound => write!(f, "Monster not found"),
             MyError::TreasureNotFound => write!(f, "Treasure not found"),
+            MyError::OutOfBounds => write!(f, "Treasure not found"),
             MyError::OtherError => write!(f, "Other Error"),
             // Add more cases for other error variants
         }
@@ -100,5 +102,19 @@ impl Error for TreasureNotFound {}
 impl fmt::Display for TreasureNotFound {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "Treasure not found")
+    }
+}
+
+// Define a custom error type for out-of-bounds positions
+#[derive(Debug)]
+pub struct OutOfBounds;
+
+// Implement the Error trait for the custom error type
+impl Error for OutOfBounds {}
+
+// Implement the Display trait for the custom error type
+impl fmt::Display for OutOfBounds {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "Out of bounds")
     }
 }

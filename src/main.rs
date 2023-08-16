@@ -45,7 +45,7 @@ fn main() {
         // Add a startup system that sets up the initial state of the game (e.g., camera, entities, etc.).
         .add_startup_system(setup.system())
         // Add a system that moves agents to a village.
-        //.add_startup_system(npc::debug.system())
+        .add_startup_system(npc::debug.system())
         // Insert a CameraDragging resource to track the camera dragging state.
         .insert_resource(CameraDragging {
             is_dragging: false,
