@@ -75,8 +75,8 @@ pub fn setup(
     let village_material = materials.add(village_texture.into());
     let dungeon_material = materials.add(dungeon_texture.into());
 
-    for (y, row) in world.grid.iter_mut().enumerate() {
-        for (x, tile) in row.iter_mut().enumerate() {
+    for (y, column) in world.grid.iter_mut().enumerate() {
+        for (x, tile) in column.iter_mut().enumerate() {
             let treasure = None;
             let material_handle = match tile.lock().unwrap().get_tile_type() {
                 TileType::Forest => forest_material.clone(),
@@ -118,8 +118,8 @@ pub fn setup(
         .insert(Transform::from_xyz(half_grid_width, half_grid_height, 1000.0));
 
     let mut villages: Vec<(usize, usize)> = Vec::new();
-    for (y, row) in world.grid.iter().enumerate() {
-        for (x, tile_mutex) in row.iter().enumerate() {
+    for (y, column) in world.grid.iter().enumerate() {
+        for (x, tile_mutex) in column.iter().enumerate() {
             let tile = tile_mutex.lock().unwrap();
             if tile.get_tile_type() == TileType::Village {
                 villages.push((x, y));

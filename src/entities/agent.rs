@@ -1,10 +1,8 @@
 use bevy::prelude::*;
 use rand::distributions::{Distribution, Uniform};
+use crate::errors::MyError;
 use crate::mcst::NpcAction;
-use crate::tile::Tile;
-use crate::entities::treasure::Treasure;
-
-use super::monster::Monster;
+use crate::{World, movement};
 
 static mut A_COUNTER: u32 = 0;
 
@@ -37,10 +35,10 @@ pub struct Agent {
     pub action: Option<NpcAction>,
     pub id: u32,
     pub status: Status,
-    pub monster_target: Option<Monster>,
+    pub monster_target_id: Option<u32>,
     pub agent_target_id: Option<u32>,
-    pub treasure_target: Option<Treasure>,
-    pub tile_target: Option<Tile>,
+    pub treasure_target_id: Option<u32>,
+    pub tile_target_id: Option<u32>,
     pub path: Option<Vec<(i32, i32)>>,
 }
 
@@ -116,10 +114,10 @@ impl Agent {
             },
             action: None::<NpcAction>,
             status: Status::Idle,
-            monster_target: None::<Monster>,
+            monster_target_id: None::<u32>,
             agent_target_id: None::<u32>,
-            treasure_target: None::<Treasure>,
-            tile_target: None::<Tile>,
+            treasure_target_id: None::<u32>,
+            tile_target_id: None::<u32>,
             path: None::<Vec<(i32, i32)>>,
         }
     }
@@ -137,11 +135,11 @@ impl Agent {
     // Function to move the agent to a specific position
     pub fn move_to(
         &mut self,
-        x: f32,
         y: f32,
+        x: f32,
         commands: &mut Commands,
     ) {
-        let new_transform = Transform::from_translation(Vec3::new(x * 32.0, y * 32.0, 1.0));
+        let new_transform = Transform::from_translation(Vec3::new(y * 32.0, x * 32.0, 1.0));
         self.transform = new_transform;
         commands.entity(self.entity).insert(self.transform.clone());
     }
@@ -149,13 +147,18 @@ impl Agent {
     // Updated travel function to use the path
     pub fn travel(
         &mut self,
+        world: ResMut<World>,
         commands: &mut Commands,
-    ) -> Result<(), &'static str> {
+    ) -> Result<(), MyError> {
         // Check if there is a path available
         if let Some(path) = &mut self.path {
             // If the path is not empty, pop the first position and move the agent to that position
             if let Some((x, y)) = path.pop() {
-                self.move_to(x as f32, y as f32, commands);
+                // Get the agent's ID
+                let agent_id = self.id;
+
+                // Call the move_between_tiles function to move the agent to the next position in the path
+                world.move_between_tiles(agent_id, x as usize, y as usize, commands)?;
             } else {
                 // If the path is empty, clear it to indicate that the agent has reached its destination
                 self.path = None;
@@ -163,10 +166,12 @@ impl Agent {
             Ok(())
         } else {
             // If there is no path, return an error
-            Err("Agent has no path to follow.")
+            Err(MyError::PathNotFound)
         }
     }
-
+    // if let Some(path) = find_path(world, self.get_current_position(), self.get_destination_position()) {
+    //     // Update the agent's path with the returned path
+    //     self.path = Some(path);
 
     pub fn get_position(&self) -> (f32, f32) {
         (self.transform.translation.x / 32.0, self.transform.translation.y / 32.0)

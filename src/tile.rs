@@ -13,7 +13,7 @@ pub struct Tile {
     treasures: Arc<Mutex<Vec<Treasure>>>,
 }
 
-#[derive(Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub enum TileType {
     Forest,
     Mountain,

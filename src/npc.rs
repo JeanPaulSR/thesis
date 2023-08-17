@@ -56,13 +56,27 @@ pub fn debug(
     }
 
     let start_pos = (0, 0);
-    let end_pos = (5, 5);
+    let end_pos = (0, 4);
     let agent = Agent::new_agent(0.0, 0.0, &mut commands, &mut materials, &asset_server);
-    let _agent2 = Agent::new_agent(1.0, 1.0, &mut commands, &mut materials, &asset_server);
+    let _agent2 = Agent::new_agent(0.0, 5.0, &mut commands, &mut materials, &asset_server);
+    
+    world.add_agent(_agent2.clone()).ok();
     let _agent3 = Agent::new_agent(2.0, 2.0, &mut commands, &mut materials, &asset_server);
 
     world.print_agents();
-    match world.move_between_tiles(3, 1, 10, &mut commands) {
+    match world.move_between_tiles(3, 7, 17, &mut commands) {
+        Ok(()) => {
+            // Move successful
+            // Do something here if needed
+        }
+        Err(err) => {
+            // Handle the error
+            eprintln!("Could not move agent. Error: {:?}", err);
+        }
+    }
+    
+    world.print_agents();
+    match world.move_between_tiles(3, 8, 18, &mut commands) {
         Ok(()) => {
             // Move successful
             // Do something here if needed
@@ -73,16 +87,15 @@ pub fn debug(
         }
     }
 
-    world.add_agent(_agent2.clone()).ok();
     world.add_agent(agent.clone()).ok();
 
     let mut monster = Monster::new_monster(3.0 * 32.0, 3.0 * 32.0, &mut commands, &mut materials, &asset_server);
     monster.travel(7.0, 1.0, &mut commands);
 
-    if let Ok(Some(_)) = world.get_tile(100, 100) {
-        println!("Tile at position (100, 100): Found tile");
+    if let Ok(Some(_)) = world.get_tile(0, 1) {
+        println!("Tile at Position: ({}, {}), TileType: {:?}", 0, 1, world.get_tile_type(0, 1));
     } else {
-        println!("Invalid position (100, 100)");
+        println!("Invalid position (0, 1)");
     }
 
     if let Some(path) = find_path(&world, start_pos, end_pos) {

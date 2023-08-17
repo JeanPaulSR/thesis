@@ -71,16 +71,16 @@ fn get_neighbors(world: &World, node: &Node) -> Vec<Node> {
                 continue;
             }
 
-            let tile_lock = &world.grid[x as usize][y as usize];
+            let tile_lock = &world.grid[y as usize][x as usize];
             let tile_type = tile_lock.lock().unwrap().get_tile_type();
 
-            if tile_type == TileType::Lake || tile_type == TileType::Mountain {
-                continue;
-            }
+            // Print the current TileType
+            //println!("Current Position: ({}, {}), TileType: {:?}", x, y, tile_type);
+
 
             let weight = match tile_type {
                 TileType::Forest | TileType::Village | TileType::Dungeon => 1,
-                _ => 100,
+                TileType::Lake | TileType::Mountain => 10000,
             };
 
             let new_g_score = node.g_score + weight;

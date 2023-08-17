@@ -13,7 +13,7 @@ use std::sync::{Arc, Mutex};
 
 pub fn create_world() -> World {
     let map_data: Vec<&str> = vec![
-        "vffffffffffffffffffm",
+        "vmfffffffffffffffffm",
         "fmfffffffffffffffflm",
         "fffffffvfffffffffllm",
         "ffffffffffffffffllfm",
@@ -32,7 +32,8 @@ pub fn create_world() -> World {
         "ffffffllfffffffflllm",
         "ffffffffvffffffflllm",
         "fmfffffffffffffflllm",
-        "fffffffffffffffflllm",
+        "fmfffffffffffffflllm",
+        "fmfffffffffffffflllm",
     ];
     
     let mut world = World::new(); // Create the initial World structure
@@ -151,8 +152,8 @@ impl World {
     pub fn move_between_tiles(
         &self,
         agent_id: u32,
-        pos_x2: usize,
         pos_y2: usize,
+        pos_x2: usize,
         commands: &mut Commands,
     ) -> Result<(), MyError> {
         let mut agents_positions = self.agents.lock().unwrap();
@@ -182,7 +183,7 @@ impl World {
             let mut removed_agent = lock1.remove_agent(agent_id)?;
 
             // Move the agent's sprite to the new position
-            removed_agent.move_to(pos_x2 as f32, pos_y2 as f32, commands);
+            removed_agent.move_to( pos_y2 as f32, pos_x2 as f32,commands);
 
             // Add the agent to Tile 2
             lock2.add_agent(removed_agent);
