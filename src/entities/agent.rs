@@ -15,6 +15,15 @@ pub enum Status {
     Dead,
 }
 
+#[derive(Clone)]
+pub enum Target{
+    Agent,
+    Monster, 
+    None,
+    Tile,
+    Treasure,
+}
+
 // Define the Genes struct
 #[derive(Clone)]
 pub struct Genes {
@@ -35,10 +44,11 @@ pub struct Agent {
     pub action: Option<NpcAction>,
     pub id: u32,
     pub status: Status,
+    pub target: Target,
     pub monster_target_id: Option<u32>,
     pub agent_target_id: Option<u32>,
     pub treasure_target_id: Option<u32>,
-    pub tile_target_id: Option<u32>,
+    pub tile_target: Option<(u32, u32)>,
     pub path: Option<Vec<(i32, i32)>>,
 }
 
@@ -114,10 +124,11 @@ impl Agent {
             },
             action: None::<NpcAction>,
             status: Status::Idle,
+            target: Target::None,
             monster_target_id: None::<u32>,
             agent_target_id: None::<u32>,
             treasure_target_id: None::<u32>,
-            tile_target_id: None::<u32>,
+            tile_target: None::<(u32, u32)>,
             path: None::<Vec<(i32, i32)>>,
         }
     }
@@ -169,9 +180,6 @@ impl Agent {
             Err(MyError::PathNotFound)
         }
     }
-    // if let Some(path) = find_path(world, self.get_current_position(), self.get_destination_position()) {
-    //     // Update the agent's path with the returned path
-    //     self.path = Some(path);
 
     pub fn get_position(&self) -> (f32, f32) {
         (self.transform.translation.x / 32.0, self.transform.translation.y / 32.0)

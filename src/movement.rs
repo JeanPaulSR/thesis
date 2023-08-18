@@ -1,210 +1,105 @@
-use std::collections::{HashSet, HashMap};
+use std::collections::{HashMap};
 use crate::tile::TileType;
 use crate::World;
-#[allow(dead_code)]
-#[derive(Eq, Hash, Debug)]
-pub struct Node {
-    pub pos: (i32, i32),
-    pub g_score: i32,
-    pub h_score: i32,
-    pub f_score: i32,
-    pub parent: Option<Box<Node>>,
-}
+use std::collections::{BinaryHeap};
+use std::cmp::Ordering;
 
-impl Node {
-    fn _print(&self) {
-        println!("Position: {:?}", self.pos);
-        println!("G Score: {:?}", self.g_score);
-        println!("H Score: {:?}", self.h_score);
-        println!("F Score: {:?}", self.f_score);
-        match &self.parent {
-            Some(parent) => println!("Parent: {:?}", parent.pos),
-            None => println!("Parent: None")
+pub fn find_path(grid: &World, start_pos: (i32, i32), end_pos: (i32, i32)) -> Option<Vec<(i32, i32)>> {
+    let mut open_set = BinaryHeap::new();
+    let mut came_from: HashMap<(i32, i32), (i32, i32)> = HashMap::new();
+    let mut g_score: HashMap<(i32, i32), i32> = HashMap::new();
+
+    open_set.push(Node {
+        position: start_pos,
+        g_score: 0,
+        h_score: heuristic_cost_estimate(start_pos, end_pos),
+    });
+
+    g_score.insert(start_pos, 0);
+
+    while let Some(current_node) = open_set.pop() {
+        if current_node.position == end_pos {
+            return Some(reconstruct_path(came_from, end_pos));
         }
-    }
-}
 
-#[allow(dead_code)]
-impl Node {
-    pub fn new(pos: (i32, i32), g_score: i32, h_score: i32, f_score: i32, parent: Option<Box<Node>>) -> Self {
-        Node {
-            pos,
-            g_score,
-            h_score,
-            f_score,
-            parent,
-        }
-    }
-}
+        let (x, y) = current_node.position;
 
-impl Clone for Node {
-    fn clone(&self) -> Self {
-        Node {
-            pos: self.pos.clone(),
-            g_score: self.g_score,
-            h_score: self.h_score,
-            f_score: self.f_score,
-            parent: self.parent.clone(),
-        }
-    }
-}
+        for &(dx, dy) in &[(1, 0), (-1, 0), (0, 1), (0, -1),] {
+            let new_x = x + dx;
+            let new_y = y + dy;
 
-impl PartialEq for Node {
-    fn eq(&self, other: &Self) -> bool {
-        self.pos == other.pos
-    }
-}
-
-fn get_neighbors(world: &World, node: &Node) -> Vec<Node> {
-    let mut neighbors = vec![];
-
-    for i in -1..=1 {
-        for j in -1..=1 {
-            if i == 0 && j == 0 {
+            if new_x < 0 || new_x >= grid.grid[0].len() as i32 || new_y < 0 || new_y >= grid.grid.len() as i32 {
                 continue;
             }
 
-            let x = node.pos.0 + i;
-            let y = node.pos.1 + j;
-
-            if x < 0 || x >= world.grid.len() as i32 || y < 0 || y >= world.grid[0].len() as i32 {
-                continue;
-            }
-
-            let tile_lock = &world.grid[y as usize][x as usize];
-            let tile_type = tile_lock.lock().unwrap().get_tile_type();
-
-            // Print the current TileType
-            //println!("Current Position: ({}, {}), TileType: {:?}", x, y, tile_type);
-
-
-            let weight = match tile_type {
+            let new_tile_lock = &grid.grid[new_y as usize][new_x as usize];
+            let new_tile_type = new_tile_lock.lock().unwrap().get_tile_type();
+            println!("Current Position: ({}, {}), TileType: {:?}", new_x, new_y, new_tile_type);
+            let new_weight = match new_tile_type {
                 TileType::Forest | TileType::Village | TileType::Dungeon => 1,
                 TileType::Lake | TileType::Mountain => 10000,
             };
 
-            let new_g_score = node.g_score + weight;
+            let tentative_g_score = current_node.g_score + new_weight;
 
-            neighbors.push(Node {
-                pos: (x, y),
-                g_score: new_g_score,
-                h_score: 0,
-                f_score: 0,
-                parent: Some(Box::new(node.clone())),
-            });
-        }
-    }
-
-    neighbors
-}
-
-// calculate the g score (the cost from the start node to the current node)
-fn calculate_g_score(node: &Node, start: &Node) -> i32 {
-    let mut g = node.g_score;
-
-    let mut current_node = node;
-    while let Some(parent) = current_node.parent.as_ref() {
-        if parent.pos.0 != current_node.pos.0 && parent.pos.1 != current_node.pos.1 {
-            g += 14; // diagonal move
-        } else {
-            g += 10; // horizontal or vertical move
-        }
-        if parent.pos.0 == start.pos.0 && parent.pos.1 == start.pos.1 {
-            // found a path to the start node
-            break;
-        }
-        current_node = parent.as_ref();
-    }
-    g
-}
-
-// calculate the h score (the heuristic estimate of the cost from the current node to the goal node)
-fn calculate_h_score(pos: (i32, i32), goal_pos: (i32, i32)) -> i32 {
-    let dx = (pos.0 - goal_pos.0).abs();
-    let dy = (pos.1 - goal_pos.1).abs();
-    let diagonal = std::cmp::min(dx, dy);
-    let straight = dx + dy - diagonal;
-    10 * straight + 14 * diagonal
-}
-
-// Calculates the f score of a node
-fn _calculate_f_score(node: &Node, start: &Node, end: &Node) -> i32 {
-    let g = calculate_g_score(node, start);
-    let h = calculate_h_score(node.pos, end.pos);
-    g + h
-}
-
-// Returns the node with the lowest f score from a set of nodes
-fn get_lowest_f_score_node(open_set: &Vec<Node>) -> Node {
-    let mut lowest_node = open_set.first().unwrap();
-    let mut lowest_f_score = lowest_node.f_score;
-    for node in open_set {
-        if node.f_score < lowest_f_score {
-            lowest_f_score = node.f_score;
-            lowest_node = node;
-        }
-    }
-    lowest_node.clone()
-}
-
-fn get_node_positions(node: &Node) -> Vec<(i32, i32)> {
-    let mut positions = Vec::new();
-    let mut current_node = Some(node);
-
-    while let Some(node) = current_node {
-        positions.push(node.pos);
-        current_node = node.parent.as_ref().map(|n| n.as_ref());
-    }
-
-    positions.reverse();
-    positions
-}
-
-pub fn find_path(grid: &World, start_pos: (i32, i32), end_pos: (i32, i32)) -> Option<Vec<(i32, i32)>> {
-    let start = Node::new(start_pos, 0, 0, 0, None);
-    let end = Node::new(end_pos, 0, 0, 0, None);
-    let mut open_set = vec![start.clone()];
-    let mut closed_set = HashSet::new();
-    let mut came_from = HashMap::new();
-    let mut g_scores = HashMap::new();
-    g_scores.insert(start.clone(), 0);
-
-    while !open_set.is_empty() {
-        let current_node = get_lowest_f_score_node(&open_set);
-
-        if current_node == end {
-            return Some(get_node_positions(&current_node));
-        }
-
-        open_set.retain(|node| *node != current_node);
-
-        closed_set.insert(current_node.clone());
-
-        for neighbor in get_neighbors(grid, &current_node) {
-            if closed_set.contains(&neighbor) {
-                continue;
-            }
-            let tentative_g_score = calculate_g_score(&current_node, &start) + calculate_h_score(current_node.pos, neighbor.pos);
-
-            if !open_set.contains(&neighbor) || tentative_g_score < *g_scores.get(&neighbor).unwrap_or(&i32::MAX) {
-                came_from.insert(neighbor.clone(), current_node.clone());
-                g_scores.insert(neighbor.clone(), tentative_g_score);
-                let f_score = tentative_g_score + calculate_h_score(neighbor.pos, end.pos);
-
-                let neighbor_with_score = Node::new(
-                    neighbor.pos,
-                    tentative_g_score,
-                    calculate_h_score(neighbor.pos, end_pos),
-                    f_score,
-                    Some(Box::new(current_node.clone())),
-                );
-                if !open_set.contains(&neighbor) {
-                    open_set.push(neighbor_with_score);
+            if let Some(&g) = g_score.get(&(new_x, new_y)) {
+                if tentative_g_score >= g {
+                    continue;
                 }
             }
+
+            came_from.insert((new_x, new_y), current_node.position);
+            g_score.insert((new_x, new_y), tentative_g_score);
+
+            open_set.push(Node {
+                position: (new_x, new_y),
+                g_score: tentative_g_score,
+                h_score: heuristic_cost_estimate((new_x, new_y), end_pos),
+            });
         }
     }
 
     None
 }
 
+#[derive(Clone, PartialEq, Eq, Debug)]
+struct Node {
+    position: (i32, i32),
+    g_score: i32,
+    h_score: i32,
+}
+
+impl Node {
+    fn f_score(&self) -> i32 {
+        self.g_score + self.h_score
+    }
+}
+
+impl Ord for Node {
+    fn cmp(&self, other: &Self) -> Ordering {
+        other.f_score().cmp(&self.f_score())
+    }
+}
+
+impl PartialOrd for Node {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+fn heuristic_cost_estimate(start: (i32, i32), end: (i32, i32)) -> i32 {
+    let dx = (start.0 - end.0).abs();
+    let dy = (start.1 - end.1).abs();
+    dx + dy
+}
+
+fn reconstruct_path(came_from: HashMap<(i32, i32), (i32, i32)>, current: (i32, i32)) -> Vec<(i32, i32)> {
+    let mut path = vec![current];
+    let mut current = current;
+    while let Some(&prev) = came_from.get(&current) {
+        path.push(prev);
+        current = prev;
+    }
+    path.reverse();
+    path
+}

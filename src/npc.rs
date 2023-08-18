@@ -56,7 +56,7 @@ pub fn debug(
     }
 
     let start_pos = (0, 0);
-    let end_pos = (0, 4);
+    let end_pos = (4, 0);
     let agent = Agent::new_agent(0.0, 0.0, &mut commands, &mut materials, &asset_server);
     let _agent2 = Agent::new_agent(0.0, 5.0, &mut commands, &mut materials, &asset_server);
     

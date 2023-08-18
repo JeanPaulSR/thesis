@@ -13,6 +13,7 @@ pub enum MyError {
     TreasureNotFound,
     OutOfBounds,
     PathNotFound,
+    UnecessaryMove,
     OtherError,
     // Add more error variants here
 }
@@ -31,6 +32,7 @@ impl fmt::Display for MyError {
             MyError::TreasureNotFound => write!(f, "Treasure not found"),
             MyError::OutOfBounds => write!(f, "Treasure not found"),
             MyError::PathNotFound => write!(f, "Path not found"),
+            MyError::UnecessaryMove => write!(f, "Unecessary move"),
             MyError::OtherError => write!(f, "Other Error"),
             // Add more cases for other error variants
         }
@@ -132,5 +134,19 @@ impl Error for PathNotFound {}
 impl fmt::Display for PathNotFound {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "Path not found")
+    }
+}
+
+// Define a custom error type for out-of-bounds positions
+#[derive(Debug)]
+pub struct UnecessaryMove;
+
+// Implement the Error trait for the custom error type
+impl Error for UnecessaryMove {}
+
+// Implement the Display trait for the custom error type
+impl fmt::Display for UnecessaryMove {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "No need to move")
     }
 }
