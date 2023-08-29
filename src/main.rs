@@ -61,6 +61,7 @@ pub fn setup(
     mut materials: ResMut<Assets<ColorMaterial>>,
     mut world: ResMut<World>,
 ) {
+    
     // Load the individual textures
     let forest_texture = asset_server.load("textures/forest.png");
     let mountain_texture = asset_server.load("textures/mountain.png");

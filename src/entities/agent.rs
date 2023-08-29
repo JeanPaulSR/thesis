@@ -2,7 +2,7 @@ use bevy::prelude::*;
 use rand::distributions::{Distribution, Uniform};
 use crate::errors::MyError;
 use crate::mcst::NpcAction;
-use crate::{World, movement};
+use crate::{World};
 
 static mut A_COUNTER: u32 = 0;
 
@@ -169,7 +169,7 @@ impl Agent {
                 let agent_id = self.id;
 
                 // Call the move_between_tiles function to move the agent to the next position in the path
-                world.move_between_tiles(agent_id, x as usize, y as usize, commands)?;
+                world.move_agent(agent_id, x as usize, y as usize, commands)?;
             } else {
                 // If the path is empty, clear it to indicate that the agent has reached its destination
                 self.path = None;

@@ -64,7 +64,7 @@ pub fn debug(
     let _agent3 = Agent::new_agent(2.0, 2.0, &mut commands, &mut materials, &asset_server);
 
     world.print_agents();
-    match world.move_between_tiles(3, 7, 17, &mut commands) {
+    match world.move_agent(3, 7, 17, &mut commands) {
         Ok(()) => {
             // Move successful
             // Do something here if needed
@@ -76,7 +76,7 @@ pub fn debug(
     }
     
     world.print_agents();
-    match world.move_between_tiles(3, 8, 18, &mut commands) {
+    match world.move_agent(3, 8, 18, &mut commands) {
         Ok(()) => {
             // Move successful
             // Do something here if needed
