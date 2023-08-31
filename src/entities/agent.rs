@@ -1,3 +1,5 @@
+use std::fmt;
+
 use bevy::prelude::*;
 use rand::distributions::{Distribution, Uniform};
 use crate::errors::MyError;
@@ -8,7 +10,7 @@ use crate::World;
 static mut A_COUNTER: u32 = 0;
 
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub enum Status {
     Idle,
     Finished,
@@ -17,7 +19,7 @@ pub enum Status {
     Dead,
 }
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug)]
 pub enum Target{
     Agent,
     Monster, 
@@ -27,7 +29,7 @@ pub enum Target{
 }
 
 // Define the Genes struct
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct Genes {
     pub greed: f32,
     pub aggression: f32,
@@ -77,6 +79,19 @@ pub struct Agent {
     pub treasure_target_id: Option<u32>,
     pub tile_target: Option<(u32, u32)>,
     pub path: Option<Vec<(i32, i32)>>,
+}
+
+impl fmt::Debug for Agent {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("Agent")
+            .field("id", &self.id)
+            .field("genes", &self.genes)
+            .field("energy", &self.energy)
+            .field("action", &self.action)
+            .field("target", &self.target)
+            .field("tile_target", &self.tile_target)
+            .finish()
+    }
 }
 
 impl Agent {

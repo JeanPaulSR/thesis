@@ -7,7 +7,7 @@ use std::sync::{Arc, Mutex};
 #[derive(Clone)]
 pub struct Tile {
     tile_type: TileType,
-    agents: Arc<Mutex<Vec<Agent>>>,
+    pub agents: Arc<Mutex<Vec<Agent>>>,
     monsters: Arc<Mutex<Vec<Monster>>>,
     treasures: Arc<Mutex<Vec<Treasure>>>,
 }
@@ -68,44 +68,6 @@ impl Tile {
             Err(MyError::AgentNotFound)
         }
     }
-
-    //Function to get a reference to an agent by ID
-    // pub fn get_agent(&self, id: u32) -> Result<Option<MutexGuard<Agent>>, MyError> {
-    //     // Lock the mutex to access the agents vector
-    //     let mut agents = self.agents.lock().unwrap();
-
-    //     // Find the agent in the agents vector
-    //     if let Some(index) = agents.iter().position(|a| a.id == id) {
-    //         // Get a reference to the agent using indexing
-    //         let agent_ref = &mut agents[index];
-            
-    //         Ok(Some(agent_ref))
-    //     } else {
-    //         // Agent not found in the agents vector, return None
-    //         println!("Agent {} not found in tile.", id);
-    //         Ok(None)
-    //     }
-    // }
-    // pub fn get_agent(&self, id: u32) -> Result<&Agent, MyError> {
-    //     // Find the agent in the agents vector
-    //     if let Some(agent) = self.agents.lock().unwrap().iter().find(|a| a.id == id) {
-    //         Ok(agent)
-    //     } else {
-    //         // Agent not found in the agents vector, return an error
-    //         println!("Agent {} not found in tile.", id);
-    //         Err(MyError::AgentNotFound)
-    //     }
-    // }
-    // // Function to get a reference to the agents in the tile
-    // pub fn get_agents(&self) -> Result<Vec<&Agent>, MyError> {
-    //     // Lock the agents mutex
-    //     let agents_lock = self.agents.lock().unwrap();
-
-    //     // Create a vector of references to the agents
-    //     let agents_ref: Vec<&Agent> = agents_lock.iter().collect();
-
-    //     Ok(agents_ref)
-    // }
     
 //     _____                          __                
 //    /     \   ____   ____   _______/  |_  ___________ 

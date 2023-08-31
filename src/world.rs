@@ -207,28 +207,17 @@ impl World {
         }
     }
 
-    // pub fn get_agent(&self, agent_id: u32) -> Result<&Agent, MyError> {
-    //     // Lock the agents hash map
-    //     let agents_lock = self.agents.lock().unwrap();
-    
-    //     // Check if the agent's position is saved in the hash map
-    //     if let Some((x, y)) = agents_lock.get(&agent_id) {
-    //         // Get the tile at the agent's position
-    //         if let Some(tile_mutex) = self.grid.get(*y as usize).and_then(|row| row.get(*x as usize)) {
-    //             let mut tile = tile_mutex.lock().unwrap();
-    
-    //             // Retrieve the agent from the tile
-    //             match tile.get_agent(agent_id) {
-    //                 Ok(agent) => Ok(agent),
-    //                 Err(_) => Err(MyError::AgentNotFound),
-    //             }
-    //         } else {
-    //             // Tile not found, return an error
-    //             Err(MyError::TileNotFound)
+    // pub fn call_agent_function(&self, agent_id: u32) {
+    //     // Lock the agents hashmap
+    //     let agents = self.agents.lock().unwrap();
+
+    //     // Check if the agent with the given id exists
+    //     if let Some((x, y)) = agents.get(&agent_id) {
+    //         // Get a reference to the agent from the Tile
+    //         if let Some(agent) = self.grid[*y][*x].agents.lock().unwrap().iter().find(|a| a.id == agent_id) {
+    //             // Call a function on the agent
+    //             agent.some_function(); // Replace with the actual function you want to call
     //         }
-    //     } else {
-    //         // Agent not found in the hash map, return an error
-    //         Err(MyError::AgentNotFound)
     //     }
     // }
 
