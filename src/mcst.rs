@@ -2,10 +2,10 @@
 #[derive(Clone)]
 #[derive(Debug)]
 pub enum NpcAction {
-    MoveToVillage,
-    MoveToTreasure,
-    MoveToMonster,
-    MoveToSteal,
+    Attack,
+    Steal,
+    Rest,
+    Talk,
     // Add more actions as needed
 }
 

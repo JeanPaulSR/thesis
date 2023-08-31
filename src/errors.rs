@@ -14,6 +14,7 @@ pub enum MyError {
     OutOfBounds,
     PathNotFound,
     UnecessaryMove,
+    InvalidTarget,
     OtherError,
     // Add more error variants here
 }
@@ -33,6 +34,7 @@ impl fmt::Display for MyError {
             MyError::OutOfBounds => write!(f, "Treasure not found"),
             MyError::PathNotFound => write!(f, "Path not found"),
             MyError::UnecessaryMove => write!(f, "Unecessary move"),
+            MyError::InvalidTarget=> write!(f, "Invalid Target"),
             MyError::OtherError => write!(f, "Other Error"),
             // Add more cases for other error variants
         }
@@ -148,5 +150,19 @@ impl Error for UnecessaryMove {}
 impl fmt::Display for UnecessaryMove {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "No need to move")
+    }
+}
+
+// Define a custom error type for out-of-bounds positions
+#[derive(Debug)]
+pub struct InvalidTarget;
+
+// Implement the Error trait for the custom error type
+impl Error for InvalidTarget {}
+
+// Implement the Display trait for the custom error type
+impl fmt::Display for InvalidTarget {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "Target is invalid")
     }
 }

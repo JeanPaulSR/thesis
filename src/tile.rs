@@ -2,7 +2,6 @@ use crate::entities::monster::Monster;
 use crate::entities::agent::Agent;
 use crate::entities::treasure::Treasure;
 use crate::errors::MyError;
-
 use std::sync::{Arc, Mutex};
 
 #[derive(Clone)]
@@ -70,10 +69,26 @@ impl Tile {
         }
     }
 
-    // //Function to get a reference to an agent by ID
-    // pub fn get_agent(&mut self, id: u32) -> Result<&mut Agent, MyError> {
+    //Function to get a reference to an agent by ID
+    // pub fn get_agent(&self, id: u32) -> Result<Option<MutexGuard<Agent>>, MyError> {
+    //     // Lock the mutex to access the agents vector
+    //     let mut agents = self.agents.lock().unwrap();
+
     //     // Find the agent in the agents vector
-    //     if let Some(agent) = self.agents.lock().unwrap().iter_mut().find(|a| a.id == id) {
+    //     if let Some(index) = agents.iter().position(|a| a.id == id) {
+    //         // Get a reference to the agent using indexing
+    //         let agent_ref = &mut agents[index];
+            
+    //         Ok(Some(agent_ref))
+    //     } else {
+    //         // Agent not found in the agents vector, return None
+    //         println!("Agent {} not found in tile.", id);
+    //         Ok(None)
+    //     }
+    // }
+    // pub fn get_agent(&self, id: u32) -> Result<&Agent, MyError> {
+    //     // Find the agent in the agents vector
+    //     if let Some(agent) = self.agents.lock().unwrap().iter().find(|a| a.id == id) {
     //         Ok(agent)
     //     } else {
     //         // Agent not found in the agents vector, return an error
@@ -81,7 +96,6 @@ impl Tile {
     //         Err(MyError::AgentNotFound)
     //     }
     // }
-
     // // Function to get a reference to the agents in the tile
     // pub fn get_agents(&self) -> Result<Vec<&Agent>, MyError> {
     //     // Lock the agents mutex

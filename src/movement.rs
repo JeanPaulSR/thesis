@@ -1,7 +1,7 @@
-use std::collections::{HashMap};
+use std::collections::HashMap;
 use crate::tile::TileType;
 use crate::World;
-use std::collections::{BinaryHeap};
+use std::collections::BinaryHeap;
 use std::cmp::Ordering;
 
 pub fn find_path(grid: &World, start_pos: (i32, i32), end_pos: (i32, i32)) -> Option<Vec<(i32, i32)>> {

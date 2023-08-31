@@ -148,7 +148,27 @@ impl World {
         }
     }
 
-   
+    pub fn get_agent_position(&self, agent_id: u32) -> Result<(usize, usize), MyError> {
+        match self.agents.lock().unwrap().get(&agent_id) {
+            Some(position) => Ok(*position),
+            None => Err(MyError::AgentNotFound),
+        }
+    }
+    
+    pub fn get_monster_position(&self, monster_id: u32) -> Result<(usize, usize), MyError> {
+        match self.monsters.lock().unwrap().get(&monster_id) {
+            Some(position) => Ok(*position),
+            None => Err(MyError::MonsterNotFound),
+        }
+    }
+    
+    pub fn get_treasure_position(&self, treasure_id: u32) -> Result<(usize, usize), MyError> {
+        match self.treasures.lock().unwrap().get(&treasure_id) {
+            Some(position) => Ok(*position),
+            None => Err(MyError::TreasureNotFound),
+        }
+    }
+    
     
 //    _____                         __   
 //    /  _  \    ____   ____   _____/  |_ 

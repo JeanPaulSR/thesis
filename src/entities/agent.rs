@@ -2,7 +2,8 @@ use bevy::prelude::*;
 use rand::distributions::{Distribution, Uniform};
 use crate::errors::MyError;
 use crate::mcst::NpcAction;
-use crate::{World};
+use crate::movement::find_path;
+use crate::World;
 
 static mut A_COUNTER: u32 = 0;
 
@@ -12,10 +13,11 @@ pub enum Status {
     Idle,
     Finished,
     Working,
+    Moving,
     Dead,
 }
 
-#[derive(Clone)]
+#[derive(Clone, Copy)]
 pub enum Target{
     Agent,
     Monster, 
@@ -34,11 +36,36 @@ pub struct Genes {
     pub vision: f32,
 }
 
+impl Genes{
+    pub fn generate() -> Self{
+    
+        // Initialize a random number generator
+        let mut rng = rand::thread_rng();
+    
+        // Define distribution ranges for agent attributes
+        let greed_distribution = Uniform::new(0.5, 1.0);
+        let aggression_distribution = Uniform::new(0.3, 0.8);
+        let common_distribution = Uniform::new(0.0, 1.0);
+        let vision_distribution = Uniform::new(3.0, 8.0);
+        
+        Genes {
+            greed: greed_distribution.sample(&mut rng),
+            aggression: aggression_distribution.sample(&mut rng),
+            social: common_distribution.sample(&mut rng),
+            self_preservation: common_distribution.sample(&mut rng),
+            vision: vision_distribution.sample(&mut rng),
+        }
+    }
+
+}
+
 // Modify the Agent struct to include the Genes field
 #[derive(Clone)]
 pub struct Agent {
     pub entity: Entity,
     pub genes: Genes,
+    pub energy: u8,
+    pub max_energy: u8,
     pub transform: Transform,
     pub sprite_bundle: SpriteBundle,
     pub action: Option<NpcAction>,
@@ -73,15 +100,6 @@ impl Agent {
         x = x * 32.0;
         y = y * 32.0;
     
-        // Initialize a random number generator
-        let mut rng = rand::thread_rng();
-    
-        // Define distribution ranges for agent attributes
-        let greed_distribution = Uniform::new(0.5, 1.0);
-        let aggression_distribution = Uniform::new(0.3, 0.8);
-        let common_distribution = Uniform::new(0.0, 1.0);
-        let vision_distribution = Uniform::new(3.0, 8.0);
-    
         // Define the size of the agent's sprite
         let sprite_size = Vec2::new(32.0, 32.0); 
     
@@ -102,17 +120,11 @@ impl Agent {
         }
     
         // Create a new instance of the Genes struct with random attribute values
-        let genes = Genes {
-            greed: greed_distribution.sample(&mut rng),
-            aggression: aggression_distribution.sample(&mut rng),
-            social: common_distribution.sample(&mut rng),
-            self_preservation: common_distribution.sample(&mut rng),
-            vision: vision_distribution.sample(&mut rng),
-        };
+        
     
         // Create and return a new instance of the Agent struct
         Agent {
-            genes,
+            genes : Genes::generate(),
             id: unsafe { A_COUNTER },
             entity,
             transform: Transform::from_translation(Vec3::new(x , y , 0.0)),
@@ -122,6 +134,8 @@ impl Agent {
                 transform: Transform::from_translation(Vec3::new(0.0, 0.0, 1.0)), // Adjust position in relation to the agent transform
                 ..Default::default()
             },
+            energy: 100,
+            max_energy: 100,
             action: None::<NpcAction>,
             status: Status::Idle,
             target: Target::None,
@@ -161,18 +175,35 @@ impl Agent {
         world: ResMut<World>,
         commands: &mut Commands,
     ) -> Result<(), MyError> {
+        // Check if the agent's current position is equal to the tile target
+        if self.get_position() == self.tile_target.unwrap_or_default() {
+            // Agent is already at the target tile
+            return Ok(());
+        }
+    
+        // Create the path if it's missing or empty
+        if self.path.is_none() || self.path.as_ref().unwrap().is_empty() {
+            self.path = find_path(
+                &world,
+                (
+                    self.get_position().0 as i32,
+                    self.get_position().1 as i32,
+                ),
+                (
+                    self.tile_target.unwrap_or_default().0 as i32,
+                    self.tile_target.unwrap_or_default().1 as i32,
+                ),
+            );
+        }
+    
         // Check if there is a path available
         if let Some(path) = &mut self.path {
-            // If the path is not empty, pop the first position and move the agent to that position
             if let Some((x, y)) = path.pop() {
                 // Get the agent's ID
                 let agent_id = self.id;
-
+    
                 // Call the move_between_tiles function to move the agent to the next position in the path
                 world.move_agent(agent_id, x as usize, y as usize, commands)?;
-            } else {
-                // If the path is empty, clear it to indicate that the agent has reached its destination
-                self.path = None;
             }
             Ok(())
         } else {
@@ -181,11 +212,25 @@ impl Agent {
         }
     }
 
-    pub fn get_position(&self) -> (f32, f32) {
-        (self.transform.translation.x / 32.0, self.transform.translation.y / 32.0)
+    pub fn get_position(&self) -> (u32, u32) {
+        (
+            (self.transform.translation.x / 32.0) as u32,
+            (self.transform.translation.y / 32.0) as u32,
+        )
     }
 
+    pub fn add_energy(&mut self, energy: u8) {
+        let new_energy = self.energy.saturating_add(energy); 
+        self.energy = new_energy.min(self.max_energy); 
+    }
 
+    pub fn remove_energy(&mut self, energy: u8) {
+        self.energy = self.energy.saturating_sub(energy);
+
+        if self.energy == 0 {
+            self.set_status(Status::Dead);
+        }
+    }
 
     pub fn set_status(&mut self, status: Status) {
         self.status = status;
@@ -199,25 +244,97 @@ impl Agent {
         self.action = Some(action);
     }
 
-    fn _perform_action(&mut self) {
-        if let Some(ref action) = self.action {
-            match action {
-                NpcAction::MoveToVillage => {
-                    // Logic for moving to a village
-                }
-                NpcAction::MoveToTreasure => {
-                    // Logic for moving to a treasure
-                }
-                NpcAction::MoveToMonster => {
-                    // Logic for moving to a monster
-                }
-                NpcAction::MoveToSteal => {
-                    // Logic for moving to steal
+    //Add error handling if the target is gone/dead
+    fn _perform_action(&mut self, world: ResMut<World>, commands: &mut Commands) -> Result<(), MyError> {
+        let current_target = self.target;
+        match current_target {
+            Target::Agent => {
+                if let Some(agent_id) = self.agent_target_id {
+                    match world.get_agent_position(agent_id) {
+                        Ok(agent_position) => {
+                            let (x, y) = agent_position;
+                            self.tile_target = Some((x as u32, y as u32));
+                        }
+                        Err(MyError::AgentNotFound) => {
+                            return Err(MyError::AgentNotFound);
+                        }
+                        _ => {} // Handle other errors if needed
+                    }
                 }
             }
-            // Clear the action after performing it
-            self.action = None;
+            Target::Monster => {
+                if let Some(monster_id) = self.monster_target_id {
+                    match world.get_monster_position(monster_id) {
+                        Ok(monster_position) => {
+                            let (x, y) = monster_position;
+                            self.tile_target = Some((x as u32, y as u32));
+                        }
+                        Err(MyError::MonsterNotFound) => {
+                            return Err(MyError::MonsterNotFound);
+                        }
+                        _ => {} // Handle other errors if needed
+                    }
+                }
+            }
+            Target::Treasure => {
+                if let Some(treasure_id) = self.treasure_target_id {
+                    match world.get_treasure_position(treasure_id) {
+                        Ok(treasure_position) => {
+                            let (x, y) = treasure_position;
+                            self.tile_target = Some((x as u32, y as u32));
+                        }
+                        Err(MyError::TreasureNotFound) => {
+                            return Err(MyError::TreasureNotFound);
+                        }
+                        _ => {} // Handle other errors if needed
+                    }
+                }
+            }
+            Target::None => {
+                return Err(MyError::InvalidTarget);
+            }
+            Target::Tile => {
+                // Do nothing for Target::Tile
+            }
+        }
+    
+        // Check if the agent's current position is equal to the tile target
+        if self.get_position() == self.tile_target.unwrap_or_default() {
+            // Continue with action logic
+            if let Some(ref action) = self.action {
+                match action {
+                    NpcAction::Attack => {
+                        match current_target{
+                            Target::Agent => todo!(),
+                            Target::Monster => todo!(),
+                            Target::None => todo!(),
+                            Target::Tile => todo!(),
+                            Target::Treasure => todo!(),
+                        }
+                        // Attack formula
+                        // Agents have 3 lives
+                        // Every time an agent attacks something they lose a life
+                    }
+                    NpcAction::Steal => {
+                        // Logic for moving to a treasure
+                    }
+                    NpcAction::Rest => {
+                        // Logic for moving to a monster
+                    }
+                    NpcAction::Talk => todo!(),
+                }
+                // Clear the action after performing it
+                self.status = Status::Idle;
+            }
+            Ok(()) // Return Ok to indicate success
+        } else {
+            // If the agent is not at the target position, initiate travel
+            self.travel(world, commands)?; 
+            self.set_status(Status::Moving);
+            Ok(()) // Return Ok to indicate success
         }
     }
 
+
 }
+
