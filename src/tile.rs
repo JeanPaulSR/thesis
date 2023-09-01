@@ -2,7 +2,7 @@ use crate::entities::monster::Monster;
 use crate::entities::agent::Agent;
 use crate::entities::treasure::Treasure;
 use crate::errors::MyError;
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, Mutex, MutexGuard};
 
 #[derive(Clone)]
 pub struct Tile {
@@ -69,6 +69,9 @@ impl Tile {
         }
     }
     
+    pub fn get_agents(&self) -> MutexGuard<Vec<Agent>> {
+        self.agents.lock().unwrap()
+    }
 //     _____                          __                
 //    /     \   ____   ____   _______/  |_  ___________ 
 //   /  \ /  \ /  _ \ /    \ /  ___/\   __\/ __ \_  __ \

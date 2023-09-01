@@ -61,6 +61,12 @@ impl Genes{
 
 }
 
+pub enum AgentAction {
+    SetStatus(Status),
+    SetAction(NpcAction),
+    // Add more actions as needed
+}
+
 // Modify the Agent struct to include the Genes field
 #[derive(Clone)]
 pub struct Agent {
@@ -255,7 +261,7 @@ impl Agent {
         self.status.clone()
     }
 
-    fn _set_action(&mut self, action: NpcAction) {
+    pub fn set_action(&mut self, action: NpcAction) {
         self.action = Some(action);
     }
 
@@ -320,7 +326,48 @@ impl Agent {
                 match action {
                     NpcAction::Attack => {
                         match current_target{
-                            Target::Agent => todo!(),
+                            Target::Agent => {
+                                let id = self.agent_target_id.ok_or(MyError::AgentNotFound)?;
+                                match world.get_agent_position(id) {
+                                    Ok((row, col)) => {
+                                        match world.get_tile(row, col) {
+                                            Ok(tile) => {
+                                                let tile_lock = tile.lock().unwrap();
+                                                let mut agents_lock = tile_lock.get_agents();
+                                                
+                                                // Find the specific agent within agents_lock and modify it
+                                                if let Some(agent) = agents_lock.iter_mut().find(|a| a.id == id) {
+                                                    agent.remove_energy(10);
+                                                } else {
+                                                    return Err(MyError::AgentNotFound)?;
+                                                }
+                                                
+                                                self.set_status(Status::Working);   
+                                                return Ok(()) // Return Ok(()) to indicate success
+                                            }
+                                            Err(MyError::TileNotFound) => Err(MyError::TileNotFound)?,
+                                            _ => Err(MyError::OtherError)?, // Handle other errors if needed
+                                        }
+                                    }
+                                    Err(MyError::AgentNotFound) => Err(MyError::AgentNotFound)?,
+                                    _ => Err(MyError::OtherError)?, // Handle other errors if needed
+                                }
+                            },
+                            // {
+                            //     let id = self.agent_target_id.ok_or(MyError::AgentNotFound)?;
+                            //     let (row, col) = world.get_agent_position(id)?;
+                            //     if let Some(tile) = world.grid.get(row).and_then(|row| row.get(col)) {
+                            //         let tile_lock = tile.lock().unwrap();
+                            //         let agents_lock = tile_lock.get_agents();
+                                    
+                            //         // Now you can find the specific agent within agents_lock
+                            //         let agent = agents_lock.iter().find(|a| a.id == id);
+                                    
+                            //         // Call the function you want on the agent
+                            //         Some(agent.expect("REASON").remove_energy(10));
+                            //     }
+                            //     Err(MyError::AgentNotFound)?;
+                            // },
                             Target::Monster => todo!(),
                             Target::None => todo!(),
                             Target::Tile => todo!(),

@@ -1,6 +1,8 @@
 use bevy::prelude::Commands;
 
 use crate::entities::agent::Agent;
+use crate::entities::agent::AgentAction;
+use crate::entities::agent::Status;
 use crate::entities::monster::Monster;
 use crate::entities::treasure::Treasure;
 use crate::tile::TileType;
@@ -69,6 +71,7 @@ pub struct World {
     pub grid: Vec<Vec<Arc<Mutex<Tile>>>>, 
 }
 
+
 impl World {
     
     fn new() -> Self {
@@ -110,12 +113,15 @@ impl World {
 
 
     // Function to get the Tile at position (x, y)
-    pub fn get_tile(&self, x: usize, y: usize) -> Result<Option<&Arc<Mutex<Tile>>>, MyError> {
+    pub fn get_tile(&self, x: usize, y: usize) -> Result<&Arc<Mutex<Tile>>, MyError> {
         // Check if the position is valid before attempting to get the Tile
         match self.is_valid_position(x, y) {
             Ok(_) => {
                 let grid_row = &self.grid[y];
-                Ok(grid_row.get(x))
+                match grid_row.get(x) {
+                    Some(tile) => Ok(tile),
+                    None => Err(MyError::TileNotFound),
+                }
             }
             Err(_) => Err(MyError::TileNotFound),
         }
@@ -140,10 +146,10 @@ impl World {
     
         // The position is valid, proceed to get the TileType
         match self.get_tile(x, y) {
-            Ok(tile_option) => Ok(tile_option.map(|tile| {
+            Ok(tile) => {
                 let tile_lock = tile.lock().unwrap(); // Lock the tile to access its type
-                tile_lock.get_tile_type()
-            })),
+                Ok(Some(tile_lock.get_tile_type().clone()))
+            }
             Err(_) => Ok(None), // Handle the case when the tile is not found
         }
     }
@@ -207,19 +213,25 @@ impl World {
         }
     }
 
-    // pub fn call_agent_function(&self, agent_id: u32) {
-    //     // Lock the agents hashmap
-    //     let agents = self.agents.lock().unwrap();
-
-    //     // Check if the agent with the given id exists
-    //     if let Some((x, y)) = agents.get(&agent_id) {
-    //         // Get a reference to the agent from the Tile
-    //         if let Some(agent) = self.grid[*y][*x].agents.lock().unwrap().iter().find(|a| a.id == agent_id) {
-    //             // Call a function on the agent
-    //             agent.some_function(); // Replace with the actual function you want to call
-    //         }
-    //     }
-    // }
+    pub fn get_agent_status(&self, agent_id: u32) -> Result<Status, MyError> {
+        if let Some((row, col)) = self.agents.lock().unwrap().get(&agent_id) {
+            if let Some(tile) = self.grid.get(*row).and_then(|row| row.get(*col)) {
+                let tile_lock = tile.lock().unwrap();
+                let agents_lock = tile_lock.get_agents();
+                
+                // Now you can find the specific agent within agents_lock
+                if let Some(agent) = agents_lock.iter().find(|a| a.id == agent_id) {
+                    // Call the function you want on the agent
+                    return Ok(agent.get_status());
+                } else {
+                    println!("Agent not found attempting to get status");
+                    return Err(MyError::AgentNotFound);
+                }
+            }
+        }
+        println!("Agent not found attempting to get status");
+        Err(MyError::AgentNotFound)
+    }
 
     // Function to remove an agent from the world and its tile
     pub fn remove_agent(&mut self, agent_id: u32) -> Result<(), MyError> {
@@ -300,6 +312,38 @@ impl World {
             Err(MyError::AgentNotFound)
         }
     }
+
+    pub fn perform_agent_action(&self, agent_id: u32, action: AgentAction) -> Result<(), MyError> {
+        if let Some((row, col)) = self.agents.lock().unwrap().get(&agent_id) {
+            if let Some(tile) = self.grid.get(*row).and_then(|row| row.get(*col)) {
+                let tile_lock = tile.lock().unwrap();
+                let mut agents_lock = tile_lock.get_agents();
+                
+                // Now you can find the specific agent within agents_lock by finding its index
+                if let Some(index) = agents_lock.iter().position(|a| a.id == agent_id) {
+                    // Get a mutable reference to the agent at the found index
+                    let agent = &mut agents_lock[index];
+                    // Call the specific function based on the action
+                    match action {
+                        AgentAction::SetStatus(status) => agent.set_status(status),
+                        AgentAction::SetAction(npc_action) => agent.set_action(npc_action),
+                        // Add more actions as needed
+                    }
+                    return Ok(());
+                } else {
+                    println!("Agent not found");
+                    return Err(MyError::AgentNotFound);
+                }
+            }
+        }
+        println!("Agent not found");
+        Err(MyError::AgentNotFound)
+    }
+    
+    
+    
+
+    
 //     _____                          __                
 //    /     \   ____   ____   _______/  |_  ___________ 
 //   /  \ /  \ /  _ \ /    \ /  ___/\   __\/ __ \_  __ \
