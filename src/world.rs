@@ -2,9 +2,12 @@ use bevy::prelude::Commands;
 
 use crate::entities::agent::Agent;
 use crate::entities::agent::AgentAction;
+use crate::entities::agent::Genes;
 use crate::entities::agent::Status;
+use crate::entities::agent::Target;
 use crate::entities::monster::Monster;
 use crate::entities::treasure::Treasure;
+use crate::mcst::NpcAction;
 use crate::tile::TileType;
 use crate::tile::Tile;
 use crate::errors::MyError;
@@ -199,7 +202,7 @@ impl World {
             let mut agents = self.agents.lock().unwrap();
 
             // Add the agent's position to the agents hash map
-            agents.insert(agent.id, (x as usize, y as usize));
+            agents.insert(agent.get_id(), (x as usize, y as usize));
 
             // Add the agent to the tile's list of agents
             tile_lock.add_agent(agent);
@@ -208,29 +211,9 @@ impl World {
             Ok(())
         } else {
             // The position is out of bounds or the tile is not found, return an error
-            println!("Attempted to add agent {} to tile at position ({}, {}), but the tile was not found.", agent.id, x, y);
+            println!("Attempted to add agent {} to tile at position ({}, {}), but the tile was not found.", agent.get_id(), x, y);
             Err(MyError::TileNotFound)
         }
-    }
-
-    pub fn get_agent_status(&self, agent_id: u32) -> Result<Status, MyError> {
-        if let Some((row, col)) = self.agents.lock().unwrap().get(&agent_id) {
-            if let Some(tile) = self.grid.get(*row).and_then(|row| row.get(*col)) {
-                let tile_lock = tile.lock().unwrap();
-                let agents_lock = tile_lock.get_agents();
-                
-                // Now you can find the specific agent within agents_lock
-                if let Some(agent) = agents_lock.iter().find(|a| a.id == agent_id) {
-                    // Call the function you want on the agent
-                    return Ok(agent.get_status());
-                } else {
-                    println!("Agent not found attempting to get status");
-                    return Err(MyError::AgentNotFound);
-                }
-            }
-        }
-        println!("Agent not found attempting to get status");
-        Err(MyError::AgentNotFound)
     }
 
     // Function to remove an agent from the world and its tile
@@ -313,18 +296,26 @@ impl World {
         }
     }
 
-    pub fn perform_agent_action(&self, agent_id: u32, action: AgentAction) -> Result<(), MyError> {
+    pub fn set_agent_action(&self, agent_id: u32, action: AgentAction) -> Result<(), MyError> {
         if let Some((row, col)) = self.agents.lock().unwrap().get(&agent_id) {
             if let Some(tile) = self.grid.get(*row).and_then(|row| row.get(*col)) {
                 let tile_lock = tile.lock().unwrap();
                 let mut agents_lock = tile_lock.get_agents();
                 
                 // Now you can find the specific agent within agents_lock by finding its index
-                if let Some(index) = agents_lock.iter().position(|a| a.id == agent_id) {
+                if let Some(index) = agents_lock.iter().position(|a| a.get_id() == agent_id) {
                     // Get a mutable reference to the agent at the found index
                     let agent = &mut agents_lock[index];
                     // Call the specific function based on the action
                     match action {
+                        AgentAction::SetGene(gene) => agent.set_genes(gene),
+                        AgentAction::SetEnergy(energy) => agent.set_energy(energy),
+                        AgentAction::RemoveEnergy(energy) => agent.remove_energy(energy),
+                        AgentAction::SetMaxEnergy(energy) => agent.set_max_energy(energy),
+                        AgentAction::SetTarget(target) => agent.set_target(target),
+                        AgentAction::SetAgentId(id) => agent.set_agent_target_id(id),
+                        AgentAction::SetMonsterId(id) => agent.set_monster_target_id(id),
+                        AgentAction::SetTreasureId(id) => agent.set_treasure_target_id(id),
                         AgentAction::SetStatus(status) => agent.set_status(status),
                         AgentAction::SetAction(npc_action) => agent.set_action(npc_action),
                         // Add more actions as needed
@@ -339,7 +330,207 @@ impl World {
         println!("Agent not found");
         Err(MyError::AgentNotFound)
     }
-    
+
+    pub fn get_agent_genes(&self, agent_id: u32) -> Result<Genes, MyError> {
+        if let Some((row, col)) = self.agents.lock().unwrap().get(&agent_id) {
+            if let Some(tile) = self.grid.get(*row).and_then(|row| row.get(*col)) {
+                let tile_lock = tile.lock().unwrap();
+                let agents_lock = tile_lock.get_agents();
+                
+                // Now you can find the specific agent within agents_lock
+                if let Some(agent) = agents_lock.iter().find(|a| a.get_id() == agent_id) {
+                    // Return a clone of the agent's genes
+                    return Ok(agent.get_genes().clone());
+                } else {
+                    println!("Agent not found attempting to get status");
+                    return Err(MyError::AgentNotFound);
+                }
+            }
+        }
+        println!("Agent not found attempting to get status");
+        Err(MyError::AgentNotFound)
+    }   
+
+    pub fn get_agent_energy(&self, agent_id: u32) -> Result<u8, MyError> {
+        if let Some((row, col)) = self.agents.lock().unwrap().get(&agent_id) {
+            if let Some(tile) = self.grid.get(*row).and_then(|row| row.get(*col)) {
+                let tile_lock = tile.lock().unwrap();
+                let agents_lock = tile_lock.get_agents();
+                
+                // Now you can find the specific agent within agents_lock
+                if let Some(agent) = agents_lock.iter().find(|a| a.get_id() == agent_id) {
+                    // Return a clone of the agent's genes
+                    return Ok(agent.get_energy());
+                } else {
+                    println!("Agent not found attempting to get status");
+                    return Err(MyError::AgentNotFound);
+                }
+            }
+        }
+        println!("Agent not found attempting to get status");
+        Err(MyError::AgentNotFound)
+    }
+
+    pub fn get_agent_max_energy(&self, agent_id: u32) -> Result<u8, MyError> {
+        if let Some((row, col)) = self.agents.lock().unwrap().get(&agent_id) {
+            if let Some(tile) = self.grid.get(*row).and_then(|row| row.get(*col)) {
+                let tile_lock = tile.lock().unwrap();
+                let agents_lock = tile_lock.get_agents();
+                
+                // Now you can find the specific agent within agents_lock
+                if let Some(agent) = agents_lock.iter().find(|a| a.get_id() == agent_id) {
+                    // Return a clone of the agent's genes
+                    return Ok(agent.get_max_energy());
+                } else {
+                    println!("Agent not found attempting to get status");
+                    return Err(MyError::AgentNotFound);
+                }
+            }
+        }
+        println!("Agent not found attempting to get status");
+        Err(MyError::AgentNotFound)
+    }
+
+    pub fn get_agent_target(&self, agent_id: u32) -> Result<Target, MyError> {
+        if let Some((row, col)) = self.agents.lock().unwrap().get(&agent_id) {
+            if let Some(tile) = self.grid.get(*row).and_then(|row| row.get(*col)) {
+                let tile_lock = tile.lock().unwrap();
+                let agents_lock = tile_lock.get_agents();
+                
+                // Now you can find the specific agent within agents_lock
+                if let Some(agent) = agents_lock.iter().find(|a| a.get_id() == agent_id) {
+                    // Return a clone of the agent's genes
+                    return Ok(agent.get_target());
+                } else {
+                    println!("Agent not found attempting to get status");
+                    return Err(MyError::AgentNotFound);
+                }
+            }
+        }
+        println!("Agent not found attempting to get status");
+        Err(MyError::AgentNotFound)
+    }
+
+    pub fn get_agent_agent_target_id(&self, agent_id: u32) -> Result<u32, MyError> {
+        if let Some((row, col)) = self.agents.lock().unwrap().get(&agent_id) {
+            if let Some(tile) = self.grid.get(*row).and_then(|row| row.get(*col)) {
+                let tile_lock = tile.lock().unwrap();
+                let agents_lock = tile_lock.get_agents();
+                
+                // Now you can find the specific agent within agents_lock
+                if let Some(agent) = agents_lock.iter().find(|a| a.get_id() == agent_id) {
+                    // Return a clone of the agent's genes
+                    return Ok(agent.get_agent_target_id());
+                } else {
+                    println!("Agent not found attempting to get status");
+                    return Err(MyError::AgentNotFound);
+                }
+            }
+        }
+        println!("Agent not found attempting to get status");
+        Err(MyError::AgentNotFound)
+    }
+
+    pub fn get_agent_monster_target_id(&self, agent_id: u32) -> Result<u32, MyError> {
+        if let Some((row, col)) = self.agents.lock().unwrap().get(&agent_id) {
+            if let Some(tile) = self.grid.get(*row).and_then(|row| row.get(*col)) {
+                let tile_lock = tile.lock().unwrap();
+                let agents_lock = tile_lock.get_agents();
+                
+                // Now you can find the specific agent within agents_lock
+                if let Some(agent) = agents_lock.iter().find(|a| a.get_id() == agent_id) {
+                    // Return a clone of the agent's genes
+                    return Ok(agent.get_monster_target_id());
+                } else {
+                    println!("Agent not found attempting to get status");
+                    return Err(MyError::AgentNotFound);
+                }
+            }
+        }
+        println!("Agent not found attempting to get status");
+        Err(MyError::AgentNotFound)
+    }
+
+    pub fn get_agent_treasure_target_id(&self, agent_id: u32) -> Result<u32, MyError> {
+        if let Some((row, col)) = self.agents.lock().unwrap().get(&agent_id) {
+            if let Some(tile) = self.grid.get(*row).and_then(|row| row.get(*col)) {
+                let tile_lock = tile.lock().unwrap();
+                let agents_lock = tile_lock.get_agents();
+                
+                // Now you can find the specific agent within agents_lock
+                if let Some(agent) = agents_lock.iter().find(|a| a.get_id() == agent_id) {
+                    // Return a clone of the agent's genes
+                    return Ok(agent.get_treasure_target_id());
+                } else {
+                    println!("Agent not found attempting to get status");
+                    return Err(MyError::AgentNotFound);
+                }
+            }
+        }
+        println!("Agent not found attempting to get status");
+        Err(MyError::AgentNotFound)
+    }
+
+    pub fn get_agent_tile_target(&self, agent_id: u32) -> Result<Option<(u32, u32)>, MyError> {
+        if let Some((row, col)) = self.agents.lock().unwrap().get(&agent_id) {
+            if let Some(tile) = self.grid.get(*row).and_then(|row| row.get(*col)) {
+                let tile_lock = tile.lock().unwrap();
+                let agents_lock = tile_lock.get_agents();
+                
+                // Now you can find the specific agent within agents_lock
+                if let Some(agent) = agents_lock.iter().find(|a| a.get_id() == agent_id) {
+                    // Return a clone of the agent's genes
+                    return Ok(agent.get_tile_target());
+                } else {
+                    println!("Agent not found attempting to get status");
+                    return Err(MyError::AgentNotFound);
+                }
+            }
+        }
+        println!("Agent not found attempting to get status");
+        Err(MyError::AgentNotFound)
+    }
+
+    pub fn get_agent_status(&self, agent_id: u32) -> Result<Status, MyError> {
+        if let Some((row, col)) = self.agents.lock().unwrap().get(&agent_id) {
+            if let Some(tile) = self.grid.get(*row).and_then(|row| row.get(*col)) {
+                let tile_lock = tile.lock().unwrap();
+                let agents_lock = tile_lock.get_agents();
+                
+                // Now you can find the specific agent within agents_lock
+                if let Some(agent) = agents_lock.iter().find(|a| a.get_id() == agent_id) {
+                    // Call the function you want on the agent
+                    return Ok(agent.get_status());
+                } else {
+                    println!("Agent not found attempting to get status");
+                    return Err(MyError::AgentNotFound);
+                }
+            }
+        }
+        println!("Agent not found attempting to get status");
+        Err(MyError::AgentNotFound)
+    }
+
+    pub fn get_agent_action(&self, agent_id: u32) -> Result<Option<NpcAction>, MyError> {
+        if let Some((row, col)) = self.agents.lock().unwrap().get(&agent_id) {
+            if let Some(tile) = self.grid.get(*row).and_then(|row| row.get(*col)) {
+                let tile_lock = tile.lock().unwrap();
+                let agents_lock = tile_lock.get_agents();
+                
+                // Now you can find the specific agent within agents_lock
+                if let Some(agent) = agents_lock.iter().find(|a| a.get_id() == agent_id) {
+                    // Call the function you want on the agent
+                    return Ok(agent.get_action());
+                } else {
+                    println!("Agent not found attempting to get status");
+                    return Err(MyError::AgentNotFound);
+                }
+            }
+        }
+        println!("Agent not found attempting to get status");
+        Err(MyError::AgentNotFound)
+    }
+
     
     
 
@@ -380,32 +571,6 @@ impl World {
             Err(MyError::TileNotFound)
         }
     }
-
-    // // Function to get a reference to a monster by ID
-    // pub fn get_monster(&self, monster_id: u32) -> Result<&Monster, MyError> {
-    //     // Lock the monsters hash map
-    //     let monsters_lock = self.monsters.lock().unwrap();
-    
-    //     // Check if the monster's position is saved in the hash map
-    //     if let Some((x, y)) = monsters_lock.get(&monster_id) {
-    //         // Get the tile at the monster's position
-    //         if let Some(tile_mutex) = self.grid.get(*y as usize).and_then(|row| row.get(*x as usize)) {
-    //             let mut tile = tile_mutex.lock().unwrap();
-    
-    //             // Retrieve the monster from the tile
-    //             match tile.get_monster(monster_id) {
-    //                 Ok(monster) => Ok(monster),
-    //                 Err(_) => Err(MyError::MonsterNotFound),
-    //             }
-    //         } else {
-    //             // Tile not found, return an error
-    //             Err(MyError::TileNotFound)
-    //         }
-    //     } else {
-    //         // Monster not found in the hash map, return an error
-    //         Err(MyError::MonsterNotFound)
-    //     }
-    // }
 
     // Function to remove a monster from the world and its tile
     pub fn remove_monster(&mut self, monster_id: u32) -> Result<(), MyError> {
@@ -467,32 +632,6 @@ impl World {
         }
     }
 
-    // // Function to get a reference to a treasure by ID
-    // pub fn get_treasure(&self, treasure_id: u32) -> Result<&Treasure, MyError> {
-    //     // Lock the treasures hash map
-    //     let treasures_lock = self.treasures.lock().unwrap();
-    
-    //     // Check if the treasure's position is saved in the hash map
-    //     if let Some((x, y)) = treasures_lock.get(&treasure_id) {
-    //         // Get the tile at the treasure's position
-    //         if let Some(tile_mutex) = self.grid.get(*y as usize).and_then(|row| row.get(*x as usize)) {
-    //             let mut tile = tile_mutex.lock().unwrap();
-    
-    //             // Retrieve the treasure from the tile
-    //             match tile.get_treasure(treasure_id) {
-    //                 Ok(treasure) => Ok(treasure),
-    //                 Err(_) => Err(MyError::TreasureNotFound),
-    //             }
-    //         } else {
-    //             // Tile not found, return an error
-    //             Err(MyError::TileNotFound)
-    //         }
-    //     } else {
-    //         // Treasure not found in the hash map, return an error
-    //         Err(MyError::TreasureNotFound)
-    //     }
-    // }
-
     // Function to remove a treasure from the world and its tile
     pub fn remove_treasure(&mut self, treasure_id: u32) -> Result<(), MyError> {
         // Lock the treasures hash map
@@ -515,33 +654,5 @@ impl World {
         // Treasure not found, return an error
         Err(MyError::TreasureNotFound)
     }
-
-    // pub fn find_agents_within_distance(&self, agent: &Agent, distance: f32) -> Vec<u32> {
-    //     let mut nearby_agent_ids = Vec::new();
-    
-    //     // Get the position of the agent
-    //     let (x, y) = agent.get_position();
-    
-    //     // Check if the position is valid before attempting to get the tile
-    //     if let Ok(Some(tile_mutex)) = self.get_tile(x as usize, y as usize) {
-    //         // Lock the tile mutex and get the agents
-    //         let tile_lock = tile_mutex.lock().unwrap();
-    //         let agents_in_tile = tile_lock.get_agents().unwrap();
-    
-    //         for other_agent in agents_in_tile {
-    //             if agent.id != other_agent.id {
-    //                 let dx = (x as f32 - other_agent.transform.translation.x).abs() / 32.0;
-    //                 let dy = (y as f32 - other_agent.transform.translation.y).abs() / 32.0;
-    //                 let squared_distance = dx * dx + dy * dy;
-    //                 let calculated_distance = squared_distance.sqrt();
-    //                 if calculated_distance <= distance {
-    //                     nearby_agent_ids.push(other_agent.id);
-    //                 }
-    //             }
-    //         }
-    //     }
-    
-    //     nearby_agent_ids
-    // }
 
 }

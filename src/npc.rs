@@ -55,57 +55,54 @@ pub fn debug(
         } 
     }
 
-    // let start_pos = (0, 0);
-    // let end_pos = (4, 0);
-    // let agent = Agent::new_agent(0.0, 0.0, &mut commands, &mut materials, &asset_server);
-    // let _agent2 = Agent::new_agent(0.0, 5.0, &mut commands, &mut materials, &asset_server);
     
-    // world.add_agent(_agent2.clone()).ok();
-    // let _agent3 = Agent::new_agent(2.0, 2.0, &mut commands, &mut materials, &asset_server);
-
-    // world.print_agents();
-    // match world.move_agent(3, 7, 17, &mut commands) {
-    //     Ok(()) => {
-    //         // Move successful
-    //         // Do something here if needed
-    //     }
-    //     Err(err) => {
-    //         // Handle the error
-    //         eprintln!("Could not move agent. Error: {:?}", err);
-    //     }
-    // }
+    let start_pos = (0, 0);
+    let end_pos = (4, 0);
+    let agent = Agent::new_agent(0.0, 0.0, &mut commands, &mut materials, &asset_server);
+    let _agent2 = Agent::new_agent(0.0, 5.0, &mut commands, &mut materials, &asset_server);
     
-    // world.print_agents();
-    // match world.move_agent(3, 8, 18, &mut commands) {
-    //     Ok(()) => {
-    //         // Move successful
-    //         // Do something here if needed
-    //     }
-    //     Err(err) => {
-    //         // Handle the error
-    //         eprintln!("Could not move agent. Error: {:?}", err);
-    //     }
-    // }
+    world.add_agent(_agent2.clone()).ok();
+    let _agent3 = Agent::new_agent(2.0, 2.0, &mut commands, &mut materials, &asset_server);
 
-    // world.add_agent(agent.clone()).ok();
+    world.print_agents();
+    match world.move_agent(3, 7, 17, &mut commands) {
+        Ok(()) => {
+            // Move successful
+            // Do something here if needed
+        }
+        Err(err) => {
+            // Handle the error
+            eprintln!("Could not move agent. Error: {:?}", err);
+        }
+    }
+    
+    world.print_agents();
+    match world.move_agent(3, 8, 18, &mut commands) {
+        Ok(()) => {
+            // Move successful
+            // Do something here if needed
+        }
+        Err(err) => {
+            // Handle the error
+            eprintln!("Could not move agent. Error: {:?}", err);
+        }
+    }
 
-    // let mut monster = Monster::new_monster(3.0 * 32.0, 3.0 * 32.0, &mut commands, &mut materials, &asset_server);
-    // monster.travel(7.0, 1.0, &mut commands);
+    world.add_agent(agent.clone()).ok();
 
-    // if let Ok(_) = world.get_tile(0, 1) {
-    //     println!("Tile at Position: ({}, {}), TileType: {:?}", 0, 1, world.get_tile_type(0, 1));
-    // } else {
-    //     println!("Invalid position (0, 1)");
-    // }
+    let mut monster = Monster::new_monster(3.0 * 32.0, 3.0 * 32.0, &mut commands, &mut materials, &asset_server);
+    monster.travel(7.0, 1.0, &mut commands);
 
-    // if let Some(path) = find_path(&world, start_pos, end_pos) {
-    //     println!("Found path: {:?}", path);
-    // } else {
-    //     println!("Failed to find path.");
-    // }
+    if let Ok(_) = world.get_tile(0, 1) {
+        println!("Tile at Position: ({}, {}), TileType: {:?}", 0, 1, world.get_tile_type(0, 1));
+    } else {
+        println!("Invalid position (0, 1)");
+    }
 
-    // let nearby = world.find_agents_within_distance(&agent, 3.0);
-    // for agent_id in nearby {
-    //     world.print_agent(agent_id);
-    // }
+    if let Some(path) = find_path(&world, start_pos, end_pos) {
+        println!("Found path: {:?}", path);
+    } else {
+        println!("Failed to find path.");
+    }
+
 }

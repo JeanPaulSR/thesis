@@ -59,7 +59,7 @@ impl Tile {
     pub fn remove_agent(&mut self, agent_id: u32) -> Result<Agent, MyError> {
         let mut agents = self.agents.lock().unwrap();
         // Check if the agent is found in the tile's agents vector
-        if let Some(index) = agents.iter().position(|a| a.id == agent_id) {
+        if let Some(index) = agents.iter().position(|a| a.get_id() == agent_id) {
             // Agent found, remove it from the tile's agents vector
             let removed_agent = agents.remove(index);
             Ok(removed_agent)

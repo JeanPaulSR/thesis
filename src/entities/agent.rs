@@ -62,29 +62,37 @@ impl Genes{
 }
 
 pub enum AgentAction {
+    SetGene(Genes),
+    SetEnergy(u8),
+    RemoveEnergy(u8),
+    SetMaxEnergy(u8),
+    SetTarget(Target),
+    SetAgentId(u32),
+    SetMonsterId(u32),
+    SetTreasureId(u32),
     SetStatus(Status),
     SetAction(NpcAction),
     // Add more actions as needed
 }
 
-// Modify the Agent struct to include the Genes field
 #[derive(Clone)]
+#[allow(dead_code)]
 pub struct Agent {
-    pub entity: Entity,
-    pub genes: Genes,
-    pub energy: u8,
-    pub max_energy: u8,
-    pub transform: Transform,
-    pub sprite_bundle: SpriteBundle,
-    pub action: Option<NpcAction>,
-    pub id: u32,
-    pub status: Status,
-    pub target: Target,
-    pub monster_target_id: Option<u32>,
-    pub agent_target_id: Option<u32>,
-    pub treasure_target_id: Option<u32>,
-    pub tile_target: Option<(u32, u32)>,
-    pub path: Option<Vec<(i32, i32)>>,
+    entity: Entity,
+    genes: Genes,
+    energy: u8,
+    max_energy: u8,
+    transform: Transform,
+    sprite_bundle: SpriteBundle,
+    action: Option<NpcAction>,
+    id: u32,
+    status: Status,
+    target: Target,
+    monster_target_id: u32,
+    agent_target_id: u32,
+    treasure_target_id: u32,
+    tile_target: Option<(u32, u32)>,
+    path: Option<Vec<(i32, i32)>>,
 }
 
 impl fmt::Debug for Agent {
@@ -160,13 +168,132 @@ impl Agent {
             action: None::<NpcAction>,
             status: Status::Idle,
             target: Target::None,
-            monster_target_id: None::<u32>,
-            agent_target_id: None::<u32>,
-            treasure_target_id: None::<u32>,
+            monster_target_id: u32::MAX,
+            agent_target_id: u32::MAX,
+            treasure_target_id: u32::MAX,
             tile_target: None::<(u32, u32)>,
             path: None::<Vec<(i32, i32)>>,
         }
     }
+
+    
+    //   ________        __        /\   _________       __   
+    //  /  _____/  _____/  |_     / /  /   _____/ _____/  |_ 
+    // /   \  ____/ __ \   __\   / /   \_____  \_/ __ \   __\
+    // \    \_\  \  ___/|  |    / /     ______\ \  ___/|  |  
+    //  \______  /\___  >__|   / /    /_______  /\___  >__|  
+    //         \/     \/       \/             \/     \/      
+    pub fn get_position(&self) -> (u32, u32) {
+        (
+            (self.transform.translation.x / 32.0) as u32,
+            (self.transform.translation.y / 32.0) as u32,
+        )
+    }
+    
+    pub fn get_genes(&self) -> &Genes {
+        &self.genes
+    }
+
+    pub fn set_genes(&mut self, genes: Genes) {
+        self.genes = genes;
+    }
+
+    pub fn get_energy(&self) -> u8 {
+        self.energy
+    }
+
+    pub fn set_energy(&mut self, energy: u8) {
+        self.energy = energy;
+    }
+
+    pub fn add_energy(&mut self, energy: u8) {
+        let new_energy = self.energy.saturating_add(energy); 
+        self.energy = new_energy.min(self.max_energy); 
+    }
+
+    pub fn remove_energy(&mut self, energy: u8) {
+        self.energy = self.energy.saturating_sub(energy);
+
+        if self.energy == 0 {
+            self.set_status(Status::Dead);
+        }
+    }
+
+    pub fn get_max_energy(&self) -> u8 {
+        self.max_energy
+    }
+
+    pub fn set_max_energy(&mut self, max_energy: u8) {
+        self.max_energy = max_energy;
+    }
+
+    pub fn get_id(&self) -> u32 {
+        self.id
+    }
+
+    pub fn get_target(&self) -> Target {
+        self.target
+    }
+
+    pub fn set_target(&mut self, target: Target) {
+        self.target = target;
+    }
+
+    pub fn get_agent_target_id(&self) -> u32 {
+        self.agent_target_id
+    }
+
+    pub fn set_agent_target_id(&mut self, agent_target_id: u32) {
+        self.agent_target_id = agent_target_id;
+    }
+
+    pub fn get_monster_target_id(&self) -> u32 {
+        self.monster_target_id
+    }
+
+    pub fn set_monster_target_id(&mut self, monster_target_id: u32) {
+        self.monster_target_id = monster_target_id;
+    }
+
+    pub fn get_treasure_target_id(&self) -> u32 {
+        self.treasure_target_id
+    }
+
+    pub fn set_treasure_target_id(&mut self, treasure_target_id: u32) {
+        self.treasure_target_id = treasure_target_id;
+    }
+
+    pub fn get_tile_target(&self) -> Option<(u32, u32)> {
+        self.tile_target
+    }
+
+    pub fn set_tile_target(&mut self, tile_target: Option<(u32, u32)>) {
+        self.tile_target = tile_target;
+    }
+
+
+    pub fn set_status(&mut self, status: Status) {
+        self.status = status;
+    }
+
+    pub fn get_status(&self) -> Status {
+        self.status.clone()
+    }
+
+    pub fn get_action(&self) -> Option<NpcAction> {
+        self.action.clone()
+    }
+
+    pub fn set_action(&mut self, action: NpcAction) {
+        self.action = Some(action);
+    }
+
+    // ______      _     _ _      
+    // | ___ \    | |   | (_)     
+    // | |_/ /   _| |__ | |_  ___ 
+    // |  __/ | | | '_ \| | |/ __|
+    // | |  | |_| | |_) | | | (__ 
+    // \_|   \__,_|_.__/|_|_|\___|
 
     pub fn print(&self) {
         println!("Agent ID: {}", self.id);
@@ -233,82 +360,46 @@ impl Agent {
         }
     }
 
-    pub fn get_position(&self) -> (u32, u32) {
-        (
-            (self.transform.translation.x / 32.0) as u32,
-            (self.transform.translation.y / 32.0) as u32,
-        )
-    }
-
-    pub fn add_energy(&mut self, energy: u8) {
-        let new_energy = self.energy.saturating_add(energy); 
-        self.energy = new_energy.min(self.max_energy); 
-    }
-
-    pub fn remove_energy(&mut self, energy: u8) {
-        self.energy = self.energy.saturating_sub(energy);
-
-        if self.energy == 0 {
-            self.set_status(Status::Dead);
-        }
-    }
-
-    pub fn set_status(&mut self, status: Status) {
-        self.status = status;
-    }
-
-    pub fn get_status(&self) -> Status {
-        self.status.clone()
-    }
-
-    pub fn set_action(&mut self, action: NpcAction) {
-        self.action = Some(action);
-    }
+   
 
     //Add error handling if the target is gone/dead
     fn _perform_action(&mut self, world: ResMut<World>, commands: &mut Commands) -> Result<(), MyError> {
         let current_target = self.target;
         match current_target {
             Target::Agent => {
-                if let Some(agent_id) = self.agent_target_id {
-                    match world.get_agent_position(agent_id) {
-                        Ok(agent_position) => {
-                            let (x, y) = agent_position;
-                            self.tile_target = Some((x as u32, y as u32));
-                        }
-                        Err(MyError::AgentNotFound) => {
-                            return Err(MyError::AgentNotFound);
-                        }
-                        _ => {} // Handle other errors if needed
+                match world.get_agent_position(self.agent_target_id) {
+                    Ok(agent_position) => {
+                        let (x, y) = agent_position;
+                        self.tile_target = Some((x as u32, y as u32));
                     }
+                    Err(MyError::AgentNotFound) => {
+                        return Err(MyError::AgentNotFound);
+                    }
+                    _ => {} // Handle other errors if needed
                 }
             }
             Target::Monster => {
-                if let Some(monster_id) = self.monster_target_id {
-                    match world.get_monster_position(monster_id) {
-                        Ok(monster_position) => {
-                            let (x, y) = monster_position;
-                            self.tile_target = Some((x as u32, y as u32));
-                        }
-                        Err(MyError::MonsterNotFound) => {
-                            return Err(MyError::MonsterNotFound);
-                        }
-                        _ => {} // Handle other errors if needed
+                match world.get_monster_position(self.monster_target_id) {
+                    Ok(monster_position) => {
+                        let (x, y) = monster_position;
+                        self.tile_target = Some((x as u32, y as u32));
                     }
+                    Err(MyError::MonsterNotFound) => {
+                        return Err(MyError::MonsterNotFound);
+                    }
+                    _ => {} // Handle other errors if needed
                 }
             }
             Target::Treasure => {
-                if let Some(treasure_id) = self.treasure_target_id {
-                    match world.get_treasure_position(treasure_id) {
-                        Ok(treasure_position) => {
-                            let (x, y) = treasure_position;
-                            self.tile_target = Some((x as u32, y as u32));
-                        }
-                        Err(MyError::TreasureNotFound) => {
-                            return Err(MyError::TreasureNotFound);
-                        }
-                        _ => {} // Handle other errors if needed
+                match world.get_treasure_position(self.treasure_target_id) {
+                    Ok(treasure_position) => {
+                        let (x, y) = treasure_position;
+                        self.tile_target = Some((x as u32, y as u32));
                     }
+                    Err(MyError::TreasureNotFound) => {
+                        return Err(MyError::TreasureNotFound);
+                    }
+                    _ => {} // Handle other errors if needed
                 }
             }
             Target::None => {
@@ -327,7 +418,7 @@ impl Agent {
                     NpcAction::Attack => {
                         match current_target{
                             Target::Agent => {
-                                let id = self.agent_target_id.ok_or(MyError::AgentNotFound)?;
+                                let id = self.agent_target_id;
                                 match world.get_agent_position(id) {
                                     Ok((row, col)) => {
                                         match world.get_tile(row, col) {
@@ -353,21 +444,6 @@ impl Agent {
                                     _ => Err(MyError::OtherError)?, // Handle other errors if needed
                                 }
                             },
-                            // {
-                            //     let id = self.agent_target_id.ok_or(MyError::AgentNotFound)?;
-                            //     let (row, col) = world.get_agent_position(id)?;
-                            //     if let Some(tile) = world.grid.get(row).and_then(|row| row.get(col)) {
-                            //         let tile_lock = tile.lock().unwrap();
-                            //         let agents_lock = tile_lock.get_agents();
-                                    
-                            //         // Now you can find the specific agent within agents_lock
-                            //         let agent = agents_lock.iter().find(|a| a.id == id);
-                                    
-                            //         // Call the function you want on the agent
-                            //         Some(agent.expect("REASON").remove_energy(10));
-                            //     }
-                            //     Err(MyError::AgentNotFound)?;
-                            // },
                             Target::Monster => todo!(),
                             Target::None => todo!(),
                             Target::Tile => todo!(),
