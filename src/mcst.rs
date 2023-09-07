@@ -6,6 +6,7 @@ pub enum NpcAction {
     Steal,
     Rest,
     Talk,
+    None,
     // Add more actions as needed
 }
 

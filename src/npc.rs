@@ -1,10 +1,11 @@
 use bevy::prelude::*;
 use crate::World;
 use crate::errors::MyError;
+use crate::mcst::NpcAction;
 use crate::movement::find_path;
 use crate::tile::TileType;
 use crate::entities::monster::Monster;
-use crate::entities::agent::Agent;
+use crate::entities::agent::{Agent, AgentAction, Status};
 use bevy::prelude::Commands;
 
 #[allow(dead_code)]
@@ -104,5 +105,46 @@ pub fn debug(
     } else {
         println!("Failed to find path.");
     }
+    world.set_agent_action(1, AgentAction::SetAction(NpcAction::Attack));
+
+
+    //Set agent 1 action to attack
+    if let Ok(status) = world.get_agent_status(1) {
+        // Agent status retrieved successfully
+        println!("Agent status: {:?}", status);
+    } else {
+        // Agent not found error
+        eprintln!("Agent not found while attempting to get action");
+    }
+    if let Ok(action) = world.get_agent_action(1) {
+        // Agent status retrieved successfully
+        println!("Agent status: {:?}", action);
+    } else {
+                // Agent not found error
+                eprintln!("Agent not found while attempting to get status");
+    }
+
+    let mut status = match world.get_agent_status(1) {
+        Ok(status) => status,
+        Err(err) => {
+            // Handle the error here, e.g., print an error message
+            println!("Error: {:?}", err);
+            // You can return a default or some other value here if needed
+            Status::Idle
+        }
+    };
+    while status == Status::Moving {
+        
+        status = match world.get_agent_status(1) {
+            Ok(status) => status,
+            Err(err) => {
+                // Handle the error here, e.g., print an error message
+                println!("Error: {:?}", err);
+                // You can return a default or some other value here if needed
+                Status::Idle
+            }
+        };
+    }
+    world.set_agent_action(1, AgentAction::Print);
 
 }

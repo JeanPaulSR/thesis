@@ -10,7 +10,7 @@ use crate::World;
 static mut A_COUNTER: u32 = 0;
 
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum Status {
     Idle,
     Finished,
@@ -72,7 +72,7 @@ pub enum AgentAction {
     SetTreasureId(u32),
     SetStatus(Status),
     SetAction(NpcAction),
-    // Add more actions as needed
+    Print,
 }
 
 #[derive(Clone)]
@@ -84,7 +84,7 @@ pub struct Agent {
     max_energy: u8,
     transform: Transform,
     sprite_bundle: SpriteBundle,
-    action: Option<NpcAction>,
+    action: NpcAction,
     id: u32,
     status: Status,
     target: Target,
@@ -165,7 +165,7 @@ impl Agent {
             },
             energy: 100,
             max_energy: 100,
-            action: None::<NpcAction>,
+            action: NpcAction::None,
             status: Status::Idle,
             target: Target::None,
             monster_target_id: u32::MAX,
@@ -280,12 +280,12 @@ impl Agent {
         self.status.clone()
     }
 
-    pub fn get_action(&self) -> Option<NpcAction> {
+    pub fn get_action(&self) -> NpcAction {
         self.action.clone()
     }
 
     pub fn set_action(&mut self, action: NpcAction) {
-        self.action = Some(action);
+        self.action = action;
     }
 
     // ______      _     _ _      
@@ -363,7 +363,7 @@ impl Agent {
    
 
     //Add error handling if the target is gone/dead
-    fn _perform_action(&mut self, world: ResMut<World>, commands: &mut Commands) -> Result<(), MyError> {
+    pub fn perform_action(&mut self, world: ResMut<World>, commands: &mut Commands) -> Result<(), MyError> {
         let current_target = self.target;
         match current_target {
             Target::Agent => {
@@ -413,57 +413,58 @@ impl Agent {
         // Check if the agent's current position is equal to the tile target
         if self.get_position() == self.tile_target.unwrap_or_default() {
             // Continue with action logic
-            if let Some(ref action) = self.action {
-                match action {
-                    NpcAction::Attack => {
-                        match current_target{
-                            Target::Agent => {
-                                let id = self.agent_target_id;
-                                match world.get_agent_position(id) {
-                                    Ok((row, col)) => {
-                                        match world.get_tile(row, col) {
-                                            Ok(tile) => {
-                                                let tile_lock = tile.lock().unwrap();
-                                                let mut agents_lock = tile_lock.get_agents();
-                                                
-                                                // Find the specific agent within agents_lock and modify it
-                                                if let Some(agent) = agents_lock.iter_mut().find(|a| a.id == id) {
-                                                    agent.remove_energy(10);
-                                                } else {
-                                                    return Err(MyError::AgentNotFound)?;
-                                                }
-                                                
-                                                self.set_status(Status::Working);   
-                                                return Ok(()) // Return Ok(()) to indicate success
+            let action = &self.action;
+            match action {
+                NpcAction::Attack => {
+                    match current_target{
+                        Target::Agent => {
+                            let id = self.agent_target_id;
+                            match world.get_agent_position(id) {
+                                Ok((row, col)) => {
+                                    match world.get_tile(row, col) {
+                                        Ok(tile) => {
+                                            let tile_lock = tile.lock().unwrap();
+                                            let mut agents_lock = tile_lock.get_agents();
+                                            
+                                            // Find the specific agent within agents_lock and modify it
+                                            if let Some(agent) = agents_lock.iter_mut().find(|a| a.id == id) {
+                                                agent.remove_energy(10);
+                                            } else {
+                                                return Err(MyError::AgentNotFound)?;
                                             }
-                                            Err(MyError::TileNotFound) => Err(MyError::TileNotFound)?,
-                                            _ => Err(MyError::OtherError)?, // Handle other errors if needed
+                                            
+                                            self.set_status(Status::Working);   
+                                            return Ok(()) // Return Ok(()) to indicate success
                                         }
+                                        Err(MyError::TileNotFound) => Err(MyError::TileNotFound)?,
+                                        _ => Err(MyError::OtherError)?, // Handle other errors if needed
                                     }
-                                    Err(MyError::AgentNotFound) => Err(MyError::AgentNotFound)?,
-                                    _ => Err(MyError::OtherError)?, // Handle other errors if needed
                                 }
-                            },
-                            Target::Monster => todo!(),
-                            Target::None => todo!(),
-                            Target::Tile => todo!(),
-                            Target::Treasure => todo!(),
-                        }
-                        // Attack formula
-                        // Agents have 3 lives
-                        // Every time an agent attacks something they lose a life
+                                Err(MyError::AgentNotFound) => Err(MyError::AgentNotFound)?,
+                                _ => Err(MyError::OtherError)?, // Handle other errors if needed
+                            }
+                        },
+                        Target::Monster => todo!(),
+                        Target::None => todo!(),
+                        Target::Tile => todo!(),
+                        Target::Treasure => todo!(),
                     }
-                    NpcAction::Steal => {
-                        // Logic for moving to a treasure
-                    }
-                    NpcAction::Rest => {
-                        // Logic for moving to a monster
-                    }
-                    NpcAction::Talk => todo!(),
+                    // Attack formula
+                    // Agents have 3 lives
+                    // Every time an agent attacks something they lose a life
                 }
-                // Clear the action after performing it
-                self.status = Status::Idle;
+                NpcAction::Steal => {
+                    // Logic for moving to a treasure
+                }
+                NpcAction::Rest => {
+                    // Logic for moving to a monster
+                }
+                NpcAction::Talk => todo!(),
+                NpcAction::None => todo!(),
             }
+            // Clear the action after performing it
+            self.status = Status::Idle;
+            
             Ok(()) // Return Ok to indicate success
         } else {
             // If the agent is not at the target position, initiate travel

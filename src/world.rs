@@ -318,6 +318,8 @@ impl World {
                         AgentAction::SetTreasureId(id) => agent.set_treasure_target_id(id),
                         AgentAction::SetStatus(status) => agent.set_status(status),
                         AgentAction::SetAction(npc_action) => agent.set_action(npc_action),
+                        AgentAction::Print => agent.print(),
+                        //AgentAction::Perfrom => agent.perform_action(this, commands),
                         // Add more actions as needed
                     }
                     return Ok(());
@@ -511,7 +513,7 @@ impl World {
         Err(MyError::AgentNotFound)
     }
 
-    pub fn get_agent_action(&self, agent_id: u32) -> Result<Option<NpcAction>, MyError> {
+    pub fn get_agent_action(&self, agent_id: u32) -> Result<NpcAction, MyError> {
         if let Some((row, col)) = self.agents.lock().unwrap().get(&agent_id) {
             if let Some(tile) = self.grid.get(*row).and_then(|row| row.get(*col)) {
                 let tile_lock = tile.lock().unwrap();
