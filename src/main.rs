@@ -51,7 +51,7 @@ fn main() {
             is_dragging: false,
             previous_mouse_position: None,
         })
-        // Run the app. This starts the game loop and executes all systems in the proper order.
+        // Custom systems here
         .run();
 }
 
@@ -155,3 +155,4 @@ pub fn setup(
         } 
     }
 }
+

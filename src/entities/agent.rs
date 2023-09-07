@@ -75,7 +75,7 @@ pub enum AgentAction {
     Print,
 }
 
-#[derive(Clone)]
+#[derive(Clone, Bundle)]
 #[allow(dead_code)]
 pub struct Agent {
     entity: Entity,
@@ -173,6 +173,27 @@ impl Agent {
             treasure_target_id: u32::MAX,
             tile_target: None::<(u32, u32)>,
             path: None::<Vec<(i32, i32)>>,
+        }
+    }
+    
+    #[allow(dead_code)]
+    pub fn default() -> Self {
+        Agent {
+            genes: Genes::generate(),
+            id: 0,
+            energy: 100,
+            max_energy: 100,
+            action: NpcAction::None,
+            status: Status::Idle,
+            target: Target::None,
+            monster_target_id: u32::MAX,
+            agent_target_id: u32::MAX,
+            treasure_target_id: u32::MAX,
+            tile_target: None,
+            path: None,
+            entity: Entity::new(0), // Initialize with a default entity ID
+            transform: Transform::default(),
+            sprite_bundle: SpriteBundle::default(),
         }
     }
 
@@ -475,5 +496,13 @@ impl Agent {
     }
 
 
+    pub fn print_agent_properties(query: Query<&Agent>) {
+        for agent in query.iter() {
+            println!("Agent ID: {}", agent.id);
+            println!("Genes: {:?}", agent.genes);
+            println!("Energy: {}", agent.energy);
+            // Print other properties as needed
+        }
+    }
 }
 

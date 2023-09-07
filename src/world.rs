@@ -1,4 +1,5 @@
 use bevy::prelude::Commands;
+use bevy::prelude::ResMut;
 
 use crate::entities::agent::Agent;
 use crate::entities::agent::AgentAction;
@@ -319,7 +320,7 @@ impl World {
                         AgentAction::SetStatus(status) => agent.set_status(status),
                         AgentAction::SetAction(npc_action) => agent.set_action(npc_action),
                         AgentAction::Print => agent.print(),
-                        //AgentAction::Perfrom => agent.perform_action(this, commands),
+                        // AgentAction::Perfrom => agent.perform_action(this, commands),
                         // Add more actions as needed
                     }
                     return Ok(());
@@ -332,6 +333,29 @@ impl World {
         println!("Agent not found");
         Err(MyError::AgentNotFound)
     }
+
+    // pub fn perform_agent_action( world: ResMut<World>, agent_id: u32,commands: &mut Commands) -> Result<(), MyError> {
+    //     if let Some((row, col)) = world.agents.lock().unwrap().get(&agent_id) {
+    //         if let Some(tile) = world.grid.get(*row).and_then(|row| row.get(*col)) {
+    //             let tile_lock = tile.lock().unwrap();
+    //             let mut agents_lock = tile_lock.get_agents();
+                
+    //             // Now you can find the specific agent within agents_lock by finding its index
+    //             if let Some(index) = agents_lock.iter().position(|a| a.get_id() == agent_id) {
+    //                 // Get a mutable reference to the agent at the found index
+    //                 let agent = &mut agents_lock[index];
+    //                 agent.perform_action(world, commands);
+    //                 return Ok(());
+    //             } else {
+    //                 println!("Agent not found");
+    //                 return Err(MyError::AgentNotFound);
+    //             }
+    //         }
+    //     }
+    //     println!("Agent not found");
+    //     Err(MyError::AgentNotFound)
+
+    // }
 
     pub fn get_agent_genes(&self, agent_id: u32) -> Result<Genes, MyError> {
         if let Some((row, col)) = self.agents.lock().unwrap().get(&agent_id) {
