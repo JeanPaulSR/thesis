@@ -173,7 +173,16 @@ impl World {
         }
     }
     
-    
+    pub fn get_grid(&self) -> Vec<Vec<Tile>> {
+        self.grid
+            .iter()
+            .map(|row| {
+                row.iter()
+                    .map(|tile_lock| tile_lock.lock().unwrap().clone()) // Clone the Tile inside the Mutex
+                    .collect()
+            })
+            .collect()
+    }
 //    _____                         __   
 //    /  _  \    ____   ____   _____/  |_ 
 //   /  /_\  \  / ___\_/ __ \ /    \   __\
@@ -204,7 +213,7 @@ impl World {
         let mut agents_lock = self.agents.lock().unwrap();
 
         // Check if the agent's position is saved in the hash map
-        if let Some((x, y)) = agents_lock.get(&agent_id) {
+        if let Some(_) = agents_lock.get(&agent_id) {
             // Remove the agent from the hash map and tile
             agents_lock.remove(&agent_id);
 
@@ -231,7 +240,6 @@ impl World {
         agent_id: u32,
         pos_y2: usize,
         pos_x2: usize,
-        commands: &mut Commands,
     ) -> Result<(), MyError> {
         let mut agents_positions = self.agents.lock().unwrap();
         
@@ -268,7 +276,7 @@ impl World {
         let mut monsters = self.monsters.lock().unwrap();
 
         // Add the monster's position to the monsters hash map
-        monsters.insert(monster.id, (x as usize, y as usize));
+        monsters.insert(monster.get_id(), (x as usize, y as usize));
 
         // Return Ok(()) to indicate successful addition
         Ok(())
@@ -280,7 +288,7 @@ impl World {
         let mut monsters_lock = self.monsters.lock().unwrap();
 
         // Check if the monster's position is saved in the hash map
-        if let Some((x, y)) = monsters_lock.get(&monster_id) {
+        if let Some(_) = monsters_lock.get(&monster_id) {
             monsters_lock.remove(&monster_id);
 
             return Ok(());
@@ -321,7 +329,7 @@ impl World {
         let mut treasures_lock = self.treasures.lock().unwrap();
 
         // Check if the treasure's position is saved in the hash map
-        if let Some((x, y)) = treasures_lock.get(&treasure_id) {
+        if let Some(_) = treasures_lock.get(&treasure_id) {
             // Remove the treasure from the hash map and tile
             treasures_lock.remove(&treasure_id);
 

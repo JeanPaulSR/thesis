@@ -4,6 +4,7 @@ use rand::distributions::{Distribution, Uniform};
 use crate::errors::MyError;
 use crate::mcst::NpcAction;
 use crate::movement::find_path;
+use crate::tile::Tile;
 use crate::{World, AgentMessages, AgentMessage, MessageType};
 
 static mut A_COUNTER: u32 = 0;
@@ -328,7 +329,7 @@ impl Agent {
     // Updated travel function to use the path
     pub fn travel(
         &mut self,
-        world: ResMut<World>,
+        grid: Vec<Vec<Tile>>, // Pass the grid as a reference
         commands: &mut Commands,
     ) -> Result<(), MyError> {
         // Check if the agent's current position is equal to the tile target
@@ -336,11 +337,11 @@ impl Agent {
             // Agent is already at the target tile
             return Ok(());
         }
-        
+    
         // Create the path if it's missing or empty
         if self.path.is_none() || self.path.as_ref().unwrap().is_empty() {
             self.path = find_path(
-                &world,
+                grid, // Use the provided grid reference
                 (
                     self.get_position().0 as i32,
                     self.get_position().1 as i32,
@@ -351,16 +352,11 @@ impl Agent {
                 ),
             );
         }
-
+    
         // Check if there is a path available
         if let Some(path) = &mut self.path {
             if let Some((x, y)) = path.pop() {
-                // Get the agent's ID
-                let agent_id = self.id;
-                println!("Testing");
                 self.move_to(x as f32, y as f32, commands);
-                // Call the move_between_tiles function to move the agent to the next position in the path
-                world.move_agent(agent_id, x as usize, y as usize, commands)?;
             }
             Ok(())
         } else {
@@ -465,8 +461,10 @@ impl Agent {
             return Ok(()) // Return Ok to indicate success
         } else {
             // If the agent is not at the target position, initiate travel
-            self.travel(world, commands)?; 
+            self.travel(world.get_grid(), commands)?; 
             self.set_status(Status::Moving);
+            // Call the move_between_tiles function to move the agent to the next position in the path
+            world.move_agent(self.get_id(), x as usize, y as usize)?;
             return Ok(()) // Return Ok to indicate success
         }
     }

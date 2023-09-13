@@ -1,11 +1,16 @@
 use bevy::prelude::*;
 use rand::distributions::{Distribution, Uniform};
 
+use super::agent::Status;
+
 #[derive(Clone)]
 pub struct Monster {
-    pub entity: Entity,
-    pub id: u32,
-    pub vision: f32,
+    entity: Entity,
+    id: u32,
+    vision: u8,
+    energy: u8,
+    max_energy: u8,
+    status: Status,
     pub transform: Transform,
     pub sprite_bundle: SpriteBundle,
 }
@@ -21,7 +26,7 @@ impl Monster {
         asset_server: &Res<AssetServer>,
     ) -> Self {
         let mut rng = rand::thread_rng();
-        let vision_distribution = Uniform::new(2.0, 4.0);
+        let vision_distribution = Uniform::new(2, 4);
 
         let sprite_size = Vec2::new(32.0, 32.0); // Adjust to your sprite size
 
@@ -43,7 +48,10 @@ impl Monster {
             vision: vision_distribution.sample(&mut rng),
             // Set the id of the monster to the current value of the counter
             id: unsafe { M_COUNTER },
-            entity: entity,
+            energy: 10,
+            max_energy: 10,
+            entity,
+            status: Status::Idle,
             transform: Transform::from_translation(Vec3::new(x, y, 1.0)),
             sprite_bundle: SpriteBundle {
                 material: materials.add(texture_handle.into()),
@@ -68,4 +76,60 @@ impl Monster {
         self.transform = new_transform;
         commands.entity(self.entity).insert(self.transform.clone());
     }
+
+    pub fn get_energy(&self) -> u8 {
+        self.energy
+    }
+
+    pub fn set_energy(&mut self, energy: u8) {
+        self.energy = energy;
+    }
+
+    pub fn get_vision(&self) -> u8 {
+        self.vision
+    }
+
+    pub fn set_vision(&mut self, vision: u8) {
+        self.vision = vision;
+    }
+
+
+    pub fn add_energy(&mut self, energy: u8) {
+        let new_energy = self.energy.saturating_add(energy); 
+        self.energy = new_energy.min(self.max_energy); 
+    }
+
+    pub fn remove_energy(&mut self, energy: u8) {
+        self.energy = self.energy.saturating_sub(energy);
+
+        if self.energy == 0 {
+            self.set_status(Status::Dead);
+        }
+    }
+
+    pub fn get_id(&self) -> u32 {
+        self.id
+    }
+
+    pub fn get_max_energy(&self) -> u8 {
+        self.max_energy
+    }
+
+    pub fn set_max_energy(&mut self, max_energy: u8) {
+        self.max_energy = max_energy;
+    }
+
+    pub fn set_status(&mut self, status: Status) {
+        self.status = status;
+    }
+
+    pub fn get_status(&self) -> Status {
+        self.status.clone()
+    }
+    // pub entity: Entity,
+    // pub id: u32,
+    // pub vision: f32,
+    // energy: u32,
+    // max_energy: u32,
+    // pub transform: Transform,
 }

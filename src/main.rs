@@ -171,39 +171,38 @@ pub fn setup(
     }
 }
 
-fn debug(mut query: Query<&mut Agent>, 
-    world: ResMut<World>,
-    mut agent_messages: ResMut<AgentMessages>,
-    commands: &mut Commands,
+fn debug(
+    mut query: Query<&mut Agent>, 
+    //world: ResMut<World>,
+    //mut agent_messages: ResMut<AgentMessages>,
+    //commands: &mut Commands,
 ) {
     // Query for all mutable Agent components
     for mut agent in query.iter_mut() {
-        
-        println!("{:?}", agent.get_id());
         if agent.get_id() == 1 {
             // Found the desired agent by ID
-            println!("{:?}", agent.get_position());
             agent.set_agent_target_id(2);
             agent.set_target(entities::agent::Target::Agent);
             agent.set_action(mcst::NpcAction::Attack);
-            agent.perform_action(world, commands, agent_messages);
-            println!("{:?}", agent.get_position());
+            //agent.perform_action(world, commands, agent_messages);
 
             // Print other agent properties as needed
         }
     }
 
-    // If the loop completes and the agent is not found
-    println!("Agent not found");
 }
 
 fn debug_system(
     query: Query<&mut Agent>,
-    world: ResMut<World>,
-    mut agent_messages: ResMut<AgentMessages>,
-    mut commands: Commands,
+    // world: ResMut<World>,
+    // agent_messages: ResMut<AgentMessages>,
+    // mut commands: Commands,
 ) {
-    debug(query, world, agent_messages, &mut commands);
+    debug(query, 
+        // world, 
+        // agent_messages, 
+        // &mut commands
+    );
     
 }
 
@@ -216,7 +215,7 @@ pub struct AgentMessages {
 
 
 fn agent_message_system(
-    mut commands: Commands,
+    //mut commands: Commands,
     mut agent_messages: ResMut<AgentMessages>,
     mut query: Query<&mut Agent>,
 ) {
@@ -241,6 +240,7 @@ pub enum MessageType{
     Attack(u8),
 }
 
+#[allow(dead_code)]
 pub struct AgentMessage {
     sender_id: u32,
     receiver_id: u32,
@@ -346,8 +346,10 @@ pub fn perform_action(
             return Ok(()) // Return Ok to indicate success
         } else {
             // If the agent is not at the target position, initiate travel
-            agent.travel(world, commands)?; 
+            agent.travel(world.get_grid(), commands)?; 
             agent.set_status(Status::Moving);
+            // Call the move_between_tiles function to move the agent to the next position in the path
+            world.move_agent(agent.get_id(), x as usize, y as usize)?;
             return Ok(()) // Return Ok to indicate success
         }
     }
