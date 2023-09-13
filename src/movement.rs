@@ -34,7 +34,6 @@ pub fn find_path(grid: &World, start_pos: (i32, i32), end_pos: (i32, i32)) -> Op
 
             let new_tile_lock = &grid.grid[new_y as usize][new_x as usize];
             let new_tile_type = new_tile_lock.lock().unwrap().get_tile_type();
-            println!("Current Position: ({}, {}), TileType: {:?}", new_x, new_y, new_tile_type);
             let new_weight = match new_tile_type {
                 TileType::Forest | TileType::Village | TileType::Dungeon => 1,
                 TileType::Lake | TileType::Mountain => 10000,
@@ -100,6 +99,8 @@ fn reconstruct_path(came_from: HashMap<(i32, i32), (i32, i32)>, current: (i32, i
         path.push(prev);
         current = prev;
     }
+    path.reverse();
+    path.remove(0);
     path.reverse();
     path
 }

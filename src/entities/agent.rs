@@ -1,11 +1,10 @@
 use std::fmt;
-
 use bevy::prelude::*;
 use rand::distributions::{Distribution, Uniform};
 use crate::errors::MyError;
 use crate::mcst::NpcAction;
 use crate::movement::find_path;
-use crate::World;
+use crate::{World, AgentMessages, AgentMessage, MessageType};
 
 static mut A_COUNTER: u32 = 0;
 
@@ -61,20 +60,6 @@ impl Genes{
 
 }
 
-pub enum AgentAction {
-    SetGene(Genes),
-    SetEnergy(u8),
-    RemoveEnergy(u8),
-    SetMaxEnergy(u8),
-    SetTarget(Target),
-    SetAgentId(u32),
-    SetMonsterId(u32),
-    SetTreasureId(u32),
-    SetStatus(Status),
-    SetAction(NpcAction),
-    Print,
-}
-
 #[derive(Clone, Bundle)]
 #[allow(dead_code)]
 pub struct Agent {
@@ -124,7 +109,7 @@ impl Agent {
         commands: &mut Commands,
         materials: &mut ResMut<Assets<ColorMaterial>>,
         asset_server: &Res<AssetServer>,
-    ) -> Self {
+    ) -> Self{
         // Convert x and y to world coordinates
         x = x * 32.0;
         y = y * 32.0;
@@ -147,8 +132,6 @@ impl Agent {
         unsafe {
             A_COUNTER += 1;
         }
-    
-        // Create a new instance of the Genes struct with random attribute values
         
     
         // Create and return a new instance of the Agent struct
@@ -204,6 +187,10 @@ impl Agent {
     // \    \_\  \  ___/|  |    / /     ______\ \  ___/|  |  
     //  \______  /\___  >__|   / /    /_______  /\___  >__|  
     //         \/     \/       \/             \/     \/      
+    
+    pub fn get_entity(&self) -> Entity {
+        self.entity
+    }
     pub fn get_position(&self) -> (u32, u32) {
         (
             (self.transform.translation.x / 32.0) as u32,
@@ -329,11 +316,11 @@ impl Agent {
     // Function to move the agent to a specific position
     pub fn move_to(
         &mut self,
-        y: f32,
         x: f32,
+        y: f32,
         commands: &mut Commands,
     ) {
-        let new_transform = Transform::from_translation(Vec3::new(y * 32.0, x * 32.0, 1.0));
+        let new_transform = Transform::from_translation(Vec3::new(x * 32.0, y * 32.0, 1.0));
         self.transform = new_transform;
         commands.entity(self.entity).insert(self.transform.clone());
     }
@@ -349,7 +336,7 @@ impl Agent {
             // Agent is already at the target tile
             return Ok(());
         }
-    
+        
         // Create the path if it's missing or empty
         if self.path.is_none() || self.path.as_ref().unwrap().is_empty() {
             self.path = find_path(
@@ -364,13 +351,14 @@ impl Agent {
                 ),
             );
         }
-    
+
         // Check if there is a path available
         if let Some(path) = &mut self.path {
             if let Some((x, y)) = path.pop() {
                 // Get the agent's ID
                 let agent_id = self.id;
-    
+                println!("Testing");
+                self.move_to(x as f32, y as f32, commands);
                 // Call the move_between_tiles function to move the agent to the next position in the path
                 world.move_agent(agent_id, x as usize, y as usize, commands)?;
             }
@@ -384,7 +372,10 @@ impl Agent {
    
 
     //Add error handling if the target is gone/dead
-    pub fn perform_action(&mut self, world: ResMut<World>, commands: &mut Commands) -> Result<(), MyError> {
+    pub fn perform_action(&mut self,
+        world: ResMut<World>,
+        commands: &mut Commands,
+        mut agent_messages: ResMut<AgentMessages>,) -> Result<(), MyError> {
         let current_target = self.target;
         match current_target {
             Target::Agent => {
@@ -427,43 +418,28 @@ impl Agent {
                 return Err(MyError::InvalidTarget);
             }
             Target::Tile => {
-                // Do nothing for Target::Tile
+                todo!()
             }
         }
     
         // Check if the agent's current position is equal to the tile target
-        if self.get_position() == self.tile_target.unwrap_or_default() {
-            // Continue with action logic
+        let (x, y) = self.get_position();
+        if (x, y) == self.tile_target.unwrap_or_default() {
+        //     // Continue with action logic
             let action = &self.action;
+            //Match the type of action
             match action {
                 NpcAction::Attack => {
+                    //Match the current target for the Attack action
                     match current_target{
+                        //For the target Agent of the Attack action
                         Target::Agent => {
                             let id = self.agent_target_id;
-                            match world.get_agent_position(id) {
-                                Ok((row, col)) => {
-                                    match world.get_tile(row, col) {
-                                        Ok(tile) => {
-                                            let tile_lock = tile.lock().unwrap();
-                                            let mut agents_lock = tile_lock.get_agents();
-                                            
-                                            // Find the specific agent within agents_lock and modify it
-                                            if let Some(agent) = agents_lock.iter_mut().find(|a| a.id == id) {
-                                                agent.remove_energy(10);
-                                            } else {
-                                                return Err(MyError::AgentNotFound)?;
-                                            }
-                                            
-                                            self.set_status(Status::Working);   
-                                            return Ok(()) // Return Ok(()) to indicate success
-                                        }
-                                        Err(MyError::TileNotFound) => Err(MyError::TileNotFound)?,
-                                        _ => Err(MyError::OtherError)?, // Handle other errors if needed
-                                    }
-                                }
-                                Err(MyError::AgentNotFound) => Err(MyError::AgentNotFound)?,
-                                _ => Err(MyError::OtherError)?, // Handle other errors if needed
-                            }
+                            self.send_message(
+                                id,
+                                MessageType::Attack(10),
+                                &mut agent_messages,
+                            )
                         },
                         Target::Monster => todo!(),
                         Target::None => todo!(),
@@ -486,12 +462,12 @@ impl Agent {
             // Clear the action after performing it
             self.status = Status::Idle;
             
-            Ok(()) // Return Ok to indicate success
+            return Ok(()) // Return Ok to indicate success
         } else {
             // If the agent is not at the target position, initiate travel
             self.travel(world, commands)?; 
             self.set_status(Status::Moving);
-            Ok(()) // Return Ok to indicate success
+            return Ok(()) // Return Ok to indicate success
         }
     }
 
@@ -504,5 +480,21 @@ impl Agent {
             // Print other properties as needed
         }
     }
+
+    pub fn send_message(
+        &mut self,
+        receiver_id: u32,
+        message_content: MessageType,
+        agent_messages: &mut AgentMessages,
+    ) {
+        let message = AgentMessage {
+            sender_id: self.id,
+            receiver_id,
+            message_type: message_content,
+        };
+        agent_messages.messages.push(message);
+    }
+    
+  
 }
 
