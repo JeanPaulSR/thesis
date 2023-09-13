@@ -4,8 +4,9 @@ use rand::distributions::{Distribution, Uniform};
 use crate::errors::MyError;
 use crate::mcst::NpcAction;
 use crate::movement::find_path;
+use crate::systems::AgentMessage;
 use crate::tile::Tile;
-use crate::{World, AgentMessages, AgentMessage, MessageType};
+use crate::{World, AgentMessages, MessageType};
 
 static mut A_COUNTER: u32 = 0;
 
@@ -485,11 +486,11 @@ impl Agent {
         message_content: MessageType,
         agent_messages: &mut AgentMessages,
     ) {
-        let message = AgentMessage {
-            sender_id: self.id,
+        let message = AgentMessage::new (
+            self.id,
             receiver_id,
-            message_type: message_content,
-        };
+            message_content,
+        );
         agent_messages.messages.push(message);
     }
     

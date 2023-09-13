@@ -9,9 +9,10 @@ mod world;
 mod npc;
 mod debug;
 mod behavior;
-use entities::agent::Status;
-use entities::agent::Target;
-use mcst::NpcAction;
+use systems::AgentMessages;
+use systems::MessageType;
+use systems::agent_message_system;
+use systems::perform_action;
 use world::World;
 mod movement; 
 mod mcst;
@@ -64,6 +65,8 @@ fn main() {
         
         // Add the agent message system to handle messages between agents.
         .add_system(agent_message_system.system())
+        // Add the agent action handling
+        .add_system(perform_action.system())
         
         // Custom systems here
         .run();
@@ -209,149 +212,6 @@ fn debug_system(
 ////////////////////////////////////////////////////////////////
 
 
-pub struct AgentMessages {
-    messages: Vec<AgentMessage>,
-}
 
 
-fn agent_message_system(
-    //mut commands: Commands,
-    mut agent_messages: ResMut<AgentMessages>,
-    mut query: Query<&mut Agent>,
-) {
-    // Handle received messages
-    for message in &agent_messages.messages {
-        let receiver_id = message.receiver_id;
 
-        for mut agent in query.iter_mut() {
-            if agent.get_id() == receiver_id {
-                match message.message_type{
-                    MessageType::Attack(damage) => agent.remove_energy(damage),
-                }
-            }
-        }
-    }
-
-    // Clean up processed messages
-    agent_messages.messages.clear();
-}
-
-pub enum MessageType{
-    Attack(u8),
-}
-
-#[allow(dead_code)]
-pub struct AgentMessage {
-    sender_id: u32,
-    receiver_id: u32,
-    message_type: MessageType,
-}
-
-
-//Add error handling if the target is gone/dead
-pub fn perform_action(
-    mut query: Query<&mut Agent>,
-    world: ResMut<World>,
-    commands: &mut Commands,
-    mut agent_messages: ResMut<AgentMessages>,
-) -> Result<(), MyError> {
-    
-    for mut agent in query.iter_mut() {
-        let current_target = agent.get_target();
-        match current_target {
-            Target::Agent => {
-                match world.get_agent_position(agent.get_agent_target_id()) {
-                    Ok(agent_position) => {
-                        let (x, y) = agent_position;
-                        agent.set_tile_target(Some((x as u32, y as u32)));
-                    }
-                    Err(MyError::AgentNotFound) => {
-                        return Err(MyError::AgentNotFound);
-                    }
-                    _ => {} // Handle other errors if needed
-                }
-            }
-            Target::Monster => {
-                match world.get_monster_position(agent.get_monster_target_id()) {
-                    Ok(monster_position) => {
-                        let (x, y) = monster_position;
-                        agent.set_tile_target(Some((x as u32, y as u32)));
-                    }
-                    Err(MyError::MonsterNotFound) => {
-                        return Err(MyError::MonsterNotFound);
-                    }
-                    _ => {} // Handle other errors if needed
-                }
-            }
-            Target::Treasure => {
-                match world.get_treasure_position(agent.get_treasure_target_id()) {
-                    Ok(treasure_position) => {
-                        let (x, y) = treasure_position;
-                        agent.set_tile_target(Some((x as u32, y as u32)));
-                    }
-                    Err(MyError::TreasureNotFound) => {
-                        return Err(MyError::TreasureNotFound);
-                    }
-                    _ => {} // Handle other errors if needed
-                }
-            }
-            Target::None => {
-                return Err(MyError::InvalidTarget);
-            }
-            Target::Tile => {
-                todo!()
-            }
-        }
-
-        // Check if the agent's current position is equal to the tile target
-        let (x, y) = agent.get_position();
-        if (x, y) == agent.get_tile_target().unwrap_or_default() {
-        //     // Continue with action logic
-            let action = agent.get_action();
-            //Match the type of action
-            match action {
-                NpcAction::Attack => {
-                    //Match the current target for the Attack action
-                    match current_target{
-                        //For the target Agent of the Attack action
-                        Target::Agent => {
-                            let id = agent.get_agent_target_id();
-                            agent.send_message(
-                                id,
-                                MessageType::Attack(10),
-                                &mut agent_messages,
-                            )
-                        },
-                        Target::Monster => todo!(),
-                        Target::None => todo!(),
-                        Target::Tile => todo!(),
-                        Target::Treasure => todo!(),
-                    }
-                    // Attack formula
-                    // Agents have 3 lives
-                    // Every time an agent attacks something they lose a life
-                }
-                NpcAction::Steal => {
-                    // Logic for moving to a treasure
-                }
-                NpcAction::Rest => {
-                    // Logic for moving to a monster
-                }
-                NpcAction::Talk => todo!(),
-                NpcAction::None => todo!(),
-            }
-            // Clear the action after performing it
-            agent.set_status(Status::Idle) ;
-            
-            return Ok(()) // Return Ok to indicate success
-        } else {
-            // If the agent is not at the target position, initiate travel
-            agent.travel(world.get_grid(), commands)?; 
-            agent.set_status(Status::Moving);
-            // Call the move_between_tiles function to move the agent to the next position in the path
-            world.move_agent(agent.get_id(), x as usize, y as usize)?;
-            return Ok(()) // Return Ok to indicate success
-        }
-    }
-    return Ok(())
-}
