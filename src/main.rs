@@ -10,9 +10,13 @@ mod npc;
 mod debug;
 mod behavior;
 use systems::AgentMessages;
-use systems::MessageType;
+use systems::MonsterMessages;
+use systems::TreasureMessages;
 use systems::agent_message_system;
+use systems::cleanup_system;
+use systems::monster_message_system;
 use systems::perform_action;
+use systems::treasure_message_system;
 use world::World;
 mod movement; 
 mod mcst;
@@ -59,10 +63,28 @@ fn main() {
         })
 
         // Insert AgentMessages resource with an empty vector.
-        .insert_resource(AgentMessages {
-            messages: Vec::new(),
-        })
+        // .insert_resource(AgentMessages {
+        //     messages: Vec::new(),
+        // })
+        .insert_resource(AgentMessages::new())
+        // Insert MonsterMessages resource with an empty vector.
+        // .insert_resource(MonsterMessages {
+        //     messages: Vec::new(),
+        // })
+        .insert_resource(MonsterMessages::new())
         
+        // Insert TreasureMessages resource with an empty vector.
+        // .insert_resource(TreasureMessages {
+        //     messages: Vec::new(),
+        // })
+        .insert_resource(TreasureMessages::new())
+        
+        // Add the despawn handler
+        .add_system(cleanup_system.system())
+        // Add the agent message system to handle messages between treasures.
+        .add_system(treasure_message_system.system())
+        // Add the agent message system to handle messages between monsters.
+        .add_system(monster_message_system.system())
         // Add the agent message system to handle messages between agents.
         .add_system(agent_message_system.system())
         // Add the agent action handling

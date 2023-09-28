@@ -1,6 +1,6 @@
 use bevy::prelude::*;
 use bevy::app::{AppBuilder, Plugin};
-use crate::systems::debug_system;
+use crate::debug_system;
 
 pub fn debug(command: &str) {
     match command {

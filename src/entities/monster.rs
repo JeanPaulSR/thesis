@@ -10,6 +10,7 @@ pub struct Monster {
     vision: u8,
     energy: u8,
     max_energy: u8,
+    reward: u32,
     status: Status,
     pub transform: Transform,
     pub sprite_bundle: SpriteBundle,
@@ -51,6 +52,7 @@ impl Monster {
             energy: 10,
             max_energy: 10,
             entity,
+            reward: 0,
             status: Status::Idle,
             transform: Transform::from_translation(Vec3::new(x, y, 1.0)),
             sprite_bundle: SpriteBundle {
@@ -62,6 +64,9 @@ impl Monster {
         }
     }
 
+    pub fn get_entity(&self) -> Entity {
+        self.entity
+    }
     pub fn get_position(&self) -> (f32, f32) {
         (self.transform.translation.x / 32.0, self.transform.translation.y / 32.0)
     }
@@ -126,6 +131,22 @@ impl Monster {
     pub fn get_status(&self) -> Status {
         self.status.clone()
     }
+
+    pub fn set_reward(&mut self, reward: u32) {
+        self.reward = reward;
+    }
+
+    pub fn get_reward(&self) -> u32 {
+        self.reward
+    }
+
+    pub fn add_reward(&mut self, reward: u32) {
+        self.reward  = self.reward + reward; 
+    }
+
+    pub fn remove_reward(&mut self, reward: u32) {
+        self.reward = self.reward.saturating_sub(reward);
+    }
     // pub entity: Entity,
     // pub id: u32,
     // pub vision: f32,
@@ -133,3 +154,4 @@ impl Monster {
     // max_energy: u32,
     // pub transform: Transform,
 }
+

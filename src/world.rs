@@ -317,7 +317,7 @@ impl World {
         let mut treasures = self.treasures.lock().unwrap();
 
         // Add the treasure's position to the treasures hash map
-        treasures.insert(treasure.id, (x as usize, y as usize));
+        treasures.insert(treasure.get_id(), (x as usize, y as usize));
 
         // Return Ok(()) to indicate successful addition
         Ok(())

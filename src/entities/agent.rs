@@ -4,9 +4,7 @@ use rand::distributions::{Distribution, Uniform};
 use crate::errors::MyError;
 use crate::mcst::NpcAction;
 use crate::movement::find_path;
-use crate::systems::AgentMessage;
 use crate::tile::Tile;
-use crate::{World, AgentMessages, MessageType};
 
 static mut A_COUNTER: u32 = 0;
 
@@ -73,6 +71,7 @@ pub struct Agent {
     sprite_bundle: SpriteBundle,
     action: NpcAction,
     id: u32,
+    reward: u32,
     status: Status,
     target: Target,
     monster_target_id: u32,
@@ -80,6 +79,11 @@ pub struct Agent {
     treasure_target_id: u32,
     tile_target: Option<(u32, u32)>,
     path: Option<Vec<(i32, i32)>>,
+
+    leader: bool,
+    follower: bool,
+    leader_id: u32,
+    followers: Vec<u32>,
 }
 
 impl fmt::Debug for Agent {
@@ -150,6 +154,7 @@ impl Agent {
             },
             energy: 100,
             max_energy: 100,
+            reward: 0,
             action: NpcAction::None,
             status: Status::Idle,
             target: Target::None,
@@ -158,6 +163,10 @@ impl Agent {
             treasure_target_id: u32::MAX,
             tile_target: None::<(u32, u32)>,
             path: None::<Vec<(i32, i32)>>,
+            leader: false,
+            follower: false,
+            leader_id: 0,
+            followers: Vec::new(),
         }
     }
     
@@ -171,6 +180,7 @@ impl Agent {
             action: NpcAction::None,
             status: Status::Idle,
             target: Target::None,
+            reward: 0,
             monster_target_id: u32::MAX,
             agent_target_id: u32::MAX,
             treasure_target_id: u32::MAX,
@@ -179,6 +189,10 @@ impl Agent {
             entity: Entity::new(0), // Initialize with a default entity ID
             transform: Transform::default(),
             sprite_bundle: SpriteBundle::default(),
+            leader: false,
+            follower: false,
+            leader_id: 0,
+            followers: Vec::new(),
         }
     }
 
@@ -199,7 +213,7 @@ impl Agent {
             (self.transform.translation.y / 32.0) as u32,
         )
     }
-    
+
     pub fn get_genes(&self) -> &Genes {
         &self.genes
     }
@@ -224,9 +238,21 @@ impl Agent {
     pub fn remove_energy(&mut self, energy: u8) {
         self.energy = self.energy.saturating_sub(energy);
 
-        if self.energy == 0 {
+        if self.energy <= 0 {
             self.set_status(Status::Dead);
         }
+    }
+
+    pub fn get_reward(&self) -> u32 {
+        self.reward
+    }
+
+    pub fn add_reward(&mut self, reward: u32) {
+        self.reward  = self.reward + reward; 
+    }
+
+    pub fn remove_reward(&mut self, reward: u32) {
+        self.reward = self.reward.saturating_sub(reward);
     }
 
     pub fn get_max_energy(&self) -> u8 {
@@ -296,6 +322,50 @@ impl Agent {
 
     pub fn set_action(&mut self, action: NpcAction) {
         self.action = action;
+    }
+
+    pub fn is_leader(&self) -> bool{
+        self.leader
+    }
+
+    pub fn set_is_leader(&self, is_leader: bool){
+        self.leader = is_leader;
+    }
+
+    pub fn get_leader_id(&self) -> u32{
+        self.leader_id
+    }
+
+    pub fn set_leader_id(&self, leader_id: u32){
+        self.leader_id = leader_id;
+    }
+
+    pub fn is_follower(&self) -> bool{
+        self.follower
+    }
+
+    pub fn set_is_follower(&self, is_follower: bool){
+        self.follower = is_follower;
+    }
+
+    pub fn add_follower(
+        &mut self,
+        followers: Vec<u32>,
+    ) {
+        self.followers.extend(followers);
+    }
+
+    pub fn remove_follower(
+        &mut self,
+        follower_id: u32,
+    ) {
+        if let Some(index) = self.followers.iter().position(|&id| id == follower_id) {
+            self.followers.remove(index);
+        }
+    }
+
+    pub fn get_followers(&self) -> Vec<u32> {
+        self.followers.clone()
     }
 
     // ______      _     _ _      
@@ -368,107 +438,107 @@ impl Agent {
 
    
 
-    //Add error handling if the target is gone/dead
-    pub fn perform_action(&mut self,
-        world: ResMut<World>,
-        commands: &mut Commands,
-        mut agent_messages: ResMut<AgentMessages>,) -> Result<(), MyError> {
-        let current_target = self.target;
-        match current_target {
-            Target::Agent => {
-                match world.get_agent_position(self.agent_target_id) {
-                    Ok(agent_position) => {
-                        let (x, y) = agent_position;
-                        self.tile_target = Some((x as u32, y as u32));
-                    }
-                    Err(MyError::AgentNotFound) => {
-                        return Err(MyError::AgentNotFound);
-                    }
-                    _ => {} // Handle other errors if needed
-                }
-            }
-            Target::Monster => {
-                match world.get_monster_position(self.monster_target_id) {
-                    Ok(monster_position) => {
-                        let (x, y) = monster_position;
-                        self.tile_target = Some((x as u32, y as u32));
-                    }
-                    Err(MyError::MonsterNotFound) => {
-                        return Err(MyError::MonsterNotFound);
-                    }
-                    _ => {} // Handle other errors if needed
-                }
-            }
-            Target::Treasure => {
-                match world.get_treasure_position(self.treasure_target_id) {
-                    Ok(treasure_position) => {
-                        let (x, y) = treasure_position;
-                        self.tile_target = Some((x as u32, y as u32));
-                    }
-                    Err(MyError::TreasureNotFound) => {
-                        return Err(MyError::TreasureNotFound);
-                    }
-                    _ => {} // Handle other errors if needed
-                }
-            }
-            Target::None => {
-                return Err(MyError::InvalidTarget);
-            }
-            Target::Tile => {
-                todo!()
-            }
-        }
+    // //Add error handling if the target is gone/dead
+    // pub fn perform_action(&mut self,
+    //     world: ResMut<World>,
+    //     commands: &mut Commands,
+    //     mut agent_messages: ResMut<AgentMessages>,) -> Result<(), MyError> {
+    //     let current_target = self.target;
+    //     match current_target {
+    //         Target::Agent => {
+    //             match world.get_agent_position(self.agent_target_id) {
+    //                 Ok(agent_position) => {
+    //                     let (x, y) = agent_position;
+    //                     self.tile_target = Some((x as u32, y as u32));
+    //                 }
+    //                 Err(MyError::AgentNotFound) => {
+    //                     return Err(MyError::AgentNotFound);
+    //                 }
+    //                 _ => {} // Handle other errors if needed
+    //             }
+    //         }
+    //         Target::Monster => {
+    //             match world.get_monster_position(self.monster_target_id) {
+    //                 Ok(monster_position) => {
+    //                     let (x, y) = monster_position;
+    //                     self.tile_target = Some((x as u32, y as u32));
+    //                 }
+    //                 Err(MyError::MonsterNotFound) => {
+    //                     return Err(MyError::MonsterNotFound);
+    //                 }
+    //                 _ => {} // Handle other errors if needed
+    //             }
+    //         }
+    //         Target::Treasure => {
+    //             match world.get_treasure_position(self.treasure_target_id) {
+    //                 Ok(treasure_position) => {
+    //                     let (x, y) = treasure_position;
+    //                     self.tile_target = Some((x as u32, y as u32));
+    //                 }
+    //                 Err(MyError::TreasureNotFound) => {
+    //                     return Err(MyError::TreasureNotFound);
+    //                 }
+    //                 _ => {} // Handle other errors if needed
+    //             }
+    //         }
+    //         Target::None => {
+    //             return Err(MyError::InvalidTarget);
+    //         }
+    //         Target::Tile => {
+    //             todo!()
+    //         }
+    //     }
     
-        // Check if the agent's current position is equal to the tile target
-        let (x, y) = self.get_position();
-        if (x, y) == self.tile_target.unwrap_or_default() {
-        //     // Continue with action logic
-            let action = &self.action;
-            //Match the type of action
-            match action {
-                NpcAction::Attack => {
-                    //Match the current target for the Attack action
-                    match current_target{
-                        //For the target Agent of the Attack action
-                        Target::Agent => {
-                            let id = self.agent_target_id;
-                            self.send_message(
-                                id,
-                                MessageType::Attack(10),
-                                &mut agent_messages,
-                            )
-                        },
-                        Target::Monster => todo!(),
-                        Target::None => todo!(),
-                        Target::Tile => todo!(),
-                        Target::Treasure => todo!(),
-                    }
-                    // Attack formula
-                    // Agents have 3 lives
-                    // Every time an agent attacks something they lose a life
-                }
-                NpcAction::Steal => {
-                    // Logic for moving to a treasure
-                }
-                NpcAction::Rest => {
-                    // Logic for moving to a monster
-                }
-                NpcAction::Talk => todo!(),
-                NpcAction::None => todo!(),
-            }
-            // Clear the action after performing it
-            self.status = Status::Idle;
+    //     // Check if the agent's current position is equal to the tile target
+    //     let (x, y) = self.get_position();
+    //     if (x, y) == self.tile_target.unwrap_or_default() {
+    //     //     // Continue with action logic
+    //         let action = &self.action;
+    //         //Match the type of action
+    //         match action {
+    //             NpcAction::Attack => {
+    //                 //Match the current target for the Attack action
+    //                 match current_target{
+    //                     //For the target Agent of the Attack action
+    //                     Target::Agent => {
+    //                         let id = self.agent_target_id;
+    //                         self.send_message(
+    //                             id,
+    //                             MessageType::Attack(10),
+    //                             &mut agent_messages,
+    //                         )
+    //                     },
+    //                     Target::Monster => todo!(),
+    //                     Target::None => todo!(),
+    //                     Target::Tile => todo!(),
+    //                     Target::Treasure => todo!(),
+    //                 }
+    //                 // Attack formula
+    //                 // Agents have 3 lives
+    //                 // Every time an agent attacks something they lose a life
+    //             }
+    //             NpcAction::Steal => {
+    //                 // Logic for moving to a treasure
+    //             }
+    //             NpcAction::Rest => {
+    //                 // Logic for moving to a monster
+    //             }
+    //             NpcAction::Talk => todo!(),
+    //             NpcAction::None => todo!(),
+    //         }
+    //         // Clear the action after performing it
+    //         self.status = Status::Idle;
             
-            return Ok(()) // Return Ok to indicate success
-        } else {
-            // If the agent is not at the target position, initiate travel
-            self.travel(world.get_grid(), commands)?; 
-            self.set_status(Status::Moving);
-            // Call the move_between_tiles function to move the agent to the next position in the path
-            world.move_agent(self.get_id(), x as usize, y as usize)?;
-            return Ok(()) // Return Ok to indicate success
-        }
-    }
+    //         return Ok(()) // Return Ok to indicate success
+    //     } else {
+    //         // If the agent is not at the target position, initiate travel
+    //         self.travel(world.get_grid(), commands)?; 
+    //         self.set_status(Status::Moving);
+    //         // Call the move_between_tiles function to move the agent to the next position in the path
+    //         world.move_agent(self.get_id(), x as usize, y as usize)?;
+    //         return Ok(()) // Return Ok to indicate success
+    //     }
+    // }
 
 
     pub fn print_agent_properties(query: Query<&Agent>) {
@@ -480,20 +550,7 @@ impl Agent {
         }
     }
 
-    pub fn send_message(
-        &mut self,
-        receiver_id: u32,
-        message_content: MessageType,
-        agent_messages: &mut AgentMessages,
-    ) {
-        let message = AgentMessage::new (
-            self.id,
-            receiver_id,
-            message_content,
-        );
-        agent_messages.messages.push(message);
-    }
-    
+
   
 }
 
