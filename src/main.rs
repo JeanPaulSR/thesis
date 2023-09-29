@@ -63,20 +63,11 @@ fn main() {
         })
 
         // Insert AgentMessages resource with an empty vector.
-        // .insert_resource(AgentMessages {
-        //     messages: Vec::new(),
-        // })
         .insert_resource(AgentMessages::new())
         // Insert MonsterMessages resource with an empty vector.
-        // .insert_resource(MonsterMessages {
-        //     messages: Vec::new(),
-        // })
         .insert_resource(MonsterMessages::new())
         
         // Insert TreasureMessages resource with an empty vector.
-        // .insert_resource(TreasureMessages {
-        //     messages: Vec::new(),
-        // })
         .insert_resource(TreasureMessages::new())
         
         // Add the despawn handler

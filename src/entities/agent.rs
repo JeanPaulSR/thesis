@@ -16,6 +16,7 @@ pub enum Status {
     Working,
     Moving,
     Dead,
+    Following,
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -328,7 +329,7 @@ impl Agent {
         self.leader
     }
 
-    pub fn set_is_leader(&self, is_leader: bool){
+    pub fn set_is_leader(&mut self, is_leader: bool){
         self.leader = is_leader;
     }
 
@@ -336,7 +337,7 @@ impl Agent {
         self.leader_id
     }
 
-    pub fn set_leader_id(&self, leader_id: u32){
+    pub fn set_leader_id(&mut self, leader_id: u32){
         self.leader_id = leader_id;
     }
 
@@ -344,7 +345,7 @@ impl Agent {
         self.follower
     }
 
-    pub fn set_is_follower(&self, is_follower: bool){
+    pub fn set_is_follower(&mut self, is_follower: bool){
         self.follower = is_follower;
     }
 
@@ -352,7 +353,7 @@ impl Agent {
         &mut self,
         followers: Vec<u32>,
     ) {
-        self.followers.extend(followers);
+        self.followers.extend(followers.clone());
     }
 
     pub fn remove_follower(
@@ -366,6 +367,10 @@ impl Agent {
 
     pub fn get_followers(&self) -> Vec<u32> {
         self.followers.clone()
+    }
+
+    pub fn get_group_size(&self) -> u32 {
+        self.get_followers().len() as u32
     }
 
     // ______      _     _ _      
