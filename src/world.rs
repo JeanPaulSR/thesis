@@ -3,6 +3,7 @@ use bevy::prelude::Commands;
 use crate::entities::agent::Agent;
 use crate::entities::monster::Monster;
 use crate::entities::treasure::Treasure;
+use crate::tests::simple_agent::SimpleAgent;
 use crate::tile::TileType;
 use crate::tile::Tile;
 use crate::errors::MyError;
@@ -62,6 +63,7 @@ pub fn create_world() -> World {
     world
 }
 
+#[derive(Clone)]
 pub struct World {
     pub agents: Arc<Mutex<HashMap<u32, (usize, usize)>>>,
     pub monsters: Arc<Mutex<HashMap<u32, (usize, usize)>>>,
@@ -72,7 +74,7 @@ pub struct World {
 
 impl World {
     
-    fn new() -> Self {
+    pub fn new() -> Self {
         let agents = Arc::new(Mutex::new(HashMap::new()));
         let monsters = Arc::new(Mutex::new(HashMap::new()));
         let treasures = Arc::new(Mutex::new(HashMap::new()));
@@ -203,6 +205,21 @@ impl World {
         agents.insert(agent.get_id(), (x as usize, y as usize));
         let entity = agent.get_entity();
         commands.entity(entity).insert(agent);
+        // Return Ok(()) to indicate successful addition
+        Ok(())
+    }
+
+    // Function to add an agent to the world and its current tile
+    pub fn add_simple_agent(&mut self, agent: SimpleAgent,) -> Result<(), MyError> {
+        let (x, y) = agent.get_position();
+
+        // Check if the position is valid before attempting to get the tile
+        self.is_valid_position(x as usize, y as usize)?;
+        // Lock the agents list to safely add the agent
+        let mut agents = self.agents.lock().unwrap();
+
+        // Add the agent's position to the agents hash map
+        agents.insert(agent.get_id(), (x as usize, y as usize));
         // Return Ok(()) to indicate successful addition
         Ok(())
     }

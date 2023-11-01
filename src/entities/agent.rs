@@ -59,6 +59,16 @@ impl Genes{
         }
     }
 
+    pub fn influence_on_action(&self, action: &NpcAction) -> f32 {
+        match action {
+            NpcAction::Attack => self.aggression,
+            NpcAction::Steal => self.aggression,  // Adjust as needed
+            NpcAction::Rest => self.social,      // Adjust as needed
+            NpcAction::Talk => self.social,      // Adjust as needed
+            NpcAction::None => 0.0,             // No gene influence
+        }
+    }
+
 }
 
 #[derive(Clone, Bundle)]
@@ -325,6 +335,10 @@ impl Agent {
         self.action = action;
     }
 
+    pub fn get_path(&self) -> Option<Vec<(i32, i32)>>{
+        self.path.clone()
+    }
+    
     pub fn is_leader(&self) -> bool{
         self.leader
     }
@@ -440,111 +454,6 @@ impl Agent {
             Err(MyError::PathNotFound)
         }
     }
-
-   
-
-    // //Add error handling if the target is gone/dead
-    // pub fn perform_action(&mut self,
-    //     world: ResMut<World>,
-    //     commands: &mut Commands,
-    //     mut agent_messages: ResMut<AgentMessages>,) -> Result<(), MyError> {
-    //     let current_target = self.target;
-    //     match current_target {
-    //         Target::Agent => {
-    //             match world.get_agent_position(self.agent_target_id) {
-    //                 Ok(agent_position) => {
-    //                     let (x, y) = agent_position;
-    //                     self.tile_target = Some((x as u32, y as u32));
-    //                 }
-    //                 Err(MyError::AgentNotFound) => {
-    //                     return Err(MyError::AgentNotFound);
-    //                 }
-    //                 _ => {} // Handle other errors if needed
-    //             }
-    //         }
-    //         Target::Monster => {
-    //             match world.get_monster_position(self.monster_target_id) {
-    //                 Ok(monster_position) => {
-    //                     let (x, y) = monster_position;
-    //                     self.tile_target = Some((x as u32, y as u32));
-    //                 }
-    //                 Err(MyError::MonsterNotFound) => {
-    //                     return Err(MyError::MonsterNotFound);
-    //                 }
-    //                 _ => {} // Handle other errors if needed
-    //             }
-    //         }
-    //         Target::Treasure => {
-    //             match world.get_treasure_position(self.treasure_target_id) {
-    //                 Ok(treasure_position) => {
-    //                     let (x, y) = treasure_position;
-    //                     self.tile_target = Some((x as u32, y as u32));
-    //                 }
-    //                 Err(MyError::TreasureNotFound) => {
-    //                     return Err(MyError::TreasureNotFound);
-    //                 }
-    //                 _ => {} // Handle other errors if needed
-    //             }
-    //         }
-    //         Target::None => {
-    //             return Err(MyError::InvalidTarget);
-    //         }
-    //         Target::Tile => {
-    //             todo!()
-    //         }
-    //     }
-    
-    //     // Check if the agent's current position is equal to the tile target
-    //     let (x, y) = self.get_position();
-    //     if (x, y) == self.tile_target.unwrap_or_default() {
-    //     //     // Continue with action logic
-    //         let action = &self.action;
-    //         //Match the type of action
-    //         match action {
-    //             NpcAction::Attack => {
-    //                 //Match the current target for the Attack action
-    //                 match current_target{
-    //                     //For the target Agent of the Attack action
-    //                     Target::Agent => {
-    //                         let id = self.agent_target_id;
-    //                         self.send_message(
-    //                             id,
-    //                             MessageType::Attack(10),
-    //                             &mut agent_messages,
-    //                         )
-    //                     },
-    //                     Target::Monster => todo!(),
-    //                     Target::None => todo!(),
-    //                     Target::Tile => todo!(),
-    //                     Target::Treasure => todo!(),
-    //                 }
-    //                 // Attack formula
-    //                 // Agents have 3 lives
-    //                 // Every time an agent attacks something they lose a life
-    //             }
-    //             NpcAction::Steal => {
-    //                 // Logic for moving to a treasure
-    //             }
-    //             NpcAction::Rest => {
-    //                 // Logic for moving to a monster
-    //             }
-    //             NpcAction::Talk => todo!(),
-    //             NpcAction::None => todo!(),
-    //         }
-    //         // Clear the action after performing it
-    //         self.status = Status::Idle;
-            
-    //         return Ok(()) // Return Ok to indicate success
-    //     } else {
-    //         // If the agent is not at the target position, initiate travel
-    //         self.travel(world.get_grid(), commands)?; 
-    //         self.set_status(Status::Moving);
-    //         // Call the move_between_tiles function to move the agent to the next position in the path
-    //         world.move_agent(self.get_id(), x as usize, y as usize)?;
-    //         return Ok(()) // Return Ok to indicate success
-    //     }
-    // }
-
 
     pub fn print_agent_properties(query: Query<&Agent>) {
         for agent in query.iter() {

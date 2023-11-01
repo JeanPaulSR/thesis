@@ -1,3 +1,5 @@
+use crate::{simulation::GameState, entities::agent::Genes};
+
 #[allow(dead_code)]
 #[derive(Clone)]
 #[derive(Debug)]
@@ -10,82 +12,79 @@ pub enum NpcAction {
     // Add more actions as needed
 }
 
-#[allow(dead_code)]
-struct MonteCarloTreeSearch {
-    root: Node,
+pub struct MCTSNode {
+    state_info: GameState, // Subset of relevant game state data
+    action: Option<NpcAction>,    // Action that led to this state
+    visits: usize,            // Number of visits to this node
+    total_reward: u32,        // Total reward from this node
+    children: Vec<MCTSNode>,  // Child nodes for possible actions
 }
 
-#[allow(dead_code)]
-#[derive(Clone)]
-struct Node {
-    state: GameState,
-    visits: u32,
-    wins: u32,
-    children: Vec<Node>,
-}
-
-#[derive(Clone)]
-struct GameState {
-    // Define your game state representation here
-    // Include information about the grid, NPCs, etc.
-    // This could be a struct representing the current state of the simulation
-}
-
-impl GameState {
-    pub fn new() -> Self {
-        // Initialize the game state here
-        GameState {
-            // Initialize the fields of the game state struct
+impl MCTSNode {
+    fn new(state_info: GameState, action: Option<NpcAction>) -> Self {
+        MCTSNode {
+            state_info,
+            action,
+            visits: 0,
+            total_reward: 0,
+            children: vec![],
         }
     }
 }
 
-#[allow(dead_code)]
-impl MonteCarloTreeSearch {
-    pub fn new() -> Self {
-        MonteCarloTreeSearch {
-            root: Node {
-                state: GameState::new(),
-                visits: 0,
-                wins: 0,
-                children: vec![],
-            },
+fn calculate_action_score(genes: &Genes, action: NpcAction) -> f32 {
+    match action {
+        NpcAction::Attack => genes.aggression,
+        NpcAction::Steal => genes.greed,
+        NpcAction::Rest => genes.self_preservation,
+        NpcAction::Talk => genes.social,
+        NpcAction::None => 0.0, // Default score for actions not influenced by genes
+        // Add more actions as needed
+    }
+}
+
+fn calculate_uct_score(child: &MCTSNode, parent: &MCTSNode, c: f64) -> f64 {
+    let total_reward = child.total_reward as f64;
+    let visits = child.visits as f64;
+    let parent_visits = parent.visits as f64;
+
+    total_reward / visits + c * (f64::ln(parent_visits) / visits).sqrt()
+}
+
+fn select(node: &MCTSNode, agent_genes: &Genes) -> usize {
+    let mut best_child_index = 0;
+    let mut best_score = f64::NEG_INFINITY;
+
+    let c = 2_f64.sqrt();
+    for (index, child) in node.children.iter().enumerate() {
+        let uct_score = calculate_uct_score(&child, &node, c);
+        let action_score = calculate_action_score(agent_genes, child.action.clone().unwrap_or(NpcAction::None));
+        let combined_score = uct_score * action_score as f64;
+
+        if combined_score > best_score {
+            best_score = combined_score;
+            best_child_index = index;
         }
     }
 
-    pub fn search(&mut self, iterations: u32) {
-        for _ in 0..iterations {
-            let selected_node = self.select_node(&self.root.clone());
-            let result = self.simulate(selected_node.state.clone());
-            self.backpropagate(&selected_node, result);
-        }
+    best_child_index
+}
+
+fn mcts_search(initial_state: GameState, iterations: usize, agent_genes: Genes) -> Option<NpcAction> {
+    let root = MCTSNode::new(initial_state, None);
+    let mut best_child: Option<&MCTSNode> = None; // Initialize as None
+
+    for _ in 0..iterations {
+        let best_child_index = select(&root, &agent_genes);
+        best_child = Some(&root.children[best_child_index]); // Update best_child
+
+        // Expand, simulate, and backpropagate as needed
+        // This is where you would implement the rest of the MCTS algorithm
     }
 
-    fn select_node(&self, _node: &Node) -> Node {
-        // Implement the selection strategy here
-        // Choose a child node based on a selection policy, e.g., UCB1
-        // You can use the visits and wins information in each node to guide the selection process
-        // Return the selected node
-        unimplemented!()
-    }
-
-    fn simulate(&self, _state: GameState) -> f32 {
-        // Implement the simulation phase here
-        // Perform random or heuristic simulations of the game from the given state
-        // Return a value that represents the result or utility of the simulated game
-        unimplemented!()
-    }
-
-    fn backpropagate(&mut self, _node: &Node, _result: f32) {
-        // Update the visits and wins count in the node and its ancestors
-        // Traverse up the tree and update the statistics based on the simulation result
-        unimplemented!()
-    }
-
-    pub fn get_best_action(&self) -> NpcAction {
-        // Choose the best action based on the statistics gathered during the search phase
-        // You can use the visits and wins information to select the most promising action
-        // Return the best action to be performed by the agent
-        unimplemented!()
+    // After the iterations, choose the best action based on the selected child node
+    match best_child {
+        Some(child) => child.action.clone(),
+        None => None, // No actions found
     }
 }

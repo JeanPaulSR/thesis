@@ -1,7 +1,5 @@
 use bevy::prelude::*;
 
-use crate::{tile::Tile, errors::MyError};
-
 #[derive(Clone)]
 pub struct Treasure {
     entity: Entity,
@@ -85,7 +83,7 @@ impl Treasure {
         self.id
     }
 
-        // ______      _     _ _      
+    // ______      _     _ _      
     // | ___ \    | |   | (_)     
     // | |_/ /   _| |__ | |_  ___ 
     // |  __/ | | | '_ \| | |/ __|
@@ -97,4 +95,51 @@ impl Treasure {
         println!("Position: x={}, y={}", self.transform.translation.x/32.0, self.transform.translation.y/32.0);
     }
 
+}
+
+#[allow(dead_code)]
+pub struct SimpleTreasure {
+    id: u32,
+    transform: Transform,
+    reward: u32,
+}
+
+impl From<&Treasure> for SimpleTreasure {
+    fn from(treasure: &Treasure) -> Self {
+        SimpleTreasure {
+            id: treasure.id,
+            transform: treasure.transform.clone(),
+            reward: treasure.reward,
+        }
+    }
+}
+
+impl SimpleTreasure {
+    pub fn new(treasure: &Treasure) -> Self {
+        SimpleTreasure::from(treasure)
+    }
+
+    pub fn get_position(&self) -> (f32, f32) {
+        (self.transform.translation.x / 32.0, self.transform.translation.y / 32.0)
+    }
+
+    pub fn set_reward(&mut self, reward: u32) {
+        self.reward = reward;
+    }
+
+    pub fn get_reward(&self) -> u32 {
+        self.reward
+    }
+
+    pub fn add_reward(&mut self, reward: u32) {
+        self.reward  = self.reward + reward; 
+    }
+
+    pub fn remove_reward(&mut self, reward: u32) {
+        self.reward = self.reward.saturating_sub(reward);
+    }
+
+    pub fn get_id(&self) -> u32 {
+        self.id
+    }
 }

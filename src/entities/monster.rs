@@ -147,11 +147,108 @@ impl Monster {
     pub fn remove_reward(&mut self, reward: u32) {
         self.reward = self.reward.saturating_sub(reward);
     }
-    // pub entity: Entity,
-    // pub id: u32,
-    // pub vision: f32,
-    // energy: u32,
-    // max_energy: u32,
-    // pub transform: Transform,
+    
+    
 }
 
+#[allow(dead_code)]
+pub struct SimpleMonster {
+    id: u32,
+    vision: u8,
+    energy: u8,
+    max_energy: u8,
+    reward: u32,
+    status: Status,
+    transform: Transform,
+}
+
+impl From<&Monster> for SimpleMonster {
+    fn from(monster: &Monster) -> Self {
+        SimpleMonster {
+            id: monster.id,
+            vision: monster.vision,
+            energy: monster.energy,
+            max_energy: monster.max_energy,
+            reward: monster.reward,
+            status: monster.status.clone(),
+            transform: monster.transform.clone(),
+        }
+    }
+}
+
+impl SimpleMonster {
+    pub fn new(monster: &Monster) -> Self {
+        SimpleMonster::from(monster)
+    }
+
+    
+    pub fn get_position(&self) -> (f32, f32) {
+        (self.transform.translation.x / 32.0, self.transform.translation.y / 32.0)
+    }
+
+    pub fn get_energy(&self) -> u8 {
+        self.energy
+    }
+
+    pub fn set_energy(&mut self, energy: u8) {
+        self.energy = energy;
+    }
+
+    pub fn get_vision(&self) -> u8 {
+        self.vision
+    }
+
+    pub fn set_vision(&mut self, vision: u8) {
+        self.vision = vision;
+    }
+
+
+    pub fn add_energy(&mut self, energy: u8) {
+        let new_energy = self.energy.saturating_add(energy); 
+        self.energy = new_energy.min(self.max_energy); 
+    }
+
+    pub fn remove_energy(&mut self, energy: u8) {
+        self.energy = self.energy.saturating_sub(energy);
+
+        if self.energy == 0 {
+            self.set_status(Status::Dead);
+        }
+    }
+
+    pub fn get_id(&self) -> u32 {
+        self.id
+    }
+
+    pub fn get_max_energy(&self) -> u8 {
+        self.max_energy
+    }
+
+    pub fn set_max_energy(&mut self, max_energy: u8) {
+        self.max_energy = max_energy;
+    }
+
+    pub fn set_status(&mut self, status: Status) {
+        self.status = status;
+    }
+
+    pub fn get_status(&self) -> Status {
+        self.status.clone()
+    }
+
+    pub fn set_reward(&mut self, reward: u32) {
+        self.reward = reward;
+    }
+
+    pub fn get_reward(&self) -> u32 {
+        self.reward
+    }
+
+    pub fn add_reward(&mut self, reward: u32) {
+        self.reward  = self.reward + reward; 
+    }
+
+    pub fn remove_reward(&mut self, reward: u32) {
+        self.reward = self.reward.saturating_sub(reward);
+    }
+}

@@ -9,6 +9,7 @@ mod world;
 mod npc;
 mod debug;
 mod behavior;
+mod simulation;
 use systems::AgentMessages;
 use systems::MonsterMessages;
 use systems::TreasureMessages;
@@ -21,6 +22,10 @@ use world::World;
 mod movement; 
 mod mcst;
 mod errors;
+mod tests{
+    pub mod mcst_tests;
+    pub mod simple_agent;
+}
 mod entities {
     pub mod monster;
     pub mod agent;
@@ -53,7 +58,7 @@ fn main() {
         // Add a startup system that sets up the initial state of the game (e.g., camera, entities, etc.).
         .add_startup_system(setup.system())
         // Add a system that moves agents to a village.
-        .add_startup_stage("post_startup", SystemStage::single(debug_system.system()))
+        //.add_startup_stage("post_startup", SystemStage::single(debug_system.system()))
         //.add_startup_system(npc::debug.system())
         
         // Insert a CameraDragging resource to track the camera dragging state.
@@ -170,7 +175,12 @@ pub fn setup(
             &asset_server,
         );
     
+        // if(agent.get_id() == 1){
+        //     let simple_agent = SimpleAgent::new(&agent); // Create a Simple_Agent instance
 
+        //     let size = mem::size_of::<SimpleAgent>(); // Get the size in bytes
+        //     println!("Size of Simple_Agent: {} bytes", size);
+        // }
         // // Try to add the agent to the world
         if let Err(err) = world.add_agent(agent.clone(), &mut commands) {
             // Handle the error here, e.g. print an error message

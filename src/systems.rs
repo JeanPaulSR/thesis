@@ -7,6 +7,7 @@ use crate::World;
 
 #[derive()]
 #[derive(Clone)]
+#[allow(dead_code)]
 pub enum MessageType{
     Attack(u8),
     MonsterAttack(u8),
@@ -15,6 +16,7 @@ pub enum MessageType{
     Reward(u32),
     Steal(u32),
     Cooperate(Vec<u32>),
+    BecomeFollower,
     StopCooperating,
     Move((u32,u32)),
     //True is add, false is remove
@@ -33,6 +35,7 @@ impl MessageType {
             MessageType::Steal(val) => MessageType::Steal(*val),
             MessageType::Cooperate(vec) => MessageType::Cooperate(vec.clone()),
             MessageType::StopCooperating => MessageType::StopCooperating,
+            MessageType::BecomeFollower => MessageType::BecomeFollower,
             MessageType::Move((val1,val2)) => MessageType::Move((*val1, *val2)),
             MessageType::Energy(flag, amount) => MessageType::Energy(*flag, *amount),
             MessageType::GroupReward(reward) => MessageType::GroupReward(*reward),
@@ -255,8 +258,37 @@ pub fn agent_message_system(
                                     monster_messages.add_message(new_message);
                                 }
                             },
-                            MessageType::Cooperate(_) => todo!(),
-                            MessageType::StopCooperating => todo!(),
+                            MessageType::Cooperate(ref agents) => {
+                                agent.set_is_leader(true);
+                                agent.set_is_follower(false);
+                                agent.add_follower(agents.clone());
+                                for id in agents{
+                                    let new_message = AgentMessage::new(
+                                        agent.get_id(),
+                                        *id,
+                                        MessageType::BecomeFollower,
+                                    );
+                                    new_messages.add_message(new_message);
+                                }
+                            },
+                            MessageType::BecomeFollower => {
+                                //If its a leader or has followers, send error
+                                if agent.get_group_size() > 0{
+                                    println!("Error in group size handling for BecomeFollower");
+                                } 
+                                agent.set_is_leader(false);
+                                agent.set_is_follower(true);
+                                agent.set_leader_id(message.sender_id);
+                            },
+                            
+                            //It assumed the agent did the necessary removal from cooperating on its end
+                            MessageType::StopCooperating => {
+                                agent.remove_follower(message.sender_id);
+                                if agent.get_group_size() <= 0 {
+                                    agent.set_is_leader(false);
+                                }
+                            },
+
                             MessageType::Move((x, y)) => {
                                 agent.move_to(x as f32, y as f32, &mut commands);
                                 // Call the move_between_tiles function to move the agent to the next position in the path
@@ -373,6 +405,7 @@ pub fn monster_message_system(
                     MessageType::GroupDamage(_) => todo!(),
                     MessageType::GroupReward(_) => todo!(),
                     MessageType::Inherit(_, _) => todo!(),
+                    MessageType::BecomeFollower => todo!(),
                 }
             }
         }
@@ -467,6 +500,7 @@ pub fn treasure_message_system(
                     MessageType::GroupDamage(_) => todo!(),
                     MessageType::GroupReward(_) => todo!(),
                     MessageType::Inherit(_, _) => todo!(),
+                    MessageType::BecomeFollower => todo!(),
                 }
             }
         }
@@ -741,6 +775,7 @@ fn follower_actions(
                     MessageType::GroupDamage(_) => todo!(),
                     MessageType::GroupReward(_) => todo!(),
                     MessageType::Inherit(_, _) => todo!(),
+                    MessageType::BecomeFollower => todo!(),
                 },
                 agent_messages,
             );  
