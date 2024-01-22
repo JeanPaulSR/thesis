@@ -17,6 +17,18 @@ pub struct GameState {
     // Add other relevant game state information here
 }
 
+
+pub struct AgentData{
+    id: u32,
+    action: NpcAction,
+    status: Status,
+    target: Target,
+    monster_target_id: u32,
+    agent_target_id: u32,
+    treasure_target_id: u32,
+    tile_target: Option<(u32, u32)>,
+}
+
 #[allow(dead_code)]
 impl GameState {
     pub fn create_gamestate(agents: Vec<Agent>, monsters: Vec<Monster>, treasures: Vec<Treasure>, world: World) -> Self {

@@ -324,8 +324,6 @@ pub fn agent_message_system(
 
          new_messages.messages.clear();
     }
-
-    // Clean up processed messages
 }
 
 
@@ -559,6 +557,8 @@ pub fn cleanup_system(
 //Don't forget to handle the system for leaving a group
 //Don't forget to set status to following
 //Fix performing an invalid task until it dies
+//Move removing the energy into the message handling
+//Fix the movement issue of randomly moving to 0, as well as using th path isntead of the current position
 pub fn perform_action(
     mut query: Query<&mut Agent>,
     mut world: ResMut<World>,
@@ -718,6 +718,7 @@ pub fn perform_action(
                     }
                 }
             } else {
+                
                 // If the agent is not at the target position, initiate travel
                 match agent.travel(world.get_grid(), &mut commands) {
                     Ok(_) => {
@@ -736,6 +737,7 @@ pub fn perform_action(
                 }; 
                 agent.set_status(Status::Moving);
                 // Call the move_between_tiles function to move the agent to the next position in the path
+                
                 match world.move_agent(agent.get_id(), x as usize, y as usize){
                     Ok(it) => it,
                     Err(_) => println!("Invalid Move"),

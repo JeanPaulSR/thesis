@@ -150,7 +150,7 @@ impl Agent {
             A_COUNTER += 1;
         }
         
-    
+        let tile_target = (10 as u32, 10 as u32);
         // Create and return a new instance of the Agent struct
         Agent {
             genes : Genes::generate(),

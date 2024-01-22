@@ -19,7 +19,7 @@ impl Npc {
         commands: &mut Commands,
         materials: &mut ResMut<Assets<ColorMaterial>>,
     ) -> Self {
-        let sprite_size = Vec2::new(32.0, 32.0); // Adjust to your sprite size
+        let sprite_size = Vec2::new(32.0, 32.0);
 
         let npc = commands.spawn_bundle(SpriteBundle {
             material: materials.add(texture_handle.clone().into()),
@@ -39,7 +39,7 @@ impl Npc {
             sprite_bundle: SpriteBundle {
                 material: materials.add(texture_handle.into()),
                 sprite: Sprite::new(sprite_size),
-                transform: Transform::from_translation(Vec3::new(0.0, 0.0, 0.0)), // Adjust position in relation to the npc transform
+                transform: Transform::from_translation(Vec3::new(0.0, 0.0, 0.0)),
                 ..Default::default()
             },
         }

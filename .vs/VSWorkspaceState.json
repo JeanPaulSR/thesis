@@ -1,6 +1,10 @@
 {
   "ExpandedNodes": [
-    ""
+    "",
+    "\\src",
+    "\\src\\entities",
+    "\\src\\tests"
   ],
+  "SelectedNode": "\\src\\simulation.rs",
   "PreviewInSolutionExplorer": false
 }

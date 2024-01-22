@@ -32,7 +32,12 @@ impl MCTSNode {
     }
 }
 
-fn calculate_action_score(genes: &Genes, action: NpcAction) -> f32 {
+pub struct MCTSTree{
+    agent_id: u32,
+    root_node: MCTSNode,
+}
+
+pub fn calculate_action_score(genes: &Genes, action: NpcAction) -> f32 {
     match action {
         NpcAction::Attack => genes.aggression,
         NpcAction::Steal => genes.greed,
@@ -43,7 +48,7 @@ fn calculate_action_score(genes: &Genes, action: NpcAction) -> f32 {
     }
 }
 
-fn calculate_uct_score(child: &MCTSNode, parent: &MCTSNode, c: f64) -> f64 {
+pub fn calculate_uct_score(child: &MCTSNode, parent: &MCTSNode, c: f64) -> f64 {
     let total_reward = child.total_reward as f64;
     let visits = child.visits as f64;
     let parent_visits = parent.visits as f64;
@@ -51,7 +56,7 @@ fn calculate_uct_score(child: &MCTSNode, parent: &MCTSNode, c: f64) -> f64 {
     total_reward / visits + c * (f64::ln(parent_visits) / visits).sqrt()
 }
 
-fn select(node: &MCTSNode, agent_genes: &Genes) -> usize {
+pub fn select(node: &MCTSNode, agent_genes: &Genes) -> usize {
     let mut best_child_index = 0;
     let mut best_score = f64::NEG_INFINITY;
 
@@ -70,7 +75,7 @@ fn select(node: &MCTSNode, agent_genes: &Genes) -> usize {
     best_child_index
 }
 
-fn mcts_search(initial_state: GameState, iterations: usize, agent_genes: Genes) -> Option<NpcAction> {
+pub fn mcts_search(initial_state: GameState, iterations: usize, agent_genes: Genes) -> Option<NpcAction> {
     let root = MCTSNode::new(initial_state, None);
     let mut best_child: Option<&MCTSNode> = None; // Initialize as None
 

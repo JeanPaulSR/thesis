@@ -259,13 +259,14 @@ impl World {
         pos_x2: usize,
     ) -> Result<(), MyError> {
         let mut agents_positions = self.agents.lock().unwrap();
-        
         // Check if the agent exists and get its position
         if let Some((pos_y1, pos_x1)) = agents_positions.get_mut(&agent_id) {
 
             // Update the agent's position directly
             *pos_x1 = pos_x2;
             *pos_y1 = pos_y2;
+            
+            println!("Agent ID: {}, ({} , {})", agent_id, pos_y2, pos_x2);
             Ok(())
         } else {
             // Agent was not found in the agent HashMap

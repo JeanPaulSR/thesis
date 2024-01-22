@@ -71,7 +71,6 @@ fn main() {
         .insert_resource(AgentMessages::new())
         // Insert MonsterMessages resource with an empty vector.
         .insert_resource(MonsterMessages::new())
-        
         // Insert TreasureMessages resource with an empty vector.
         .insert_resource(TreasureMessages::new())
         
@@ -114,7 +113,7 @@ pub fn setup(
 
     for (y, column) in world.grid.iter_mut().enumerate() {
         for (x, tile) in column.iter_mut().enumerate() {
-            let treasure = None;
+            //let treasure = None;
             let material_handle = match tile.lock().unwrap().get_tile_type() {
                 TileType::Forest => forest_material.clone(),
                 TileType::Mountain => mountain_material.clone(),
@@ -133,12 +132,6 @@ pub fn setup(
             let mut tile_entity = commands.spawn_bundle(sprite_bundle);
             tile_entity.insert(Position { x: x as i32, y: y as i32 });
             tile_entity.insert(TileComponent { tile_type: tile.lock().unwrap().get_tile_type().clone() });
-            tile_entity.insert(Position { x: x as i32, y: y as i32 });
-
-            if let Some(treasure) = treasure {
-                tile_entity.insert(TreasureComponent { treasure });
-            }
-
         }
     }
 
@@ -175,20 +168,12 @@ pub fn setup(
             &asset_server,
         );
     
-        // if(agent.get_id() == 1){
-        //     let simple_agent = SimpleAgent::new(&agent); // Create a Simple_Agent instance
-
-        //     let size = mem::size_of::<SimpleAgent>(); // Get the size in bytes
-        //     println!("Size of Simple_Agent: {} bytes", size);
-        // }
         // // Try to add the agent to the world
         if let Err(err) = world.add_agent(agent.clone(), &mut commands) {
-            // Handle the error here, e.g. print an error message
             match err {
                 MyError::TileNotFound => {
                     println!("Failed to add agent: Tile not found.");
                 }
-                // Handle other error cases if needed
                 _ => {
                     println!("Failed to add agent: Unknown error.");
                 }
@@ -203,6 +188,7 @@ fn debug(
     //mut agent_messages: ResMut<AgentMessages>,
     //commands: &mut Commands,
 ) {
+    println!("Debuggng");
     // Query for all mutable Agent components
     for mut agent in query.iter_mut() {
         if agent.get_id() == 1 {
@@ -211,8 +197,6 @@ fn debug(
             agent.set_target(entities::agent::Target::Agent);
             agent.set_action(mcst::NpcAction::Attack);
             //agent.perform_action(world, commands, agent_messages);
-
-            // Print other agent properties as needed
         }
     }
 
@@ -231,10 +215,3 @@ fn debug_system(
     );
     
 }
-
-////////////////////////////////////////////////////////////////
-
-
-
-
-
