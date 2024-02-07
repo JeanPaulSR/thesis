@@ -152,6 +152,7 @@ impl Monster {
 }
 
 #[allow(dead_code)]
+#[derive(Clone)]
 pub struct SimpleMonster {
     id: u32,
     vision: u8,

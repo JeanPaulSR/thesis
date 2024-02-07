@@ -1,8 +1,7 @@
 use std::sync::{Mutex, Arc};
 
-use crate::{simulation::GameState, world::World, tile::{Tile, TileType}, errors::MyError, entities::{monster::SimpleMonster, treasure::SimpleTreasure}};
+use crate::{world::World, tile::{Tile, TileType}};
 
-use super::simple_agent::SimpleAgent;
 
 
 
@@ -133,47 +132,47 @@ pub fn create_world() -> World {
 
 const START_AGENT_COUNT: usize = 5;
 
-pub fn setup() -> GameState{
-    
-    let mut world = create_world();
-
-    let mut villages: Vec<(usize, usize)> = Vec::new();
-    for (y, column) in world.grid.iter().enumerate() {
-        for (x, tile_mutex) in column.iter().enumerate() {
-            let tile = tile_mutex.lock().unwrap();
-            if tile.get_tile_type() == TileType::Village {
-                villages.push((x, y));
-            }
-        }
-    }
-    
-    let mut agents: Vec<SimpleAgent> = Vec::new();
-    let mut monsters: Vec<SimpleMonster> = Vec::new();
-    let mut treasures: Vec<SimpleTreasure> = Vec::new();
-
-    for i in 0..START_AGENT_COUNT {
-        let village = villages[i % villages.len()];
-    
-        let agent = SimpleAgent::new(
-            village.0 as u32,
-            village.1 as u32,
-        );
-
-        agents.push(agent.clone());
-    
-        if let Err(err) = world.add_simple_agent(agent.clone()) {
-            // Handle the error here, e.g. print an error message
-            match err {
-                MyError::TileNotFound => {
-                    println!("Failed to add agent: Tile not found.");
-                }
-                // Handle other error cases if needed
-                _ => {
-                    println!("Failed to add agent: Unknown error.");
-                }
-            }
-        } 
-    }
-
-    GameState::create_gamestate_simple(agents, monsters, treasures, world.clone())
-}
+//pub fn setup() -> GameState{
+//    
+//    let mut world = create_world();
+//
+//    let mut villages: Vec<(usize, usize)> = Vec::new();
+//    for (y, column) in world.grid.iter().enumerate() {
+//        for (x, tile_mutex) in column.iter().enumerate() {
+//            let tile = tile_mutex.lock().unwrap();
+//            if tile.get_tile_type() == TileType::Village {
+//                villages.push((x, y));
+//            }
+//        }
+//    }
+//    
+//    let mut agents: Vec<SimpleAgent> = Vec::new();
+//    let mut monsters: Vec<SimpleMonster> = Vec::new();
+//    let mut treasures: Vec<SimpleTreasure> = Vec::new();
+//
+//    for i in 0..START_AGENT_COUNT {
+//        let village = villages[i % villages.len()];
+//    
+//        let agent = SimpleAgent::new(
+//            village.0 as u32,
+//            village.1 as u32,
+//        );
+//
+//        agents.push(agent.clone());
+//    
+//        if let Err(err) = world.add_simple_agent(agent.clone()) {
+//            // Handle the error here, e.g. print an error message
+//            match err {
+//                MyError::TileNotFound => {
+//                    println!("Failed to add agent: Tile not found.");
+//                }
+//                // Handle other error cases if needed
+//                _ => {
+//                    println!("Failed to add agent: Unknown error.");
+//                }
+//            }
+//        } 
+//    }
+//
+//    GameState::create_gamestate_simple(agents, monsters, treasures, world.clone())
+//}

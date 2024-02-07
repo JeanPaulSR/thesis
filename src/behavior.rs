@@ -1,7 +1,39 @@
 //use crate::{simulation::GameState, mcst::NpcAction};
 
+//Possible actions
+//Attack Agent, Monster
+//Steal Agent, Village, Treasure
+//Rest Village
+//Talk Agent
+//None
+
+//pub fn calculate_action_score(genes: &Genes, action: NpcAction) -> f32 {
+//    match action {
+//        NpcAction::Attack => genes.aggression,
+//        NpcAction::Steal => genes.greed,
+//        NpcAction::Rest => genes.self_preservation,
+//        NpcAction::Talk => genes.social,
+//        NpcAction::None => 0.0, 
+//    }
+//}
 
 
+
+//pub struct Genes {
+//    pub greed: f32,
+//    pub aggression: f32,
+//    pub social: f32,
+//    pub self_preservation: f32,
+//    pub vision: f32,
+//}
+
+//pub enum NpcAction {
+//    Attack,
+//    Steal,
+//    Rest,
+//    Talk,
+//    None,
+//}
 // struct MCTSNode {
 //     state_info: GameState, // Subset of relevant game state data
 //     action: Option<NpcAction>,    // Action that led to this state

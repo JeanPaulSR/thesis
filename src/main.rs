@@ -18,6 +18,7 @@ use systems::cleanup_system;
 use systems::monster_message_system;
 use systems::perform_action;
 use systems::treasure_message_system;
+use simulation::run_simulation;
 use world::World;
 mod movement; 
 mod mcst;
@@ -31,7 +32,7 @@ mod entities {
     pub mod agent;
     pub mod treasure;
 }
-use crate::components::{Position, TileComponent, TreasureComponent};
+use crate::components::{Position, TileComponent};
 use crate::entities::agent::Agent;
 use crate::tile::TileType;
 use crate::errors::MyError;
@@ -74,6 +75,10 @@ fn main() {
         // Insert TreasureMessages resource with an empty vector.
         .insert_resource(TreasureMessages::new())
         
+        //End simulation key
+        .insert_resource(ToggleFlag(false))
+        .add_system(toggle_flag_system.system())
+
         // Add the despawn handler
         .add_system(cleanup_system.system())
         // Add the agent message system to handle messages between treasures.
@@ -84,11 +89,17 @@ fn main() {
         .add_system(agent_message_system.system())
         // Add the agent action handling
         .add_system(perform_action.system())
+
+        //Insert the world tree
+        //.insert_resource(mcst::MCTSTree::new())
+        // Add the simulation
+        .add_startup_system(run_simulation.system())
         
         // Custom systems here
         .run();
 }
 
+struct ToggleFlag(bool);
 
 pub fn setup(
     mut commands: Commands,
@@ -214,4 +225,16 @@ fn debug_system(
         // &mut commands
     );
     
+}
+
+
+fn toggle_flag_system(
+    keyboard_input: Res<Input<KeyCode>>,
+    mut toggle_flag: ResMut<ToggleFlag>,
+) {
+    if keyboard_input.just_pressed(KeyCode::X) {
+        // Toggle the flag to true when X key is pressed
+        toggle_flag.0 = !toggle_flag.0;
+        println!("Flag toggled to: {}", toggle_flag.0);
+    }
 }

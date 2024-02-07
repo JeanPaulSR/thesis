@@ -98,6 +98,7 @@ impl Treasure {
 }
 
 #[allow(dead_code)]
+#[derive(Clone)]
 pub struct SimpleTreasure {
     id: u32,
     transform: Transform,
