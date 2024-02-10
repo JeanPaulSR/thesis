@@ -90,10 +90,13 @@ fn main() {
         // Add the agent action handling
         .add_system(perform_action.system())
 
+        
+        //.add_system(debug.system())
+
         //Insert the world tree
-        //.insert_resource(mcst::MCTSTree::new())
+        .insert_resource(mcst::MCTSTree::new_empty())
         // Add the simulation
-        .add_startup_system(run_simulation.system())
+        .add_system(run_simulation.system())
         
         // Custom systems here
         .run();
@@ -107,6 +110,7 @@ pub fn setup(
     mut materials: ResMut<Assets<ColorMaterial>>,
     mut world: ResMut<World>,
 ) {
+    commands.insert_resource::<i32>(0);
     
     // Load the individual textures
     let forest_texture = asset_server.load("textures/forest.png");
@@ -203,6 +207,8 @@ fn debug(
     // Query for all mutable Agent components
     for mut agent in query.iter_mut() {
         if agent.get_id() == 1 {
+            let (x, y) = agent.get_position();
+            println!("Position for agent 1: ({},{})", x, y);
             // Found the desired agent by ID
             agent.set_agent_target_id(2);
             agent.set_target(entities::agent::Target::Agent);

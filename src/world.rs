@@ -86,7 +86,7 @@ impl World {
                 .collect();
             grid.push(row);
         }
-    
+        
         World {
             agents,
             monsters,
