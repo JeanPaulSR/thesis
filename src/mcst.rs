@@ -1,9 +1,9 @@
 use crate::entities::agent::Target;
-use rand::seq::SliceRandom;
 use std::cell::RefCell;
 use std::rc::Rc;
 use std::sync::{Arc, Mutex};
 use std::collections::HashMap;
+use crate::entities::agent::Genes;
 
 #[allow(dead_code)]
 #[derive(Clone)]
@@ -87,6 +87,21 @@ impl ActionSet {
     }
 }
 
+//pub struct ActionRating{
+//    agent_id
+//    action_rating
+}
+
+//    pub fn influence_on_action(&self, action: &NpcAction) -> f32 {
+//        match action {
+//            NpcAction::Attack => self.aggression,
+//            NpcAction::Steal => self.aggression,  // Adjust as needed
+//            NpcAction::Rest => self.social,      // Adjust as needed
+//            NpcAction::Talk => self.social,      // Adjust as needed
+//            NpcAction::None => 0.0,             // No gene influence
+//        }
+//    }
+
 pub type MCTSNodeRef = Rc<RefCell<MCTSNode>>;
 
 #[derive(Clone)]
@@ -153,8 +168,43 @@ impl MCTSNode {
     }
 }
 
+pub struct GeneList {
+    gene_list: Vec<(u32, Genes)>,
+}
+
+impl GeneList {
+    pub fn new() -> Self {
+        GeneList {
+            gene_list: Vec::new(),
+        }
+    }
+
+    pub fn add_gene(&mut self, agent_id: u32, gene: Genes) {
+        self.gene_list.push((agent_id, gene));
+    }
+
+    pub fn get_genes(&self, agent_id: &u32) -> Vec<&Genes> {
+        self.gene_list
+            .iter()
+            .filter_map(|(id, Genes)| if id == agent_id { Some(Genes) } else { None })
+            .collect()
+    }
+
+
+    pub fn set_genes(&mut self, agent_id: u32, genes: Vec<Genes>) {
+        // Remove previous genes associated with the agent_id
+        self.gene_list.retain(|(id, _)| *id != agent_id);
+
+        // Add new genes
+        for gene in genes {
+            self.add_gene(agent_id, gene);
+        }
+    }
+}
+
 pub struct MCTSTree {
     root: Option<Arc<Mutex<MCTSNode>>>,
+    genes: Option<GeneList>,
     exploration_constant: f64,
 }
 
@@ -168,9 +218,15 @@ impl MCTSTree {
         self.root = Some(node_arc);
     }
     
+    pub fn set_genes(&mut self, gene_set: GeneList){
+        self.genes = Some(gene_set);
+    }
+
+
     pub fn new_empty() -> Self {
         MCTSTree {
             root: None,
+            genes: None,
             exploration_constant: 1.0, // Set default value for exploration constant
         }
     }
@@ -178,12 +234,20 @@ impl MCTSTree {
     pub fn new(root_actions: Option<ActionSet>, exploration_constant: f64) -> Self {
         let root_node = match root_actions {
             Some(actions) => MCTSNode::new(Some(actions)),
-            None => MCTSNode::new(None), // Pass None to indicate no actions
+            None => MCTSNode::new(None),
         };
     
         MCTSTree {
             root: Some(Arc::new(Mutex::new(root_node))),
+            genes: None,
             exploration_constant,
         }
     }
+
+    pub fn initialize_node(&mut self){
+
+        println!("MCST Setup Complete");
+
+    }
 }
+

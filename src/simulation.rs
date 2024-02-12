@@ -6,8 +6,6 @@
 use bevy::prelude::*;
 use bevy::app::Events;
 use bevy::app::AppExit;
-use crate::entities::agent::{Status, Target};
-use crate::mcst::NpcAction;
 use crate::mcst::MCTSNode;
 use crate::World;
 use crate::AgentMessages;
@@ -16,10 +14,8 @@ use crate::TreasureMessages;
 use crate::mcst;
 use crate::entities;
 
-use std::collections::HashMap;
 
-
-use crate::entities::{agent::Agent, monster::{Monster, SimpleMonster}, treasure::{Treasure, SimpleTreasure}};
+use crate::entities::agent::Agent;
 
 
 
@@ -31,12 +27,17 @@ pub fn run_simulation(
     mut treasure_messages: ResMut<TreasureMessages>,
     mut iteration_counter: Local<i32>,
     mut app_exit_events: ResMut<Events<AppExit>>,
-    mut query: Query<&mut Agent>,
+    mut query: Query<&mut Agent>, 
 ){
-    //Create MCST
-    if(tree.is_empty()){
+    if tree.is_empty() {
         tree.insert_node(MCTSNode::new(None));
-        println!("test");
+        let mut gene_list = mcst::GeneList::new();
+        for mut agent in query.iter_mut() {
+            gene_list.add_gene(agent.get_id(), agent.get_genes().clone());
+        }
+        tree.set_genes(gene_list);
+        tree.initialize_node();
+        println!("MCST Setup Complete");
     }
     
     //SELECT CHILD

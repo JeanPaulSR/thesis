@@ -5,6 +5,7 @@ use crate::errors::MyError;
 use crate::mcst::NpcAction;
 use crate::movement::find_path;
 use crate::tile::Tile;
+use std::collections::HashMap;
 
 static mut A_COUNTER: u32 = 0;
 
@@ -28,48 +29,76 @@ pub enum Target{
     Treasure,
 }
 
-// Define the Genes struct
-#[derive(Clone, Debug)]
-pub struct Genes {
-    pub greed: f32,
-    pub aggression: f32,
-    pub social: f32,
-    pub self_preservation: f32,
-    pub vision: f32,
+#[derive(Clone, Debug, Eq, Hash, PartialEq)]
+pub enum GeneType {
+    Greed,
+    Aggression,
+    Social,
+    SelfPreservation,
+    Vision,
 }
 
-impl Genes{
-    pub fn generate() -> Self{
-    
+#[derive(Clone, Debug)]
+pub struct Genes {
+    pub gene_scores: HashMap<GeneType, f32>,
+}
+
+impl Genes {
+    pub fn new(gene_scores: HashMap<GeneType, f32>) -> Self {
+        Genes { gene_scores }
+    }
+
+    pub fn generate() -> Self {
         // Initialize a random number generator
         let mut rng = rand::thread_rng();
-    
+
         // Define distribution ranges for agent attributes
         let greed_distribution = Uniform::new(0.5, 1.0);
         let aggression_distribution = Uniform::new(0.3, 0.8);
         let common_distribution = Uniform::new(0.0, 1.0);
         let vision_distribution = Uniform::new(3.0, 8.0);
-        
-        Genes {
-            greed: greed_distribution.sample(&mut rng),
-            aggression: aggression_distribution.sample(&mut rng),
-            social: common_distribution.sample(&mut rng),
-            self_preservation: common_distribution.sample(&mut rng),
-            vision: vision_distribution.sample(&mut rng),
-        }
-    }
 
-    pub fn influence_on_action(&self, action: &NpcAction) -> f32 {
-        match action {
-            NpcAction::Attack => self.aggression,
-            NpcAction::Steal => self.aggression,  // Adjust as needed
-            NpcAction::Rest => self.social,      // Adjust as needed
-            NpcAction::Talk => self.social,      // Adjust as needed
-            NpcAction::None => 0.0,             // No gene influence
-        }
-    }
+        // Generate random values for each attribute
+        let mut gene_scores = HashMap::new();
+        gene_scores.insert(GeneType::Greed, greed_distribution.sample(&mut rng));
+        gene_scores.insert(GeneType::Aggression, aggression_distribution.sample(&mut rng));
+        gene_scores.insert(GeneType::Social, common_distribution.sample(&mut rng));
+        gene_scores.insert(GeneType::SelfPreservation, common_distribution.sample(&mut rng));
+        gene_scores.insert(GeneType::Vision, vision_distribution.sample(&mut rng));
 
+        Genes { gene_scores }
+    }
 }
+//pub struct Genes {
+//    pub greed: f32,
+//    pub aggression: f32,
+//    pub social: f32,
+//    pub self_preservation: f32,
+//    pub vision: f32,
+//}
+
+//impl Genes{
+//    pub fn generate() -> Self{
+    
+//        // Initialize a random number generator
+//        let mut rng = rand::thread_rng();
+    
+//        // Define distribution ranges for agent attributes
+//        let greed_distribution = Uniform::new(0.5, 1.0);
+//        let aggression_distribution = Uniform::new(0.3, 0.8);
+//        let common_distribution = Uniform::new(0.0, 1.0);
+//        let vision_distribution = Uniform::new(3.0, 8.0);
+        
+//        Genes {
+//            greed: greed_distribution.sample(&mut rng),
+//            aggression: aggression_distribution.sample(&mut rng),
+//            social: common_distribution.sample(&mut rng),
+//            self_preservation: common_distribution.sample(&mut rng),
+//            vision: vision_distribution.sample(&mut rng),
+//        }
+//    }
+
+//}
 
 #[derive(Clone, Bundle)]
 #[allow(dead_code)]
@@ -90,7 +119,6 @@ pub struct Agent {
     treasure_target_id: u32,
     tile_target: Option<(u32, u32)>,
     path: Option<Vec<(i32, i32)>>,
-
     leader: bool,
     follower: bool,
     leader_id: u32,
@@ -396,12 +424,22 @@ impl Agent {
 
     pub fn print(&self) {
         println!("Agent ID: {}", self.id);
-        println!("Greed: {}", self.genes.greed);
-        println!("Aggression: {}", self.genes.aggression);
-        println!("Social: {}", self.genes.social);
-        println!("Self Preservation: {}", self.genes.self_preservation);
-        println!("Vision: {}", self.genes.vision);
-        println!("Position: x={}, y={}", self.transform.translation.x/32.0, self.transform.translation.y/32.0);
+        if let Some(greed) = self.genes.gene_scores.get(&GeneType::Greed) {
+            println!("Greed: {}", greed);
+        }
+        if let Some(aggression) = self.genes.gene_scores.get(&GeneType::Aggression) {
+            println!("Aggression: {}", aggression);
+        }
+        if let Some(social) = self.genes.gene_scores.get(&GeneType::Social) {
+            println!("Social: {}", social);
+        }
+        if let Some(self_preservation) = self.genes.gene_scores.get(&GeneType::SelfPreservation) {
+            println!("Self Preservation: {}", self_preservation);
+        }
+        if let Some(vision) = self.genes.gene_scores.get(&GeneType::Vision) {
+            println!("Vision: {}", vision);
+        }
+        println!("Position: x={}, y={}", self.transform.translation.x / 32.0, self.transform.translation.y / 32.0);
     }
 
     // Function to move the agent to a specific position

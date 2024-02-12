@@ -67,6 +67,12 @@ fn main() {
             is_dragging: false,
             previous_mouse_position: None,
         })
+        
+        //Insert the world tree
+        .insert_resource(mcst::MCTSTree::new_empty())
+        // Add the simulation
+        .add_system(run_simulation.system())
+        
 
         // Insert AgentMessages resource with an empty vector.
         .insert_resource(AgentMessages::new())
@@ -93,11 +99,6 @@ fn main() {
         
         //.add_system(debug.system())
 
-        //Insert the world tree
-        .insert_resource(mcst::MCTSTree::new_empty())
-        // Add the simulation
-        .add_system(run_simulation.system())
-        
         // Custom systems here
         .run();
 }
@@ -244,3 +245,6 @@ fn toggle_flag_system(
         println!("Flag toggled to: {}", toggle_flag.0);
     }
 }
+
+
+    

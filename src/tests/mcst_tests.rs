@@ -10,18 +10,18 @@ mod tests {
     use crate::{entities::agent::Genes, mcst::NpcAction, mcst::{MCTSNode, self}};
 
 
-    #[test]
-    fn test_calculate_action_score() {
-        let genes = Genes {
-            greed: 0.8,
-            aggression: 0.6,
-            social: 0.4,
-            self_preservation: 0.2,
-            vision: 0.1,
-        };
-        let attack_score = mcst::calculate_action_score(&genes, NpcAction::Attack);
-        assert_eq!(attack_score, 0.6);
-    }
+    //#[test]
+    //fn test_calculate_action_score() {
+    //    let genes = Genes {
+    //        greed: 0.8,
+    //        aggression: 0.6,
+    //        social: 0.4,
+    //        self_preservation: 0.2,
+    //        vision: 0.1,
+    //    };
+    //    let attack_score = mcst::calculate_action_score(&genes, NpcAction::Attack);
+    //    assert_eq!(attack_score, 0.6);
+    //}
 
     // #[test]
     // fn test_calculate_uct_score() {
