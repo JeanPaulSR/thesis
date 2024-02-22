@@ -69,7 +69,7 @@ fn main() {
         })
         
         //Insert the world tree
-        .insert_resource(mcst::MCTSTree::new_empty())
+        .insert_resource(mcst::SimulationTree::new_empty())
         // Add the simulation
         .add_system(run_simulation.system())
         
