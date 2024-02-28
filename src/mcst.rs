@@ -173,7 +173,7 @@ pub struct MCTSNode {
     depth: u8,
     visits: usize,
     total_reward: u32,
-    parent: Option<Arc<Mutex<MCTSNode>>>,
+    is_root:bool,
     children: Vec<Arc<Mutex<MCTSNode>>>,
 }
 
@@ -198,7 +198,7 @@ impl MCTSNode {
             depth: 0,
             visits: 0,
             total_reward: 0,
-            parent: None,
+            is_root: true,
             children: Vec::new(),
         }
     }
@@ -208,7 +208,7 @@ impl MCTSNode {
     }
 
     pub fn is_root(&self) -> bool {
-        self.parent.is_none()
+        self.is_root
     }
 
     pub fn is_leaf(&self) -> bool {
@@ -219,18 +219,6 @@ impl MCTSNode {
         self.depth
     }
 
-    pub fn calculate_depth(&mut self){
-        match &self.parent {
-            Some(parent_node) => {
-                let parent_node = parent_node.lock().unwrap();
-                self.depth = parent_node.get_depth() + 1;
-            }
-            None => {
-                self.depth = 0;
-            }
-        }
-    }
-
     pub fn is_valid_exploration_node(&self) -> bool {
         self.is_leaf() || self.get_depth() == 255
     }
@@ -238,50 +226,42 @@ impl MCTSNode {
     pub fn select(&mut self) -> Vec<NpcAction> {
         let depth = self.get_depth();
         if depth == 255 {
-            // If depth reaches 255, return the current NPCAction
             return vec![self.action.unwrap()];
         }
-
-        if self.is_leaf() {
-            // If the current node is a leaf, return the current NPCAction
-            return vec![self.action.unwrap()];
-        }
-
-        // Select an action using some selection strategy
-        let selected_action = self.action_score.select_action().unwrap();
-
-        // Check if the selected action leads to an existing child
+        
+        let selected_action: NpcAction = self.action_score.select_action().unwrap();
+        
         if let Some(child) = self.find_child(selected_action) {
-            // Recursively call select on the chosen child
-            child.lock().unwrap().select()
+            let mut current_action: Vec<NpcAction> = vec![selected_action];
+            current_action.append(&mut child.lock().unwrap().select());
+            current_action
         } else {
-            // If the selected action doesn't lead to an existing child, expand the node
             self.expand(selected_action);
-            vec![self.action.unwrap(), selected_action]
+            if self.is_root(){
+                vec![selected_action]
+            } else {
+                vec![self.action.unwrap(), selected_action]
+            }
         }
     }
 
     fn expand(&mut self, action: NpcAction) {
-        // Placeholder implementation, replace with your actual expansion logic
-        // For example, create a new child node with the given action
         let new_child = Arc::new(Mutex::new(MCTSNode {
             action: Some(action),
-            action_score: ActionsTaken::new(), // Assuming ActionsTaken has a new method
+            action_score: ActionsTaken::new(),
             depth: self.depth + 1,
             visits: 0,
             total_reward: 0,
-            parent: Some(Arc::new(Mutex::new(self.clone()))),
+            is_root: false,
             children: Vec::new(),
         }));
         self.children.push(new_child);
     }
 
     pub fn find_child(&self, action: NpcAction) -> Option<&Arc<Mutex<MCTSNode>>> {
-        // Iterate through the children of the current node
         for child in &self.children {
-            let child_node = &child.lock().unwrap(); // Access the child node
+            let child_node = &child.lock().unwrap();
             
-            // Check if the child node's action matches the specified action
             if let Some(child_action) = &child_node.action {
                 if *child_action == action {
                     return Some(&child);
@@ -397,6 +377,12 @@ impl MCTSTree {
         }
     }
 
+    pub fn selection_phase(&mut self) -> Vec<NpcAction> {
+        let mut root = self.root.as_ref().unwrap().lock().unwrap();
+        root.select()
+
+    }
+
     pub fn expand(&mut self) -> Arc<Mutex<MCTSNode>> {
         // Implement node expansion logic here
         unimplemented!()
@@ -404,7 +390,7 @@ impl MCTSTree {
 }
 
 pub struct SimulationTree {
-    forest: Option<Arc<Mutex<Vec<( u32, MCTSTree)>>>>,
+    forest: Option<Arc<Mutex<Vec<( u32,MCTSTree)>>>>,
     exploration_constant: f64,
 }
 

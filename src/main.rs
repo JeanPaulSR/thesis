@@ -6,7 +6,6 @@ mod components;
 mod systems;
 mod camera;
 mod world;
-mod npc;
 mod debug;
 mod behavior;
 mod simulation;

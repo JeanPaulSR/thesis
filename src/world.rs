@@ -105,6 +105,33 @@ impl World {
         println!("Asked for position ({}, {}), was not found.", x, y);
         Err(MyError::PositionError)
     }
+
+    
+    pub fn copy(&self) -> Self {
+        let agents = Arc::new(Mutex::new(self.agents.lock().unwrap().clone()));
+        let monsters = Arc::new(Mutex::new(self.monsters.lock().unwrap().clone()));
+        let treasures = Arc::new(Mutex::new(self.treasures.lock().unwrap().clone()));
+
+        let mut new_grid = Vec::with_capacity(self.grid.len());
+        for row in &self.grid {
+            let mut new_row = Vec::with_capacity(row.len());
+            for tile_arc_mutex in row {
+                let tile_mutex = Mutex::new(tile_arc_mutex.lock().unwrap().clone());
+                let arc_tile = Arc::new(tile_mutex);
+                new_row.push(arc_tile);
+            }
+            new_grid.push(new_row);
+        }
+
+        World {
+            agents,
+            monsters,
+            treasures,
+            grid: new_grid,
+        }
+    }
+
+
 // ___________.__.__          
 // \__    ___/|__|  |   ____  
 //   |    |   |  |  | _/ __ \ 
