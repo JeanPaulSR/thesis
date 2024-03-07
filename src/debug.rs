@@ -11,7 +11,6 @@ pub fn debug(command: &str) {
 
 fn test_movement() {
     println!("Running test_movement");
-    // movement stuff
 }
 
 pub struct DebugPlugin;

@@ -11,6 +11,7 @@ pub struct Npc {
     pub id: u32,
 }
 
+// Generic NPC entity
 impl Npc {
     pub fn new(
         x: f32,

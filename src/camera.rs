@@ -10,7 +10,7 @@ pub struct CameraDragging {
     pub previous_mouse_position: Option<Vec2>,
 }
 
-
+// System that handles camera moving
 pub fn camera_drag_system(
     mut ev_mouse: EventReader<MouseButtonInput>,
     mut camera_dragging: ResMut<CameraDragging>,

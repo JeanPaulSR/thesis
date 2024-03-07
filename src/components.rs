@@ -6,7 +6,6 @@ pub struct Position {
     pub y: i32,
 }
 
-
 pub struct TileComponent {
     pub tile_type: TileType,
 }

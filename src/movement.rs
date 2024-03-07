@@ -3,6 +3,7 @@ use crate::tile::{TileType, Tile};
 use std::collections::BinaryHeap;
 use std::cmp::Ordering;
 
+//Using A* to caclulate path
 pub fn find_path(grid: Vec<Vec<Tile>>, start_pos: (i32, i32), end_pos: (i32, i32)) -> Option<Vec<(i32, i32)>> {
     let mut open_set = BinaryHeap::new();
     let mut came_from: HashMap<(i32, i32), (i32, i32)> = HashMap::new();

@@ -7,7 +7,6 @@ mod systems;
 mod camera;
 mod world;
 mod debug;
-mod behavior;
 mod simulation;
 use systems::AgentMessages;
 use systems::MonsterMessages;
@@ -40,6 +39,7 @@ const START_AGENT_COUNT: usize = 5;
 
 #[allow(dead_code)]
 fn main() {
+    let simulation_message = AgentMessages::new();
     // Begin building the Bevy app.
     App::build()
         // Set the window properties, such as title, width, and height.
@@ -79,6 +79,10 @@ fn main() {
         .insert_resource(MonsterMessages::new())
         // Insert TreasureMessages resource with an empty vector.
         .insert_resource(TreasureMessages::new())
+
+        
+        // Insert TreasureMessages resource with an empty vector.
+        .insert_resource(simulation_message)
         
         //End simulation key
         .insert_resource(ToggleFlag(false))

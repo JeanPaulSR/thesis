@@ -12,6 +12,7 @@ pub struct Treasure {
 static mut T_COUNTER: u32 = 0;
 
 impl Treasure {
+    // Function to create a treasure
     pub fn new_treasure(
         mut x: f32,
         mut y: f32,
@@ -23,14 +24,10 @@ impl Treasure {
         // Convert x and y to world coordinates
         x = x * 32.0;
         y = y * 32.0;
-
-        // Define the size of the agent's sprite
+        
         let sprite_size = Vec2::new(32.0, 32.0); 
+        let texture_handle = asset_server.load("textures/treasure.png");
     
-        // Load the agent's sprite texture from the asset server
-        let texture_handle = asset_server.load("textures/enemy.png");
-    
-        // Spawn the agent's sprite using the Commands resource and get its entity ID
         let entity = commands.spawn_bundle(SpriteBundle {
             material: materials.add(texture_handle.clone().into()),
             sprite: Sprite::new(sprite_size),
@@ -38,7 +35,6 @@ impl Treasure {
             ..Default::default()
         }).id();
 
-        // Increment the static counter variable after creating a new instance
         unsafe {
             T_COUNTER += 1;
         }
@@ -49,36 +45,44 @@ impl Treasure {
             sprite_bundle: SpriteBundle {
                 material: materials.add(texture_handle.into()),
                 sprite: Sprite::new(sprite_size),
-                transform: Transform::from_translation(Vec3::new(0.0, 0.0, 1.0)), // Adjust position in relation to the agent transform
+                transform: Transform::from_translation(Vec3::new(0.0, 0.0, 1.0)),
                 ..Default::default()
             },
             reward: 0,
         }
     }
     
+    // Function to get the treasures entity
     pub fn get_entity(&self) -> Entity {
         self.entity
     }
+
+    // Function to get the position of the treasure
     pub fn get_position(&self) -> (f32, f32) {
         (self.transform.translation.x / 32.0, self.transform.translation.y / 32.0)
     }
 
+    // Function to set the reward of the treasure
     pub fn set_reward(&mut self, reward: u32) {
         self.reward = reward;
     }
 
+    // Function to get the reward of the treasure
     pub fn get_reward(&self) -> u32 {
         self.reward
     }
 
+    // Function to add reward to the treasure
     pub fn add_reward(&mut self, reward: u32) {
         self.reward  = self.reward + reward; 
     }
 
+    // Function to remove reward from the treasure
     pub fn remove_reward(&mut self, reward: u32) {
         self.reward = self.reward.saturating_sub(reward);
     }
 
+    // Function to get the id of the treasure
     pub fn get_id(&self) -> u32 {
         self.id
     }
@@ -90,6 +94,7 @@ impl Treasure {
     // | |  | |_| | |_) | | | (__ 
     // \_|   \__,_|_.__/|_|_|\___|
 
+    // Function to print the treasure
     pub fn print(&self) {
         println!("Treasure ID: {}", self.id);
         println!("Position: x={}, y={}", self.transform.translation.x/32.0, self.transform.translation.y/32.0);

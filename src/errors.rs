@@ -1,8 +1,6 @@
 use std::error::Error;
 use std::fmt;
 
-
-
 // Enum to encompass all possible errors
 #[derive(Debug)]
 pub enum MyError {
@@ -16,7 +14,6 @@ pub enum MyError {
     UnecessaryMove,
     InvalidTarget,
     OtherError,
-    // Add more error variants here
 }
 
 // Implement the Error trait for the custom error enum
@@ -36,7 +33,6 @@ impl fmt::Display for MyError {
             MyError::UnecessaryMove => write!(f, "Unecessary move"),
             MyError::InvalidTarget=> write!(f, "Invalid Target"),
             MyError::OtherError => write!(f, "Other Error"),
-            // Add more cases for other error variants
         }
     }
 }

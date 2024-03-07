@@ -155,17 +155,13 @@ impl Agent {
         materials: &mut ResMut<Assets<ColorMaterial>>,
         asset_server: &Res<AssetServer>,
     ) -> Self{
-        // Convert x and y to world coordinates
         x = x * 32.0;
         y = y * 32.0;
     
-        // Define the size of the agent's sprite
         let sprite_size = Vec2::new(32.0, 32.0); 
     
-        // Load the agent's sprite texture from the asset server
         let texture_handle = asset_server.load("textures/agent.png");
     
-        // Spawn the agent's sprite using the Commands resource and get its entity ID
         let entity = commands.spawn_bundle(SpriteBundle {
             material: materials.add(texture_handle.clone().into()),
             sprite: Sprite::new(sprite_size),
@@ -173,13 +169,11 @@ impl Agent {
             ..Default::default()
         }).id();
     
-        // Increment the static counter variable after creating a new instance
         unsafe {
             A_COUNTER += 1;
         }
         
         let tile_target = (10 as u32, 10 as u32);
-        // Create and return a new instance of the Agent struct
         Agent {
             genes : Genes::generate(),
             id: unsafe { A_COUNTER },
@@ -188,7 +182,7 @@ impl Agent {
             sprite_bundle: SpriteBundle {
                 material: materials.add(texture_handle.into()),
                 sprite: Sprite::new(sprite_size),
-                transform: Transform::from_translation(Vec3::new(0.0, 0.0, 1.0)), // Adjust position in relation to the agent transform
+                transform: Transform::from_translation(Vec3::new(0.0, 0.0, 1.0)),
                 ..Default::default()
             },
             energy: 100,
@@ -225,7 +219,7 @@ impl Agent {
             treasure_target_id: u32::MAX,
             tile_target: None,
             path: None,
-            entity: Entity::new(0), // Initialize with a default entity ID
+            entity: Entity::new(0),
             transform: Transform::default(),
             sprite_bundle: SpriteBundle::default(),
             leader: false,
@@ -457,19 +451,16 @@ impl Agent {
     // Updated travel function to use the path
     pub fn travel(
         &mut self,
-        grid: Vec<Vec<Tile>>, // Pass the grid as a reference
+        grid: Vec<Vec<Tile>>,
         commands: &mut Commands,
     ) -> Result<(), MyError> {
-        // Check if the agent's current position is equal to the tile target
         if self.get_position() == self.tile_target.unwrap_or_default() {
-            // Agent is already at the target tile
             return Ok(());
         }
     
-        // Create the path if it's missing or empty
         if self.path.is_none() || self.path.as_ref().unwrap().is_empty() {
             self.path = find_path(
-                grid, // Use the provided grid reference
+                grid,
                 (
                     self.get_position().0 as i32,
                     self.get_position().1 as i32,
@@ -481,14 +472,12 @@ impl Agent {
             );
         }
     
-        // Check if there is a path available
         if let Some(path) = &mut self.path {
             if let Some((x, y)) = path.pop() {
                 self.move_to(x as f32, y as f32, commands);
             }
             Ok(())
         } else {
-            // If there is no path, return an error
             Err(MyError::PathNotFound)
         }
     }
@@ -498,7 +487,6 @@ impl Agent {
             println!("Agent ID: {}", agent.id);
             println!("Genes: {:?}", agent.genes);
             println!("Energy: {}", agent.energy);
-            // Print other properties as needed
         }
     }
 
