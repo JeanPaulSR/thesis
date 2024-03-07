@@ -367,8 +367,8 @@ impl MCTSTree {
         println!("INSERTING AGENT {}", agent.get_id());
     } 
 
-     pub fn select_child(&mut self) -> &mut Arc<Mutex<MCTSNode>> { //-> &Arc<Mutex<MCTSNode>> {
-        let returning_node = &mut self.root; // Start with the root node
+     pub fn select_child(&mut self) -> &mut Arc<Mutex<MCTSNode>> {
+        let returning_node = &mut self.root;
         
         
         match returning_node {
@@ -384,7 +384,6 @@ impl MCTSTree {
     }
 
     pub fn expand(&mut self) -> Arc<Mutex<MCTSNode>> {
-        // Implement node expansion logic here
         unimplemented!()
     }
 }
