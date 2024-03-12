@@ -69,36 +69,7 @@ impl Genes {
         Genes { gene_scores }
     }
 }
-//pub struct Genes {
-//    pub greed: f32,
-//    pub aggression: f32,
-//    pub social: f32,
-//    pub self_preservation: f32,
-//    pub vision: f32,
-//}
 
-//impl Genes{
-//    pub fn generate() -> Self{
-    
-//        // Initialize a random number generator
-//        let mut rng = rand::thread_rng();
-    
-//        // Define distribution ranges for agent attributes
-//        let greed_distribution = Uniform::new(0.5, 1.0);
-//        let aggression_distribution = Uniform::new(0.3, 0.8);
-//        let common_distribution = Uniform::new(0.0, 1.0);
-//        let vision_distribution = Uniform::new(3.0, 8.0);
-        
-//        Genes {
-//            greed: greed_distribution.sample(&mut rng),
-//            aggression: aggression_distribution.sample(&mut rng),
-//            social: common_distribution.sample(&mut rng),
-//            self_preservation: common_distribution.sample(&mut rng),
-//            vision: vision_distribution.sample(&mut rng),
-//        }
-//    }
-
-//}
 
 #[derive(Clone, Bundle)]
 #[allow(dead_code)]
@@ -490,7 +461,4 @@ impl Agent {
         }
     }
 
-
-  
 }
-

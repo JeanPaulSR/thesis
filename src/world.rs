@@ -8,8 +8,8 @@ use crate::tile::TileType;
 use crate::tile::Tile;
 use crate::errors::MyError;
 use std::collections::HashMap;
+use bevy::ecs::schedule::ShouldRun;
 use std::sync::{Arc, Mutex};
-
 
 // Primary world constructor with a default map
 pub fn create_world() -> World {
@@ -68,7 +68,6 @@ pub struct World {
     pub treasures: Arc<Mutex<HashMap<u32, (usize, usize)>>>,
     pub grid: Vec<Vec<Arc<Mutex<Tile>>>>, 
 }
-
 
 impl World {
     
@@ -129,7 +128,6 @@ impl World {
             grid: new_grid,
         }
     }
-
 
 // ___________.__.__          
 // \__    ___/|__|  |   ____  

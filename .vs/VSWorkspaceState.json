@@ -5,6 +5,6 @@
     "\\src\\entities",
     "\\src\\tests"
   ],
-  "SelectedNode": "\\src\\entities\\agent.rs",
+  "SelectedNode": "\\src\\simulation.rs",
   "PreviewInSolutionExplorer": false
 }

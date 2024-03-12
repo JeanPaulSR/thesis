@@ -80,7 +80,6 @@ impl AgentMessage{
             message_type: self.message_type.copy(),
         }
     }
-    
 }
 
 pub struct AgentMessages {
@@ -96,6 +95,10 @@ impl AgentMessages {
 
     pub fn add_message(&mut self, message: AgentMessage) {
         self.messages.push(message);
+    }
+    
+    pub fn is_empty(&self) -> bool{
+        return self.messages.is_empty();
     }
 }
 
