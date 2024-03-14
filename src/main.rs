@@ -16,11 +16,14 @@ use systems::cleanup_system;
 use systems::monster_message_system;
 use systems::perform_action;
 use systems::treasure_message_system;
-use simulation::run_simulation;
+use simulation::setup_simulation;
 use world::World;
 mod movement; 
 mod mcst;
 mod errors;
+use std::sync::Arc;
+use std::sync::Mutex;
+use crate::tile::Tile;
 mod tests{
     pub mod mcst_tests;
     pub mod simple_agent;
@@ -36,10 +39,50 @@ use crate::tile::TileType;
 use crate::errors::MyError;
 
 const START_AGENT_COUNT: usize = 5;
+struct SimulationCompleteEvent;
+
+pub struct SimulationFlag(bool);
+pub struct RunningFlag(bool);
+pub struct SimulationTotal(i32);
+pub struct MCSTCurrent(i32);
+pub struct MCSTTotal(i32);
+pub struct WorldSim(World);
+pub struct NpcActions(Vec<(u32, Vec<mcst::NpcAction>)>);
+
+impl WorldSim {
+    pub fn get_world(&self) -> &World {
+        &self.0
+    }
+
+    pub fn copy_world(&self, world: &World) -> WorldSim {
+        // Clone the contents of the Arc<Mutex<_>> fields
+        let cloned_agents = Arc::new(Mutex::new(world.agents.lock().unwrap().clone()));
+        let cloned_monsters = Arc::new(Mutex::new(world.monsters.lock().unwrap().clone()));
+        let cloned_treasures = Arc::new(Mutex::new(world.treasures.lock().unwrap().clone()));
+
+        // Clone the grid if necessary (assuming Tile implements Clone)
+        let cloned_grid: Vec<Vec<Arc<Mutex<Tile>>>> = world.grid.iter()
+            .map(|row| row.iter()
+                .map(|tile| Arc::new(Mutex::new(tile.lock().unwrap().clone())))
+                .collect())
+            .collect();
+
+        // Create a new WorldSim instance with the cloned contents
+        let world_sim = WorldSim(World {
+            agents: cloned_agents,
+            monsters: cloned_monsters,
+            treasures: cloned_treasures,
+            grid: cloned_grid,
+        });
+
+        // Return the copied WorldSim instance
+        world_sim
+    }
+}
 
 #[allow(dead_code)]
 fn main() {
-    let simulation_message = AgentMessages::new();
+    //let simulation_message = AgentMessages::new();
     // Begin building the Bevy app.
     App::build()
         // Set the window properties, such as title, width, and height.
@@ -53,13 +96,12 @@ fn main() {
         .add_plugins(DefaultPlugins)
         // Insert a World resource that contains the game world's grid.
         .insert_resource(world::create_world())
+        // Insert a World resource that can be modifed for simulations.
+        .insert_resource(WorldSim(World::new()))
         // Add a system that handles camera drag functionality.
         .add_system(camera_drag_system.system())
         // Add a startup system that sets up the initial state of the game (e.g., camera, entities, etc.).
         .add_startup_system(setup.system())
-        // Add a system that moves agents to a village.
-        //.add_startup_stage("post_startup", SystemStage::single(debug_system.system()))
-        //.add_startup_system(npc::debug.system())
         
         // Insert a CameraDragging resource to track the camera dragging state.
         .insert_resource(CameraDragging {
@@ -69,8 +111,8 @@ fn main() {
         
         //Insert the world tree
         .insert_resource(mcst::SimulationTree::new_empty())
-        // Add the simulation
-        .add_system(run_simulation.system())
+        //Simulation Event
+        .add_event::<SimulationCompleteEvent>()
         
 
         // Insert AgentMessages resource with an empty vector.
@@ -79,40 +121,44 @@ fn main() {
         .insert_resource(MonsterMessages::new())
         // Insert TreasureMessages resource with an empty vector.
         .insert_resource(TreasureMessages::new())
-
-        
-        // Insert TreasureMessages resource with an empty vector.
-        .insert_resource(simulation_message)
         
         //End simulation key
-        .insert_resource(ToggleFlag(false))
+        
+        .insert_resource(SimulationTotal(0))
+        .insert_resource(MCSTCurrent(0))
+        .insert_resource(MCSTTotal(0))
+        .insert_resource(Vec::<Agent>::new())
+        .insert_resource(SimulationFlag(false))
+        .insert_resource(RunningFlag(false))
+        .insert_resource(NpcActions(Vec::new()))
         .add_system(toggle_flag_system.system())
-
-        // Add the despawn handler
-        .add_system(cleanup_system.system())
-        // Add the agent message system to handle messages between treasures.
-        .add_system(treasure_message_system.system())
-        // Add the agent message system to handle messages between monsters.
-        .add_system(monster_message_system.system())
-        // Add the agent message system to handle messages between agents.
-        .add_system(agent_message_system.system())
+        
+        
+        // Add the simulation
+        .add_system(setup_simulation.system())
         // Add the agent action handling
-        .add_system(perform_action.system())
+        .add_system(perform_action.system().label("action"))
 
+        // Add the agent message system to handle messages after actions.
+        //.add_system(treasure_message_system.system().after("action").label("message"))
+        //.add_system(monster_message_system.system().after("action").label("message"))
+        //.add_system(agent_message_system.system().after("action").label("message"))
+        // Add the despawn handler after all message systems
+        //.add_system(cleanup_system.system().after("message"))
         
         //.add_system(debug.system())
-
-        // Custom systems here
+        //)
         .run();
 }
 
-struct ToggleFlag(bool);
 
 pub fn setup(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
     mut materials: ResMut<Assets<ColorMaterial>>,
     mut world: ResMut<World>,
+    mut iteration_total: ResMut<SimulationTotal>,
+    mut mcst_total: ResMut<MCSTTotal>,
 ) {
     commands.insert_resource::<i32>(0);
     
@@ -199,6 +245,8 @@ pub fn setup(
             }
         } 
     }
+    iteration_total.0 = 3;
+    mcst_total.0 = 10;
 }
 
 fn debug(
@@ -240,7 +288,7 @@ fn debug_system(
 
 fn toggle_flag_system(
     keyboard_input: Res<Input<KeyCode>>,
-    mut toggle_flag: ResMut<ToggleFlag>,
+    mut toggle_flag: ResMut<SimulationFlag>,
 ) {
     if keyboard_input.just_pressed(KeyCode::X) {
         // Toggle the flag to true when X key is pressed
@@ -248,6 +296,3 @@ fn toggle_flag_system(
         println!("Flag toggled to: {}", toggle_flag.0);
     }
 }
-
-
-    

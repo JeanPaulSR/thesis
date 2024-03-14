@@ -3,7 +3,7 @@ use crate::entities::agent::{Agent, Status, Target};
 use crate::entities::monster::Monster;
 use crate::errors::MyError;
 use crate::mcst::NpcAction;
-use crate::World;
+use crate::{RunningFlag, SimulationFlag, World};
 
 #[derive()]
 #[derive(Clone)]
@@ -106,7 +106,6 @@ impl AgentMessages {
 //Don't forget the system for killing the leader of a group (as well as their next replacement)
 //Don't forget the case where an agent gets a reward after it is dead (create treasure in its place)?
 pub fn agent_message_system(
-    //mut commands: Commands,
     mut agent_messages: ResMut<AgentMessages>,
     mut monster_messages: ResMut<MonsterMessages>,
     world: ResMut<World>,
@@ -528,6 +527,8 @@ pub fn cleanup_system(
     mut query_m: Query<&mut Monster>,
     mut world: ResMut<World>,
     mut agent_messages: ResMut<AgentMessages>,
+    mut simulation_flag: ResMut<SimulationFlag>,
+    mut running_flag: ResMut<RunningFlag>,
 ) {
     // Handle received messages
     for mut agent in query_a.iter_mut() {
@@ -554,6 +555,7 @@ pub fn cleanup_system(
             commands.entity(monster.get_entity()).despawn();
         }
     }
+    //If simulation is finished, and flag is set to true, 
 }
 
 
@@ -572,185 +574,184 @@ pub fn perform_action(
     mut monster_messages: ResMut<MonsterMessages>,
     mut treasure_messages: ResMut<TreasureMessages>,
 ) {
-    
-    for mut agent in query.iter_mut() {
-        if !(agent.is_leader() && !agent.get_followers().is_empty()) {
-            let current_target = agent.get_target();
-            match current_target {
-                Target::Agent => {
-                    match world.get_agent_position(agent.get_agent_target_id()) {
-                        Ok(agent_position) => {
-                            let (x, y) = agent_position;
-                            agent.set_tile_target(Some((x as u32, y as u32)));
-                        }
-                        Err(MyError::AgentNotFound) => {
-                            println!("Agent not found in system::perform_action line {} from agent {}",284, agent.get_id());
-                        }
-                        _ => {} // Handle other errors if needed
-                    }
-                }
-                Target::Monster => {
-                    match world.get_monster_position(agent.get_monster_target_id()) {
-                        Ok(monster_position) => {
-                            let (x, y) = monster_position;
-                            agent.set_tile_target(Some((x as u32, y as u32)));
-                        }
-                        Err(MyError::MonsterNotFound) => {
-                            println!("Monster not found in system::perform_action line {}",296);
-                        }
-                        _ => {} // Handle other errors if needed
-                    }
-                }
-                Target::Treasure => {
-                    match world.get_treasure_position(agent.get_treasure_target_id()) {
-                        Ok(treasure_position) => {
-                            let (x, y) = treasure_position;
-                            agent.set_tile_target(Some((x as u32, y as u32)));
-                        }
-                        Err(MyError::TreasureNotFound) => {
-                            println!("Treasure not found.");
-                        }
-                        _ => {} // Handle other errors if needed
-                    }
-                }
-                Target::None => {
-                    println!("Invalid Target in system::perform_action line {} from agent {}",296, agent.get_id());
-                }
-                Target::Tile => {
-                    todo!()
-                }
-            }
+    //for mut agent in query.iter_mut() {
+    //    if !(agent.is_leader() && !agent.get_followers().is_empty()) {
+    //        let current_target = agent.get_target();
+    //        match current_target {
+    //            Target::Agent => {
+    //                match world.get_agent_position(agent.get_agent_target_id()) {
+    //                    Ok(agent_position) => {
+    //                        let (x, y) = agent_position;
+    //                        agent.set_tile_target(Some((x as u32, y as u32)));
+    //                    }
+    //                    Err(MyError::AgentNotFound) => {
+    //                        println!("Agent not found in system::perform_action line {} from agent {}",284, agent.get_id());
+    //                    }
+    //                    _ => {} // Handle other errors if needed
+    //                }
+    //            }
+    //            Target::Monster => {
+    //                match world.get_monster_position(agent.get_monster_target_id()) {
+    //                    Ok(monster_position) => {
+    //                        let (x, y) = monster_position;
+    //                        agent.set_tile_target(Some((x as u32, y as u32)));
+    //                    }
+    //                    Err(MyError::MonsterNotFound) => {
+    //                        println!("Monster not found in system::perform_action line {}",296);
+    //                    }
+    //                    _ => {} // Handle other errors if needed
+    //                }
+    //            }
+    //            Target::Treasure => {
+    //                match world.get_treasure_position(agent.get_treasure_target_id()) {
+    //                    Ok(treasure_position) => {
+    //                        let (x, y) = treasure_position;
+    //                        agent.set_tile_target(Some((x as u32, y as u32)));
+    //                    }
+    //                    Err(MyError::TreasureNotFound) => {
+    //                        println!("Treasure not found.");
+    //                    }
+    //                    _ => {} // Handle other errors if needed
+    //                }
+    //            }
+    //            Target::None => {
+    //                println!("Invalid Target in system::perform_action line {} from agent {}",296, agent.get_id());
+    //            }
+    //            Target::Tile => {
+    //                todo!()
+    //            }
+    //        }
 
-            // Check if the agent's current position is equal to the tile target
-            let (x, y) = agent.get_position();
-            if (x, y) == agent.get_tile_target().unwrap_or_default() {
-            //     // Continue with action logic
-                let action = agent.get_action();
-                //Match the type of action
-                match action {
-                    NpcAction::Attack => {
-                        //Match the current target for the Attack action
-                        match current_target{
-                            //For the target Agent of the Attack action
-                            Target::Agent => {
-                                let id = agent.get_agent_target_id();
-                                let message = MessageType::Attack(10);
-                                follower_actions(
-                                    agent.clone(),
-                                    message,
-                                    id,
-                                    &mut agent_messages,
-                                );
-                                send_agent_message(
-                                    agent.get_id(),
-                                    id,
-                                    MessageType::Attack(10),
-                                    &mut agent_messages,
-                                );
-                                agent.remove_energy(5);
-                                agent.set_status(Status::Working);
-                            },
-                            Target::Monster => {
-                                let id = agent.get_monster_target_id();
-                                send_monster_message(
-                                    agent.get_id(),
-                                    id,
-                                    MessageType::Attack(10),
-                                    &mut monster_messages,
-                                );
-                                agent.remove_energy(5);
-                                if agent.is_leader() && agent.get_followers().len() > 0{
-                                    for agent_id in agent.get_followers(){
-                                        send_agent_message(
-                                            agent.get_id(),
-                                            id,
-                                            MessageType::Energy(false, 5),
-                                            &mut agent_messages,
-                                        );
-                                    }
-                                }
-                                agent.set_status(Status::Working);
-                            },
-                            _ => println!("Invalid Target in system::perform_action line {}",506),
-                        }
-                    }
-                    NpcAction::Steal => {
-                        //Match the current target for the Attack action
-                        match current_target{
-                            //For the target Agent of the Attack action
-                            Target::Agent => {
+    //        // Check if the agent's current position is equal to the tile target
+    //        let (x, y) = agent.get_position();
+    //        if (x, y) == agent.get_tile_target().unwrap_or_default() {
+    //        //     // Continue with action logic
+    //            let action = agent.get_action();
+    //            //Match the type of action
+    //            match action {
+    //                NpcAction::Attack => {
+    //                    //Match the current target for the Attack action
+    //                    match current_target{
+    //                        //For the target Agent of the Attack action
+    //                        Target::Agent => {
+    //                            let id = agent.get_agent_target_id();
+    //                            let message = MessageType::Attack(10);
+    //                            follower_actions(
+    //                                agent.clone(),
+    //                                message,
+    //                                id,
+    //                                &mut agent_messages,
+    //                            );
+    //                            send_agent_message(
+    //                                agent.get_id(),
+    //                                id,
+    //                                MessageType::Attack(10),
+    //                                &mut agent_messages,
+    //                            );
+    //                            agent.remove_energy(5);
+    //                            agent.set_status(Status::Working);
+    //                        },
+    //                        Target::Monster => {
+    //                            let id = agent.get_monster_target_id();
+    //                            send_monster_message(
+    //                                agent.get_id(),
+    //                                id,
+    //                                MessageType::Attack(10),
+    //                                &mut monster_messages,
+    //                            );
+    //                            agent.remove_energy(5);
+    //                            if agent.is_leader() && agent.get_followers().len() > 0{
+    //                                for agent_id in agent.get_followers(){
+    //                                    send_agent_message(
+    //                                        agent.get_id(),
+    //                                        id,
+    //                                        MessageType::Energy(false, 5),
+    //                                        &mut agent_messages,
+    //                                    );
+    //                                }
+    //                            }
+    //                            agent.set_status(Status::Working);
+    //                        },
+    //                        _ => println!("Invalid Target in system::perform_action line {}",506),
+    //                    }
+    //                }
+    //                NpcAction::Steal => {
+    //                    //Match the current target for the Attack action
+    //                    match current_target{
+    //                        //For the target Agent of the Attack action
+    //                        Target::Agent => {
                                 
-                                let id = agent.get_agent_target_id();
-                                send_agent_message(
-                                    agent.get_id(),
-                                    id,
-                                    MessageType::Steal(10),
-                                    &mut agent_messages,
-                                );
-                                agent.remove_energy(20);
-                            },
-                            Target::Treasure => {
-                                let id = agent.get_agent_target_id();
-                                send_treasure_message(
-                                    agent.get_id(),
-                                    id,
-                                    MessageType::Steal(10),
-                                    &mut treasure_messages,
-                                );
-                                let _treasure = world.remove_treasure(id);
-                                agent.remove_energy(5);
-                            },
-                            _ => println!("Invalid Target in system::perform_action line {}",536),
-                        }
-                    }
-                    NpcAction::Rest => {
-                        //Match the current target for the rest action
-                        match current_target{
-                            Target::Tile => {
-                                agent.add_energy(10);
-                                if agent.get_energy() == agent.get_max_energy() {
-                                    agent.set_status(Status::Idle);
-                                }
-                            },
-                            _ => println!("Invalid Target in system::perform_action line {}",548)
-                        }
-                    }
-                    NpcAction::Talk => {
-                        // Logic for moving to a monster
-                    }
-                    NpcAction::None => {
-                        // Logic for moving to a monster
-                    }
-                }
-            } else {
+    //                            let id = agent.get_agent_target_id();
+    //                            send_agent_message(
+    //                                agent.get_id(),
+    //                                id,
+    //                                MessageType::Steal(10),
+    //                                &mut agent_messages,
+    //                            );
+    //                            agent.remove_energy(20);
+    //                        },
+    //                        Target::Treasure => {
+    //                            let id = agent.get_agent_target_id();
+    //                            send_treasure_message(
+    //                                agent.get_id(),
+    //                                id,
+    //                                MessageType::Steal(10),
+    //                                &mut treasure_messages,
+    //                            );
+    //                            let _treasure = world.remove_treasure(id);
+    //                            agent.remove_energy(5);
+    //                        },
+    //                        _ => println!("Invalid Target in system::perform_action line {}",536),
+    //                    }
+    //                }
+    //                NpcAction::Rest => {
+    //                    //Match the current target for the rest action
+    //                    match current_target{
+    //                        Target::Tile => {
+    //                            agent.add_energy(10);
+    //                            if agent.get_energy() == agent.get_max_energy() {
+    //                                agent.set_status(Status::Idle);
+    //                            }
+    //                        },
+    //                        _ => println!("Invalid Target in system::perform_action line {}",548)
+    //                    }
+    //                }
+    //                NpcAction::Talk => {
+    //                    // Logic for moving to a monster
+    //                }
+    //                NpcAction::None => {
+    //                    // Logic for moving to a monster
+    //                }
+    //            }
+    //        } else {
                 
-                // If the agent is not at the target position, initiate travel
-                match agent.travel(world.get_grid(), &mut commands) {
-                    Ok(_) => {
-                        if agent.is_leader() && agent.get_followers().len() > 0{
-                            for agent_id in agent.get_followers(){
-                                send_agent_message(
-                                    agent.get_id(),
-                                    agent_id,
-                                    MessageType::Move(agent.get_position()),
-                                    &mut agent_messages,
-                                );
-                            }
-                        }
-                    },
-                    Err(_) => println!("Invalid Target in system::perform_action line {}",573),
-                }; 
-                agent.set_status(Status::Moving);
-                // Call the move_between_tiles function to move the agent to the next position in the path
+    //            // If the agent is not at the target position, initiate travel
+    //            match agent.travel(world.get_grid(), &mut commands) {
+    //                Ok(_) => {
+    //                    if agent.is_leader() && agent.get_followers().len() > 0{
+    //                        for agent_id in agent.get_followers(){
+    //                            send_agent_message(
+    //                                agent.get_id(),
+    //                                agent_id,
+    //                                MessageType::Move(agent.get_position()),
+    //                                &mut agent_messages,
+    //                            );
+    //                        }
+    //                    }
+    //                },
+    //                Err(_) => println!("Invalid Target in system::perform_action line {}",573),
+    //            }; 
+    //            agent.set_status(Status::Moving);
+    //            // Call the move_between_tiles function to move the agent to the next position in the path
                 
-                match world.move_agent(agent.get_id(), x as usize, y as usize){
-                    Ok(it) => it,
-                    Err(_) => println!("Invalid Move"),
-                }
-            }
-        }
+    //            match world.move_agent(agent.get_id(), x as usize, y as usize){
+    //                Ok(it) => it,
+    //                Err(_) => println!("Invalid Move"),
+    //            }
+    //        }
+    //    }
         
-    }
+    //}
 }
 
 fn follower_actions(

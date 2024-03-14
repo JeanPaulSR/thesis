@@ -387,7 +387,7 @@ impl Agent {
     // | |  | |_| | |_) | | | (__ 
     // \_|   \__,_|_.__/|_|_|\___|
 
-    pub fn print(&self) {
+    pub fn print_information(&self) {
         println!("Agent ID: {}", self.id);
         if let Some(greed) = self.genes.gene_scores.get(&GeneType::Greed) {
             println!("Greed: {}", greed);
@@ -405,6 +405,33 @@ impl Agent {
             println!("Vision: {}", vision);
         }
         println!("Position: x={}, y={}", self.transform.translation.x / 32.0, self.transform.translation.y / 32.0);
+    }
+
+    pub fn print_status(&self) {
+        match self.status {
+            Status::Idle => println!("Agent {} is idle.", self.id),
+            Status::Finished => println!("Agent {} has finished its task.", self.id),
+            Status::Working => println!("Agent {} is currently working.", self.id),
+            Status::Moving => println!("Agent {} is moving.", self.id),
+            Status::Dead => println!("Agent {} is dead.", self.id),
+            Status::Following => println!("Agent {} is following.", self.id),
+        }
+    }
+
+    pub fn print_target(&self) {
+        match self.target {
+            Target::Agent => println!("Agent {} is targeting another agent.", self.id),
+            Target::Monster => println!("Agent {} is targeting a monster.", self.id),
+            Target::None => println!("Agent {} has no specific target.", self.id),
+            Target::Tile => {
+                if let Some((x, y)) = self.tile_target {
+                    println!("Agent {} is targeting a tile at coordinates ({}, {}).", self.id, x, y);
+                } else {
+                    println!("Agent {} is not targeting any specific tile.", self.id);
+                }
+            }
+            Target::Treasure => println!("Agent {} is targeting treasure.", self.id),
+        }
     }
 
     // Function to move the agent to a specific position
