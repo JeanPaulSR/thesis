@@ -5,6 +5,7 @@ use bevy::prelude::*;
 use bevy::app::Events;
 use bevy::app::AppExit;
 use crate::mcst::MCTSNode;
+use crate::mcst::NpcAction;
 use crate::MCSTCurrent;
 use crate::MCSTTotal;
 use crate::RunningFlag;
@@ -15,7 +16,6 @@ use crate::AgentMessages;
 use crate::MonsterMessages;
 use crate::TreasureMessages;
 use crate::mcst;
-use crate::systems;
 use crate::entities::agent;
 use crate::entities;
 use crate::mcst::MCTSTree;
@@ -59,7 +59,7 @@ pub fn setup_simulation(
     //Need to do tree
     //Simulation
     //Back Propgation
-
+    //MCTS PHASE -> Selection -> Simulation (Skips setup during this time) -> Execution Stage
     //If the simulation is not running, setup for simulation
     //If Simulating
         //Do nothing
@@ -102,39 +102,39 @@ pub fn setup_simulation(
 
 
     //Set 
-    for i in 0..10{
-        let forest_guard: &mut std::sync::Arc<std::sync::Mutex<Vec<(u32, MCTSTree)>>> = tree.get_forest();
-        let mut npc_actions: Vec<(u32, Vec<mcst::NpcAction>)> = Vec::new();
+    //for i in 0..10{
+    //    let forest_guard: &mut std::sync::Arc<std::sync::Mutex<Vec<(u32, MCTSTree)>>> = tree.get_forest();
+    //    let mut npc_actions: Vec<(u32, Vec<mcst::NpcAction>)> = Vec::new();
 
-        //Selection phase for each agent, expansion is included in this phase. Max tree height is 255 currently
-        for agent in agent_query.iter_mut() {
-            let mut forest_lock = forest_guard.lock().unwrap();
-            let index = (agent.get_id() - 1) as usize;
-            if let Some((_, mcst_tree)) = forest_lock.get_mut(index) {
-                let result = mcst_tree.selection_phase();
-                npc_actions.push((agent.get_id(), result));
-            } else {
-                println!("It's empty inside here for {} for selection", agent.get_id());
-            }
-        }
+    //    //Selection phase for each agent, expansion is included in this phase. Max tree height is 255 currently
+    //    for agent in agent_query.iter_mut() {
+    //        let mut forest_lock = forest_guard.lock().unwrap();
+    //        let index = (agent.get_id() - 1) as usize;
+    //        if let Some((_, mcst_tree)) = forest_lock.get_mut(index) {
+    //            let result = mcst_tree.selection_phase();
+    //            npc_actions.push((agent.get_id(), result));
+    //        } else {
+    //            println!("It's empty inside here for {} for selection", agent.get_id());
+    //        }
+    //    }
 
-        //TESTING ONLY
-        if !agent_messages.is_empty(){
-            panic!("An error occurred!");
-        }
-        if npc_actions.is_empty(){
-            panic!("An error occurred! npc_actions length is {}", npc_actions.len());
-        }
+    //    //TESTING ONLY
+    //    if !agent_messages.is_empty(){
+    //        panic!("An error occurred!");
+    //    }
+    //    if npc_actions.is_empty(){
+    //        panic!("An error occurred! npc_actions length is {}", npc_actions.len());
+    //    }
 
-        //Simulation phase using all agents (Currently in progress)
-        simulation(&mut world, &mut agent_messages, &mut monster_messages, &mut treasure_messages,
-                    &mut npc_actions,&mut  agent_query, &mut commands);
-        //Backpropegation phase
+    //    //Simulation phase using all agents (Currently in progress)
+    //    simulation(&mut world, &mut agent_messages, &mut monster_messages, &mut treasure_messages,
+    //                &mut npc_actions,&mut  agent_query, &mut commands);
+    //    //Backpropegation phase
 
-        //Restore system for next selection phase
-        restore_agents_from_vector(&mut commands, &mut agent_query, &mut agent_copy);
-        *world = world_copy.clone();
-    }
+    //    //Restore system for next selection phase
+    //    restore_agents_from_vector(&mut commands, &mut agent_query, &mut agent_copy);
+    //    *world = world_copy.clone();
+    //}
 
         //Select action, and prune other branches
         //Set the actions
@@ -165,7 +165,7 @@ pub fn simulation(
     agent_messages: &mut ResMut<AgentMessages>,
     monster_messages: &mut ResMut<MonsterMessages>,
     treasure_messages: &mut ResMut<TreasureMessages>,
-    npc_actions: &mut Vec<(u32, Vec<mcst::NpcAction>)>,
+    npc_actions: &mut Vec<(u32, Vec<NpcAction>)>,
     query: &mut Query<&mut Agent>,
     commands: &mut Commands,
 ) {

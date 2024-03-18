@@ -3,8 +3,9 @@
     "",
     "\\src",
     "\\src\\entities",
+    "\\src\\mcst_system",
     "\\src\\tests"
   ],
-  "SelectedNode": "\\src\\systems.rs",
+  "SelectedNode": "\\src\\mcst_system\\selection_expansion.rs",
   "PreviewInSolutionExplorer": false
 }

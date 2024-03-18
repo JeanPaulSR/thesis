@@ -3,23 +3,11 @@ use camera::camera_drag_system;
 use camera::CameraDragging;
 mod tile;
 mod components;
-mod systems;
 mod camera;
 mod world;
 mod debug;
-mod simulation;
-use systems::AgentMessages;
-use systems::MonsterMessages;
-use systems::TreasureMessages;
-use systems::agent_message_system;
-use systems::cleanup_system;
-use systems::monster_message_system;
-use systems::perform_action;
-use systems::treasure_message_system;
-use simulation::setup_simulation;
 use world::World;
 mod movement; 
-mod mcst;
 mod errors;
 use std::sync::Arc;
 use std::sync::Mutex;
@@ -33,6 +21,24 @@ mod entities {
     pub mod agent;
     pub mod treasure;
 }
+mod mcst_system{
+    pub mod mcst;
+    pub mod setup;
+    pub mod simulation;
+    pub mod systems;
+}
+use mcst_system::systems::AgentMessages;
+use mcst_system::systems::MonsterMessages;
+use mcst_system::systems::TreasureMessages;
+use mcst_system::systems::agent_message_system;
+use mcst_system::systems::cleanup_system;
+use mcst_system::systems::monster_message_system;
+use mcst_system::systems::perform_action;
+use mcst_system::systems::treasure_message_system;
+use mcst_system::simulation::setup_simulation;
+use crate::mcst_system::mcst::NpcAction;
+use crate::mcst_system::mcst;
+use crate::mcst_system::mcst::SimulationTree;
 use crate::components::{Position, TileComponent};
 use crate::entities::agent::Agent;
 use crate::tile::TileType;
@@ -110,7 +116,7 @@ fn main() {
         })
         
         //Insert the world tree
-        .insert_resource(mcst::SimulationTree::new_empty())
+        .insert_resource(SimulationTree::new_empty())
         //Simulation Event
         .add_event::<SimulationCompleteEvent>()
         
@@ -264,7 +270,7 @@ fn debug(
             // Found the desired agent by ID
             agent.set_agent_target_id(2);
             agent.set_target(entities::agent::Target::Agent);
-            agent.set_action(mcst::NpcAction::Attack);
+            agent.set_action(NpcAction::Attack);
             //agent.perform_action(world, commands, agent_messages);
         }
     }

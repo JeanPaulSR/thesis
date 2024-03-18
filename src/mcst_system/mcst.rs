@@ -362,9 +362,7 @@ impl MCTSTree {
         action_rating.generate_actions(agent.get_genes().clone());
         
         let node = MCTSNode::new(None, action_rating);
-        println!("Node {} is: {}", agent.get_id(), node.to_string());
         self.insert_root(node);
-        println!("INSERTING AGENT {}", agent.get_id());
     } 
 
      pub fn select_child(&mut self) -> &mut Arc<Mutex<MCTSNode>> {
