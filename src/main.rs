@@ -29,6 +29,7 @@ mod mcst_system{
     pub mod selection_expansion;
     pub mod systems;
 }
+use std::collections::VecDeque;
 use mcst_system::systems::AgentMessages;
 use mcst_system::systems::MonsterMessages;
 use mcst_system::systems::TreasureMessages;
@@ -56,7 +57,8 @@ pub struct SimulationTotal(i32);
 pub struct MCSTCurrent(i32);
 pub struct MCSTTotal(i32);
 pub struct WorldSim(World);
-pub struct NpcActions(Vec<(u32, Vec<mcst::NpcAction>)>);
+pub struct NpcActions(Vec<(u32, VecDeque<mcst::NpcAction>)>);
+pub struct NpcActionsCopy(Vec<(u32, VecDeque<mcst::NpcAction>)>);
 pub struct ScoreTracker(Vec<(u32, u32)>);
 
 impl WorldSim {
@@ -142,6 +144,7 @@ fn main() {
         .insert_resource(RunningFlag(false))
         .insert_resource(Backpropogate(false))
         .insert_resource(NpcActions(Vec::new()))
+        .insert_resource(NpcActionsCopy(Vec::new()))
         .insert_resource(ScoreTracker(Vec::new()))
         .add_system(toggle_flag_system.system())
         

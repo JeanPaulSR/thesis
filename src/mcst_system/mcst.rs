@@ -2,7 +2,7 @@ use crate::entities::agent::Target;
 use std::cell::RefCell;
 use std::rc::Rc;
 use std::sync::{Arc, Mutex};
-use std::collections::HashMap;
+use std::collections::{HashMap, VecDeque};
 use crate::entities::agent::Agent;
 use crate::entities::agent::Genes;
 use rand::Rng;
@@ -173,6 +173,8 @@ pub struct MCTSNode {
     depth: u8,
     visits: usize,
     total_reward: u32,
+    reward_visits: u32,
+    average_reward: u32,
     is_root:bool,
     children: Vec<Arc<Mutex<MCTSNode>>>,
 }
@@ -198,6 +200,8 @@ impl MCTSNode {
             depth: 0,
             visits: 0,
             total_reward: 0,
+            reward_visits: 0,
+            average_reward: 0,
             is_root: true,
             children: Vec::new(),
         }
@@ -223,27 +227,30 @@ impl MCTSNode {
         self.is_leaf() || self.get_depth() == 255
     }
     
-    pub fn select(&mut self) -> Vec<NpcAction> {
-        let depth = self.get_depth();
-        if depth == 255 {
-            return vec![self.action.unwrap()];
-        }
-        
-        let selected_action: NpcAction = self.action_score.select_action().unwrap();
-        
-        if let Some(child) = self.find_child(selected_action) {
-            let mut current_action: Vec<NpcAction> = vec![selected_action];
-            current_action.append(&mut child.lock().unwrap().select());
-            current_action
+    pub fn select(&mut self) -> VecDeque<NpcAction> {
+    let depth = self.get_depth();
+    if depth == 255 {
+        return VecDeque::from(vec![self.action.unwrap()]);
+    }
+    
+    let selected_action: NpcAction = self.action_score.select_action().unwrap();
+    
+    if let Some(child) = self.find_child(selected_action) {
+        let mut current_action: VecDeque<NpcAction> = VecDeque::from(vec![selected_action]);
+        current_action.append(&mut child.lock().unwrap().select());
+        current_action
+    } else {
+        self.expand(selected_action);
+        if self.is_root() {
+            VecDeque::from(vec![selected_action])
         } else {
-            self.expand(selected_action);
-            if self.is_root(){
-                vec![selected_action]
-            } else {
-                vec![self.action.unwrap(), selected_action]
-            }
+            let mut actions = VecDeque::new();
+            actions.push_back(self.action.unwrap());
+            actions.push_back(selected_action);
+            actions
         }
     }
+}
 
     fn expand(&mut self, action: NpcAction) {
         let new_child = Arc::new(Mutex::new(MCTSNode {
@@ -252,6 +259,8 @@ impl MCTSNode {
             depth: self.depth + 1,
             visits: 0,
             total_reward: 0,
+            reward_visits: 0,
+            average_reward: 0,
             is_root: false,
             children: Vec::new(),
         }));
@@ -272,19 +281,10 @@ impl MCTSNode {
         None
     }
 
-    pub fn simulate(&self) -> u32 {
-        // Implement simulation logic here
-        unimplemented!()
-    }
-
-    pub fn backpropagate(&mut self, reward: u32) {
-        // Implement backpropagation logic here
-        unimplemented!()
-    }
-
-    pub fn best_child(&self, exploration_constant: f64) -> Option<Arc<Mutex<MCTSNode>>> {
-        // Implement best child selection logic here
-        unimplemented!()
+    pub fn backpropagate(&mut self, reward: u32){
+        self.total_reward = reward;
+        self.reward_visits = self.reward_visits + 1;
+        self.average_reward = self.total_reward/self.reward_visits; 
     }
 }
 
@@ -375,7 +375,7 @@ impl MCTSTree {
         }
     }
 
-    pub fn selection_phase(&mut self) -> Vec<NpcAction> {
+    pub fn selection_phase(&mut self) -> VecDeque<NpcAction> {
         let mut root = self.root.as_ref().unwrap().lock().unwrap();
         root.select()
 
@@ -383,6 +383,38 @@ impl MCTSTree {
 
     pub fn expand(&mut self) -> Arc<Mutex<MCTSNode>> {
         unimplemented!()
+    }
+
+    pub fn search_node_backpropagate(&mut self, mut actions: VecDeque<NpcAction>, score: u32) -> Result<(), String> {
+        if actions.is_empty() {
+            return Ok(());
+        }
+
+        let first_element = actions.pop_front().unwrap();
+        let root = self.root.as_ref().unwrap().lock().unwrap();
+        let mut current_node = root.find_child(first_element);
+
+        for action in actions {
+            match current_node {
+                Some(node) => {
+                    node.lock().unwrap().backpropagate(score);
+                    let mut current_node = root.find_child(first_element);
+                }
+                None => {
+                    return Err(String::from("Mismatched Actions"));
+                }
+            }
+        }
+
+        // If we reach here, all actions were matched successfully
+        // Perform backpropagation on the current node with the given score
+        if let Some(node) = current_node {
+            let mut node_lock = node.lock().unwrap();
+            //node_lock.backpropagate(score);
+            Ok(())
+        } else {
+            Err(String::from("Mismatched Actions"))
+        }
     }
 }
 

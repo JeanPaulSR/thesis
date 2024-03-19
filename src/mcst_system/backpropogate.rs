@@ -1,6 +1,8 @@
+use std::collections::VecDeque;
+
 use bevy::prelude::*;
 
-use crate::{entities::agent::{self, Agent, Status}, Backpropogate, MCSTCurrent, NpcActions, ScoreTracker, SimulationFlag};
+use crate::{entities::agent::{self, Agent, Status}, Backpropogate, MCSTCurrent, NpcActions, NpcActionsCopy, ScoreTracker, SimulationFlag};
 
 use super::mcst::{MCTSTree, SimulationTree};
 
@@ -57,9 +59,11 @@ pub fn backpropgate(
     mut agent_query: Query<&mut Agent>, 
     mut agent_copy: ResMut<Vec::<Agent>>,
     mut score_tracker_res: ResMut<ScoreTracker>,
+    mut npc_actions_copy_res: ResMut<NpcActionsCopy>,
     mut commands: Commands,
 ){
     if(backpropogate_flag.0){
+        let mut npc_actions_copy = &mut npc_actions_copy_res.0;
         let mut score_tracker = &mut score_tracker_res.0;
         let forest_guard: &mut std::sync::Arc<std::sync::Mutex<Vec<(u32, MCTSTree)>>> = tree.get_forest();
 
@@ -69,7 +73,8 @@ pub fn backpropgate(
                 let (_, mcst_tree) = tree_tuple;
                     for (id, score) in score_tracker.iter() {
                         if *id == agent_id {
-                            //Backpropegate
+                            //let actions = npc_actions_copy.pop_front().unwrap();
+                            //mcst_tree.backpropegate(actions, *score);
                         }
                     }
             } else {
@@ -79,6 +84,7 @@ pub fn backpropgate(
 
         restore_agents_from_vector(&mut commands, &mut agent_query, &mut agent_copy);
         backpropogate_flag.0 = false;
+        *npc_actions_copy_res = NpcActionsCopy(Vec::new());
     }
 }
 
