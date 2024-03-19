@@ -22,9 +22,11 @@ mod entities {
     pub mod treasure;
 }
 mod mcst_system{
+    pub mod backpropogate;
     pub mod mcst;
     pub mod setup;
     pub mod simulation;
+    pub mod selection_expansion;
     pub mod systems;
 }
 use mcst_system::systems::AgentMessages;
@@ -49,11 +51,13 @@ struct SimulationCompleteEvent;
 
 pub struct SimulationFlag(bool);
 pub struct RunningFlag(bool);
+pub struct Backpropogate(bool);
 pub struct SimulationTotal(i32);
 pub struct MCSTCurrent(i32);
 pub struct MCSTTotal(i32);
 pub struct WorldSim(World);
 pub struct NpcActions(Vec<(u32, Vec<mcst::NpcAction>)>);
+pub struct ScoreTracker(Vec<(u32, u32)>);
 
 impl WorldSim {
     pub fn get_world(&self) -> &World {
@@ -136,7 +140,9 @@ fn main() {
         .insert_resource(Vec::<Agent>::new())
         .insert_resource(SimulationFlag(false))
         .insert_resource(RunningFlag(false))
+        .insert_resource(Backpropogate(false))
         .insert_resource(NpcActions(Vec::new()))
+        .insert_resource(ScoreTracker(Vec::new()))
         .add_system(toggle_flag_system.system())
         
         
