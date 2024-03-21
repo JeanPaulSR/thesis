@@ -1,8 +1,8 @@
-use std::collections::VecDeque;
+
 
 use bevy::prelude::*;
 
-use crate::{entities::agent::{self, Agent, Status}, Backpropogate, MCSTCurrent, NpcActions, NpcActionsCopy, ScoreTracker, SimulationFlag};
+use crate::{entities::agent::{Agent, Status}, Backpropogate, MCSTCurrent, NpcActions, NpcActionsCopy, ScoreTracker, SimulationFlag};
 
 use super::{mcst::SimulationTree, mcst_tree::mcst_tree::MCTSTree};
 
@@ -17,8 +17,8 @@ pub fn check_finish(
     
 ){
     if !simulation_flag.0 {
-        let mut score_tracker = &mut score_tracker_res.0;
-        let mut npc_actions = &mut npc_actions_res.0;
+        let score_tracker = &mut score_tracker_res.0;
+        let npc_actions = &mut npc_actions_res.0;
         let mut finished = true;
 
         for (score_id, score) in score_tracker.iter_mut() {
@@ -26,7 +26,7 @@ pub fn check_finish(
                 for (action_id, action) in npc_actions.iter_mut() {
                     if *action_id == *score_id {
                         if action.is_empty() {
-                            for mut agent in agent_query.iter_mut() {
+                            for agent in agent_query.iter_mut() {
                                 if agent.get_id() == *score_id {
                                     if agent.get_status() == Status::Idle {
                                         *score = agent.get_reward();
@@ -45,7 +45,7 @@ pub fn check_finish(
             }
         }
 
-        if (finished){
+        if finished {
             backpropogate_flag.0 = true;
             simulation_flag.0 = false;
             mcstcurrent.0 = mcstcurrent.0 + 1;
@@ -62,17 +62,17 @@ pub fn backpropgate(
     mut npc_actions_copy_res: ResMut<NpcActionsCopy>,
     mut commands: Commands,
 ){
-    if(backpropogate_flag.0){
-        let mut npc_actions_copy = &mut npc_actions_copy_res.0;
-        let mut score_tracker = &mut score_tracker_res.0;
+    if backpropogate_flag.0 {
+        let npc_actions_copy = &mut npc_actions_copy_res.0;
+        let score_tracker = &mut score_tracker_res.0;
         let forest_guard: &mut std::sync::Arc<std::sync::Mutex<Vec<(u32, MCTSTree)>>> = tree.get_forest();
 
         for agent in agent_query.iter_mut() {
             let agent_id = agent.get_id();
-            if let Some((tree_id, mcst_tree)) = forest_guard.lock().unwrap().iter_mut().find(|(tree_id, _)| *tree_id == agent_id) {
+            if let Some((_tree_id, mcst_tree)) = forest_guard.lock().unwrap().iter_mut().find(|(tree_id, _)| *tree_id == agent_id) {
                 for (score_id, score) in score_tracker.iter() {
                     if *score_id == agent_id {
-                        for (action_id, action) in &mut *npc_actions_copy{
+                        for (_action_id, action) in &mut *npc_actions_copy{
                             mcst_tree.backpropegate(action.clone(), *score);
                         }
                     } else {

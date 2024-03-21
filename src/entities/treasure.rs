@@ -19,7 +19,7 @@ impl Treasure {
         commands: &mut Commands,
         materials: &mut ResMut<Assets<ColorMaterial>>,
         asset_server: &Res<AssetServer>,
-        reward: u32
+        _reward: u32
     ) -> Self {
         // Convert x and y to world coordinates
         x = x * 32.0;

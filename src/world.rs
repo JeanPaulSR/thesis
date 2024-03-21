@@ -8,7 +8,7 @@ use crate::tile::TileType;
 use crate::tile::Tile;
 use crate::errors::MyError;
 use std::collections::HashMap;
-use bevy::ecs::schedule::ShouldRun;
+
 use std::sync::{Arc, Mutex};
 
 // Primary world constructor with a default map

@@ -1,13 +1,13 @@
 use crate::entities::agent::GeneType::{Aggression, SelfPreservation};
-use crate::entities::agent::Target;
-use std::cell::RefCell;
-use std::rc::Rc;
+
+
+
 use std::sync::{Arc, Mutex};
-use std::collections::{HashMap, VecDeque};
-use crate::entities::agent::Agent;
+use std::collections::{HashMap};
+
 use crate::entities::agent::Genes;
 use rand::Rng;
-use crate::errors::MyError;
+
 
 use super::mcst_tree::mcst_tree::MCTSTree;
 

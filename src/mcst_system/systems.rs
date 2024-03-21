@@ -1,8 +1,8 @@
 use bevy::prelude::*;
-use crate::entities::agent::{Agent, Status, Target};
+use crate::entities::agent::{Agent, Status};
 use crate::entities::monster::Monster;
-use crate::errors::MyError;
-use crate::mcst::NpcAction;
+
+
 use crate::{RunningFlag, SimulationFlag, World};
 
 #[derive()]
@@ -527,8 +527,8 @@ pub fn cleanup_system(
     mut query_m: Query<&mut Monster>,
     mut world: ResMut<World>,
     mut agent_messages: ResMut<AgentMessages>,
-    mut simulation_flag: ResMut<SimulationFlag>,
-    mut running_flag: ResMut<RunningFlag>,
+    _simulation_flag: ResMut<SimulationFlag>,
+    _running_flag: ResMut<RunningFlag>,
 ) {
     // Handle received messages
     for mut agent in query_a.iter_mut() {
@@ -567,12 +567,12 @@ pub fn cleanup_system(
 //Move removing the energy into the message handling
 //Fix the movement issue of randomly moving to 0, as well as using th path isntead of the current position
 pub fn perform_action(
-    mut query: Query<&mut Agent>,
-    mut world: ResMut<World>,
-    mut commands: Commands,
-    mut agent_messages: ResMut<AgentMessages>,
-    mut monster_messages: ResMut<MonsterMessages>,
-    mut treasure_messages: ResMut<TreasureMessages>,
+    query: Query<&mut Agent>,
+    world: ResMut<World>,
+    commands: Commands,
+    agent_messages: ResMut<AgentMessages>,
+    monster_messages: ResMut<MonsterMessages>,
+    treasure_messages: ResMut<TreasureMessages>,
 ) {
     //for mut agent in query.iter_mut() {
     //    if !(agent.is_leader() && !agent.get_followers().is_empty()) {

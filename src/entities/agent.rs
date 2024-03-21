@@ -151,7 +151,7 @@ impl Agent {
             A_COUNTER += 1;
         }
         
-        let tile_target = (10 as u32, 10 as u32);
+        let _tile_target = (10 as u32, 10 as u32);
         Agent {
             genes : Genes::generate(),
             id: unsafe { A_COUNTER },

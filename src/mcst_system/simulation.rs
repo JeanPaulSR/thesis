@@ -17,8 +17,8 @@ use crate::MonsterMessages;
 use crate::TreasureMessages;
 use crate::mcst;
 use crate::entities::agent;
-use crate::entities;
-use crate::perform_action;
+
+
 
 
 use crate::entities::agent::Agent;
@@ -27,27 +27,27 @@ use crate::WorldSim;
 
 
 pub fn setup_simulation(
-    mut world: ResMut<World>,
-    mut world_sim: ResMut<WorldSim>,
+    world: ResMut<World>,
+    world_sim: ResMut<WorldSim>,
     mut agent_copy: ResMut<Vec::<Agent>>,
     mut tree: ResMut<mcst::SimulationTree>,
-    mut agent_messages: ResMut<AgentMessages>,
-    mut monster_messages: ResMut<MonsterMessages>,
-    mut treasure_messages: ResMut<TreasureMessages>,
-    mut iteration_total: ResMut<SimulationTotal>,
+    _agent_messages: ResMut<AgentMessages>,
+    _monster_messages: ResMut<MonsterMessages>,
+    _treasure_messages: ResMut<TreasureMessages>,
+    iteration_total: ResMut<SimulationTotal>,
     mut iteration_counter: Local<i32>,
-    mut simulation_flag: ResMut<SimulationFlag>,
-    mut running_flag: ResMut<RunningFlag>,
-    mut mcst_current: ResMut<MCSTCurrent>,
-    mut mcst_total: ResMut<MCSTTotal>,
+    simulation_flag: ResMut<SimulationFlag>,
+    running_flag: ResMut<RunningFlag>,
+    _mcst_current: ResMut<MCSTCurrent>,
+    _mcst_total: ResMut<MCSTTotal>,
     mut app_exit_events: ResMut<Events<AppExit>>,
     mut agent_query: Query<&mut Agent>, 
-    mut commands: Commands,
+    _commands: Commands,
 ){
     //If tree is empty, it is the first iteration
     if tree.is_empty() {
         
-        for mut agent in agent_query.iter_mut() {
+        for agent in agent_query.iter_mut() {
             let mut new_tree = MCTSTree::new_empty();
             new_tree.initialize_tree(agent.clone());
             tree.insert_tree(new_tree, agent.get_id());
@@ -70,7 +70,7 @@ pub fn setup_simulation(
                 //If not in mcst phase, check if program finished
                     //If program finished, check if end condition met
                         //If end condition met, end program
-    if(!simulation_flag.0 && !running_flag.0){
+    if !simulation_flag.0 && !running_flag.0 {
         println!("Current iteration: {}", *iteration_counter);
         // End Condition
         *iteration_counter += 1;
@@ -87,7 +87,7 @@ pub fn setup_simulation(
         //For loop for the MCTS process
         
     }
-    let mut world_copy = world_sim.get_world();
+    let _world_copy = world_sim.get_world();
 
     //MCTS Counter and Current Counter
     //Selection phase
@@ -141,14 +141,14 @@ pub fn setup_simulation(
 
 
 pub fn run_simulation(
-    mut world_sim: ResMut<WorldSim>,
-    mut agent_copy: ResMut<Vec::<Agent>>,
-    mut tree: ResMut<mcst::SimulationTree>,
-    mut agent_messages: ResMut<AgentMessages>,
-    mut monster_messages: ResMut<MonsterMessages>,
-    mut treasure_messages: ResMut<TreasureMessages>,
-    mut mcst_total: ResMut<MCSTTotal>,
-    mut agent_query: Query<&mut Agent>, 
+    _world_sim: ResMut<WorldSim>,
+    _agent_copy: ResMut<Vec::<Agent>>,
+    _tree: ResMut<mcst::SimulationTree>,
+    _agent_messages: ResMut<AgentMessages>,
+    _monster_messages: ResMut<MonsterMessages>,
+    _treasure_messages: ResMut<TreasureMessages>,
+    _mcst_total: ResMut<MCSTTotal>,
+    _agent_query: Query<&mut Agent>, 
 ){
 
 }
@@ -160,21 +160,21 @@ If not
 
 */
 pub fn simulation(
-    world: &mut ResMut<World>,
-    agent_messages: &mut ResMut<AgentMessages>,
-    monster_messages: &mut ResMut<MonsterMessages>,
-    treasure_messages: &mut ResMut<TreasureMessages>,
+    _world: &mut ResMut<World>,
+    _agent_messages: &mut ResMut<AgentMessages>,
+    _monster_messages: &mut ResMut<MonsterMessages>,
+    _treasure_messages: &mut ResMut<TreasureMessages>,
     npc_actions: &mut Vec<(u32, Vec<NpcAction>)>,
     query: &mut Query<&mut Agent>,
-    commands: &mut Commands,
+    _commands: &mut Commands,
 ) {
     //println!("NEW LOOP");
     //let npc_actions_clone = npc_actions.clone();
     //Set to false if not finished yet
     let mut finished_flags: Vec<bool> = npc_actions.iter().map(|_| false).collect();
 
-    let mut int = 0;
-    let mut int2 = 0;
+    let _int = 0;
+    let _int2 = 0;
 
     while !is_finished(&mut finished_flags) {
         //println!("NEW ITERATION");
@@ -220,7 +220,7 @@ fn is_finished(flags: &mut Vec<bool>) -> bool {
 // Function to save the state of agents from a query into a vector
 fn save_agents_to_vector(query: &mut Query<&mut Agent>) -> Vec<Agent> {
     let mut agent_backup = Vec::new();
-    for mut agent in query.iter_mut() {
+    for agent in query.iter_mut() {
         agent_backup.push(agent.clone());
     }
     agent_backup

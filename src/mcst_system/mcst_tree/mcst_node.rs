@@ -1,14 +1,14 @@
-use crate::entities::agent::GeneType::{Aggression, SelfPreservation};
-use crate::entities::agent::Target;
+
+
 use crate::mcst_system::mcst::{ActionRating, ActionsTaken, NpcAction};
-use std::cell::RefCell;
-use std::rc::Rc;
+
+
 use std::sync::{Arc, Mutex};
-use std::collections::{HashMap, VecDeque};
-use crate::entities::agent::Agent;
-use crate::entities::agent::Genes;
-use rand::Rng;
-use crate::errors::MyError;
+use std::collections::{VecDeque};
+
+
+
+
 
 #[derive(Clone)]
 pub struct MCTSNode {

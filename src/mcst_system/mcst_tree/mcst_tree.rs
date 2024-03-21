@@ -1,14 +1,14 @@
-use crate::entities::agent::GeneType::{Aggression, SelfPreservation};
-use crate::entities::agent::Target;
+
+
 use crate::mcst_system::mcst::{ActionRating, NpcAction};
-use std::cell::RefCell;
-use std::rc::Rc;
+
+
 use std::sync::{Arc, Mutex};
-use std::collections::{HashMap, VecDeque};
+use std::collections::{VecDeque};
 use crate::entities::agent::Agent;
 use crate::entities::agent::Genes;
-use rand::Rng;
-use crate::errors::MyError;
+
+
 
 use super::mcst_node::MCTSNode;
 
@@ -75,7 +75,7 @@ impl MCTSTree {
     }
 
     //Try recursive instead
-    pub fn backpropegate(&mut self, mut actions: VecDeque<NpcAction>, score: u32){
+    pub fn backpropegate(&mut self, actions: VecDeque<NpcAction>, score: u32){
         if actions.is_empty() {
             panic!("Passed empty actions to backpropegate")
         }

@@ -7,11 +7,7 @@ use crate::{world::World, tile::{Tile, TileType}};
 
 #[cfg(test)]
 mod tests {
-    use crate::{entities::agent::Genes, mcst::NpcAction, mcst::{MCTSNode, self}};
-
-
-    //#[test]
-    //fn test_calculate_action_score() {
+    //fn test_calculaion_score() {
     //    let genes = Genes {
     //        greed: 0.8,
     //        aggression: 0.6,
