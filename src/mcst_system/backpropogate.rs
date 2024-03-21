@@ -4,7 +4,7 @@ use bevy::prelude::*;
 
 use crate::{entities::agent::{self, Agent, Status}, Backpropogate, MCSTCurrent, NpcActions, NpcActionsCopy, ScoreTracker, SimulationFlag};
 
-use super::mcst::{MCTSTree, SimulationTree};
+use super::{mcst::SimulationTree, mcst_tree::mcst_tree::MCTSTree};
 
 
 pub fn check_finish(
@@ -69,14 +69,16 @@ pub fn backpropgate(
 
         for agent in agent_query.iter_mut() {
             let agent_id = agent.get_id();
-            if let Some(tree_tuple) = forest_guard.lock().unwrap().iter_mut().find(|(tree_id, _)| *tree_id == agent_id) {
-                let (_, mcst_tree) = tree_tuple;
-                    for (id, score) in score_tracker.iter() {
-                        if *id == agent_id {
-                            //let actions = npc_actions_copy.pop_front().unwrap();
-                            //mcst_tree.backpropegate(actions, *score);
+            if let Some((tree_id, mcst_tree)) = forest_guard.lock().unwrap().iter_mut().find(|(tree_id, _)| *tree_id == agent_id) {
+                for (score_id, score) in score_tracker.iter() {
+                    if *score_id == agent_id {
+                        for (action_id, action) in &mut *npc_actions_copy{
+                            mcst_tree.backpropegate(action.clone(), *score);
                         }
+                    } else {
+                        println!("No matching Score found for agent_id: {}", agent_id);
                     }
+                }
             } else {
                 println!("No matching MCTSTree found for agent_id: {}", agent_id);
             }
@@ -107,4 +109,3 @@ fn restore_agents_from_vector(commands: &mut Commands, query: &mut Query<&mut Ag
         commands.spawn().insert(agent).id();
     }
 }
-        //restore_agents_from_vector(&mut commands, &mut agent_query, &mut agent_copy);

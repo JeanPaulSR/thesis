@@ -4,8 +4,8 @@
 use bevy::prelude::*;
 use bevy::app::Events;
 use bevy::app::AppExit;
-use crate::mcst::MCTSNode;
 use crate::mcst::NpcAction;
+use crate::mcst_system::mcst_tree::mcst_tree::MCTSTree;
 use crate::MCSTCurrent;
 use crate::MCSTTotal;
 use crate::RunningFlag;
@@ -18,7 +18,6 @@ use crate::TreasureMessages;
 use crate::mcst;
 use crate::entities::agent;
 use crate::entities;
-use crate::mcst::MCTSTree;
 use crate::perform_action;
 
 
@@ -49,7 +48,7 @@ pub fn setup_simulation(
     if tree.is_empty() {
         
         for mut agent in agent_query.iter_mut() {
-            let mut new_tree = mcst::MCTSTree::new_empty();
+            let mut new_tree = MCTSTree::new_empty();
             new_tree.initialize_tree(agent.clone());
             tree.insert_tree(new_tree, agent.get_id());
             println!("Finished setup for agent {}", agent.get_id());

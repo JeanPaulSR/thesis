@@ -2,11 +2,12 @@ use bevy::prelude::*;
 
 use crate::{entities::agent::Agent, NpcActions, NpcActionsCopy, RunningFlag, SimulationFlag};
 
-use super::mcst::{self, MCTSTree, NpcAction};
+use super::{mcst::SimulationTree, mcst_tree::mcst_tree::MCTSTree};
+
 
 pub fn select_phase(
     mut agent_copy: ResMut<Vec::<Agent>>,
-    mut tree: ResMut<mcst::SimulationTree>,
+    mut tree: ResMut<SimulationTree>,
     mut simulation_flag: ResMut<SimulationFlag>,
     mut running_flag: ResMut<RunningFlag>,
     mut agent_query: Query<&mut Agent>, 

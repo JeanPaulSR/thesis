@@ -48,6 +48,13 @@ impl Genes {
         Genes { gene_scores }
     }
 
+    pub fn return_type_score(&self, gene_type : GeneType) -> f32{
+        match self.gene_scores.get(&gene_type){
+            Some(result) => *result,
+            None => todo!(),
+        }
+    }
+
     pub fn generate() -> Self {
         // Initialize a random number generator
         let mut rng = rand::thread_rng();

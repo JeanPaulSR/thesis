@@ -22,6 +22,10 @@ mod entities {
     pub mod treasure;
 }
 mod mcst_system{
+    mod mcst_tree{
+        pub mod mcst_node;
+        pub mod mcst_tree;
+    }
     pub mod backpropogate;
     pub mod mcst;
     pub mod setup;

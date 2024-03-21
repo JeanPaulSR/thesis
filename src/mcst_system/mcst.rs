@@ -1,3 +1,4 @@
+use crate::entities::agent::GeneType::{Aggression, SelfPreservation};
 use crate::entities::agent::Target;
 use std::cell::RefCell;
 use std::rc::Rc;
@@ -8,11 +9,13 @@ use crate::entities::agent::Genes;
 use rand::Rng;
 use crate::errors::MyError;
 
+use super::mcst_tree::mcst_tree::MCTSTree;
+
 #[allow(dead_code)]
 #[derive(Clone)]
 #[derive(Copy)]
 #[derive(Debug)]
- #[derive(Eq, Hash, PartialEq)]
+#[derive(Eq, Hash, PartialEq)]
 pub enum NpcAction {
     Attack,
     Steal,
@@ -34,80 +37,6 @@ impl ToString for NpcAction {
 }
 
 
-#[derive(Clone)]
-pub struct ActionsTaken {
-    actions: ActionRating,
-    actions_vec: Vec<(NpcAction, u32)>,
-}
-
-impl ActionsTaken {
-    pub fn new() -> Self {
-        let actions = ActionRating::default(); 
-        let mut actions_vec = Vec::new();
-            
-        actions_vec.push((NpcAction::Attack, 0));
-        actions_vec.push((NpcAction::Steal, 0));
-        actions_vec.push((NpcAction::Rest, 0));
-        actions_vec.push((NpcAction::Talk, 0));
-        actions_vec.push((NpcAction::None, 0));
-        ActionsTaken { actions, actions_vec }
-    }
-
-    pub fn new_with_rating(
-        actions: ActionRating,
-    ) -> Self {
-        let mut actions_vec = Vec::new();
-            
-        actions_vec.push((NpcAction::Attack, 0));
-        actions_vec.push((NpcAction::Steal, 0));
-        actions_vec.push((NpcAction::Rest, 0));
-        actions_vec.push((NpcAction::Talk, 0));
-        actions_vec.push((NpcAction::None, 0));
-        ActionsTaken {
-            actions,
-            actions_vec,
-        }
-    }
-
-    pub fn perform_action(&mut self, action: NpcAction) {
-        if let Some((_, count)) = self.actions_vec.iter_mut().find(|(a, _)| *a == action) {
-            *count += 1;
-        } else {
-            println!("Action {:?} not found in actions_vec", action);
-        }
-    }
-
-    pub fn get_action_rating(&self) -> ActionRating{
-        self.actions.clone()
-    }
-
-    pub fn select_action(&self) -> Option<NpcAction> {
-        let total_visits: f64 = self.actions_vec.iter().map(|(_, visits)| *visits as f64).sum();
-
-        let mut best_action: Option<NpcAction> = None;
-        let mut best_score: f64 = f64::NEG_INFINITY;
-
-        for (action, visits) in &self.actions_vec {
-            let action_rating = self.actions.actions.get(action).unwrap_or(&0.0);
-
-            let score = if *visits == 0 {
-                f64::INFINITY
-            } else {
-                let exploitation = *action_rating as f64;
-                let exploration = (total_visits.ln() / (*visits as f64)).sqrt();
-                exploitation + exploration
-            };
-
-            if score > best_score {
-                best_action = Some(*action);
-                best_score = score;
-            }
-        }
-
-        best_action
-    }
-}
-
 #[derive(Default)]
 #[derive(Clone)]
 pub struct ActionRating{
@@ -127,8 +56,22 @@ impl ActionRating {
         ActionRating { actions }
     }
 
-    fn generate_actions(&mut self, _genes: Genes) {
-        self.actions.insert(NpcAction::Attack, 0.0);
+    //MODIFY VALUES WITH GENES
+    //pub enum GeneType {
+    //    Greed,
+    //    Aggression,
+    //    Social,
+    //    SelfPreservation,
+    //    Vision,
+    //}
+
+    //#[derive(Clone, Debug)]
+    //pub struct Genes {
+    //    pub gene_scores: HashMap<GeneType, f32>,
+    //}
+    pub fn generate_ratings(&mut self, genes: Genes) {
+        self.actions.clear();
+        self.actions.insert(NpcAction::Attack, 1.0 * genes.return_type_score(Aggression) * (1.0 - genes.return_type_score(SelfPreservation)));
         self.actions.insert(NpcAction::Steal, 0.0);
         self.actions.insert(NpcAction::Rest, 0.0);
         self.actions.insert(NpcAction::Talk, 0.0);
@@ -140,8 +83,8 @@ impl ActionRating {
     }
 
     pub fn get_actions(&self) -> &HashMap<NpcAction, f32> {
-    &self.actions
-}
+        &self.actions
+    }
 
     pub fn select_action(&self) -> Option<NpcAction> {
         let total = self.calculate_total();
@@ -164,257 +107,77 @@ impl ActionRating {
     }
 }
 
-pub type MCTSNodeRef = Rc<RefCell<MCTSNode>>;
-
 #[derive(Clone)]
-pub struct MCTSNode {
-    action: Option<NpcAction>,
-    action_score: ActionsTaken,
-    depth: u8,
-    visits: usize,
-    total_reward: u32,
-    reward_visits: u32,
-    average_reward: u32,
-    is_root:bool,
-    children: Vec<Arc<Mutex<MCTSNode>>>,
+pub struct ActionsTaken {
+    action_rating: ActionRating,
+    actions_vec: Vec<(NpcAction, u32)>,
 }
 
-impl ToString for MCTSNode {
-    fn to_string(&self) -> String {
-        let action_str = match &self.action {
-            Some(action) => action.to_string(),
-            None => "None".to_string(),
-        };
-        format!(
-            "Action: {}, Depth: {}, Visits: {}, Total Reward: {}",
-            action_str, self.depth, self.visits, self.total_reward
-        )
-    }
-}
-
-impl MCTSNode {
-    pub fn new(action: Option<NpcAction>, action_rating: ActionRating) -> Self {
-        MCTSNode {
-            action,
-            action_score: ActionsTaken::new_with_rating(action_rating),
-            depth: 0,
-            visits: 0,
-            total_reward: 0,
-            reward_visits: 0,
-            average_reward: 0,
-            is_root: true,
-            children: Vec::new(),
-        }
-    }
-
-    pub fn print(&self) {
-        println!("{}", self.to_string());
-    }
-
-    pub fn is_root(&self) -> bool {
-        self.is_root
-    }
-
-    pub fn is_leaf(&self) -> bool {
-        self.children.is_empty()
-    }
-
-    pub fn get_depth(&self) -> u8 {
-        self.depth
-    }
-
-    pub fn is_valid_exploration_node(&self) -> bool {
-        self.is_leaf() || self.get_depth() == 255
-    }
-    
-    pub fn select(&mut self) -> VecDeque<NpcAction> {
-    let depth = self.get_depth();
-    if depth == 255 {
-        return VecDeque::from(vec![self.action.unwrap()]);
-    }
-    
-    let selected_action: NpcAction = self.action_score.select_action().unwrap();
-    
-    if let Some(child) = self.find_child(selected_action) {
-        let mut current_action: VecDeque<NpcAction> = VecDeque::from(vec![selected_action]);
-        current_action.append(&mut child.lock().unwrap().select());
-        current_action
-    } else {
-        self.expand(selected_action);
-        if self.is_root() {
-            VecDeque::from(vec![selected_action])
-        } else {
-            let mut actions = VecDeque::new();
-            actions.push_back(self.action.unwrap());
-            actions.push_back(selected_action);
-            actions
-        }
-    }
-}
-
-    fn expand(&mut self, action: NpcAction) {
-        let new_child = Arc::new(Mutex::new(MCTSNode {
-            action: Some(action),
-            action_score: ActionsTaken::new(),
-            depth: self.depth + 1,
-            visits: 0,
-            total_reward: 0,
-            reward_visits: 0,
-            average_reward: 0,
-            is_root: false,
-            children: Vec::new(),
-        }));
-        self.children.push(new_child);
-    }
-
-    pub fn find_child(&self, action: NpcAction) -> Option<&Arc<Mutex<MCTSNode>>> {
-        for child in &self.children {
-            let child_node = &child.lock().unwrap();
-            
-            if let Some(child_action) = &child_node.action {
-                if *child_action == action {
-                    return Some(&child);
-                }
-            }
-        }
-        
-        None
-    }
-
-    pub fn backpropagate(&mut self, reward: u32){
-        self.total_reward = reward;
-        self.reward_visits = self.reward_visits + 1;
-        self.average_reward = self.total_reward/self.reward_visits; 
-    }
-}
-
-pub struct GeneList {
-    gene_list: Vec<(u32, Genes)>,
-}
-
-impl GeneList {
+impl ActionsTaken {
     pub fn new() -> Self {
-        GeneList {
-            gene_list: Vec::new(),
+        let action_rating = ActionRating::default(); 
+        let mut actions_vec = Vec::new();
+            
+        actions_vec.push((NpcAction::Attack, 0));
+        actions_vec.push((NpcAction::Steal, 0));
+        actions_vec.push((NpcAction::Rest, 0));
+        actions_vec.push((NpcAction::Talk, 0));
+        actions_vec.push((NpcAction::None, 0));
+        ActionsTaken { action_rating, actions_vec }
+    }
+
+    pub fn new_with_rating(
+        action_rating: ActionRating,
+    ) -> Self {
+        let mut actions_vec = Vec::new();
+            
+        actions_vec.push((NpcAction::Attack, 0));
+        actions_vec.push((NpcAction::Steal, 0));
+        actions_vec.push((NpcAction::Rest, 0));
+        actions_vec.push((NpcAction::Talk, 0));
+        actions_vec.push((NpcAction::None, 0));
+        ActionsTaken {
+            action_rating,
+            actions_vec,
         }
     }
 
-    pub fn add_gene(&mut self, agent_id: u32, gene: Genes) {
-        self.gene_list.push((agent_id, gene));
-    }
-
-    pub fn get_genes(&self, agent_id: &u32) -> Vec<&Genes> {
-        self.gene_list
-            .iter()
-            .filter_map(|(id, Genes)| if id == agent_id { Some(Genes) } else { None })
-            .collect()
-    }
-
-
-    pub fn set_genes(&mut self, agent_id: u32, genes: Vec<Genes>) {
-        // Remove previous genes associated with the agent_id
-        self.gene_list.retain(|(id, _)| *id != agent_id);
-
-        // Add new genes
-        for gene in genes {
-            self.add_gene(agent_id, gene);
-        }
-    }
-}
-
-pub struct MCTSTree {
-    root: Option<Arc<Mutex<MCTSNode>>>,
-    current_node: Option<Arc<Mutex<MCTSNode>>>,
-    genes: Option<GeneList>,
-    action_rating: Option<ActionRating>,
-    exploration_constant: f64,
-}
-
-impl MCTSTree {
-    pub fn is_empty(&self) -> bool {
-        self.root.is_none()
-    }
-    
-    pub fn insert_root(&mut self, node: MCTSNode) {
-        let node_arc = Arc::new(Mutex::new(node));
-        self.root = Some(node_arc);
-    }
-    
-    pub fn set_genes(&mut self, gene_set: GeneList){
-        self.genes = Some(gene_set);
-    }
-
-
-    pub fn new_empty() -> Self {
-        MCTSTree {
-            root: None,
-            current_node: None,
-            genes: None,
-            action_rating: None,
-            exploration_constant: 1.0,
+    pub fn perform_action(&mut self, action: NpcAction) {
+        if let Some((_, count)) = self.actions_vec.iter_mut().find(|(a, _)| *a == action) {
+            *count += 1;
+        } else {
+            println!("Action {:?} not found in actions_vec", action);
         }
     }
 
-    pub fn initialize_tree(&mut self, agent: Agent){
-        let mut gene_list = GeneList::new();
-        gene_list.add_gene(agent.get_id(), agent.get_genes().clone());
-        let mut action_rating = ActionRating::new();
-        action_rating.generate_actions(agent.get_genes().clone());
-        
-        let node = MCTSNode::new(None, action_rating);
-        self.insert_root(node);
-    } 
-
-     pub fn select_child(&mut self) -> &mut Arc<Mutex<MCTSNode>> {
-        let returning_node = &mut self.root;
-        
-        
-        match returning_node {
-            Some(node) => node,
-            None => !unreachable!(),
-        }
+    pub fn get_action_rating(&self) -> ActionRating{
+        self.action_rating.clone()
     }
 
-    pub fn selection_phase(&mut self) -> VecDeque<NpcAction> {
-        let mut root = self.root.as_ref().unwrap().lock().unwrap();
-        root.select()
+    pub fn select_action(&self) -> Option<NpcAction> {
+        let total_visits: f64 = self.actions_vec.iter().map(|(_, visits)| *visits as f64).sum();
 
-    }
+        let mut best_action: Option<NpcAction> = None;
+        let mut best_score: f64 = f64::NEG_INFINITY;
 
-    pub fn expand(&mut self) -> Arc<Mutex<MCTSNode>> {
-        unimplemented!()
-    }
+        for (action, visits) in &self.actions_vec {
+            let selected_action_rating = self.action_rating.actions.get(action).unwrap_or(&0.0);
 
-    pub fn search_node_backpropagate(&mut self, mut actions: VecDeque<NpcAction>, score: u32) -> Result<(), String> {
-        if actions.is_empty() {
-            return Ok(());
-        }
+            let score = if *visits == 0 {
+                f64::INFINITY
+            } else {
+                let exploitation = *selected_action_rating as f64;
+                let exploration = (total_visits.ln() / (*visits as f64)).sqrt();
+                exploitation + exploration
+            };
 
-        let first_element = actions.pop_front().unwrap();
-        let root = self.root.as_ref().unwrap().lock().unwrap();
-        let mut current_node = root.find_child(first_element);
-
-        for action in actions {
-            match current_node {
-                Some(node) => {
-                    node.lock().unwrap().backpropagate(score);
-                    let mut current_node = root.find_child(first_element);
-                }
-                None => {
-                    return Err(String::from("Mismatched Actions"));
-                }
+            if score > best_score {
+                best_action = Some(*action);
+                best_score = score;
             }
         }
 
-        // If we reach here, all actions were matched successfully
-        // Perform backpropagation on the current node with the given score
-        if let Some(node) = current_node {
-            let mut node_lock = node.lock().unwrap();
-            //node_lock.backpropagate(score);
-            Ok(())
-        } else {
-            Err(String::from("Mismatched Actions"))
-        }
+        best_action
     }
 }
 
