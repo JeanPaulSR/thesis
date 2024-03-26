@@ -4,7 +4,7 @@ use crate::mcst_system::mcst::{ActionRating, NpcAction};
 
 
 use std::sync::{Arc, Mutex};
-use std::collections::{VecDeque};
+use std::collections::VecDeque;
 use crate::entities::agent::Agent;
 use crate::entities::agent::Genes;
 
@@ -18,6 +18,7 @@ pub struct MCTSTree {
     genes: Option<Genes>,
     action_rating: Option<ActionRating>,
     exploration_constant: f64,
+    height: u16,
 }
 
 impl MCTSTree {
@@ -42,6 +43,7 @@ impl MCTSTree {
             genes: None,
             action_rating: None,
             exploration_constant: 1.0,
+            height: 0,
         }
     }
 
@@ -70,6 +72,16 @@ impl MCTSTree {
 
     }
 
+    
+    pub fn get_height(&self) -> u16 {
+        self.height
+    }
+
+    pub fn calculate_height(&mut self){
+        let mut root = self.root.as_ref().unwrap().lock().unwrap();
+        root.calculate_height();
+        self.height =root.get_height();
+    }
     pub fn expand(&mut self) -> Arc<Mutex<MCTSNode>> {
         unimplemented!()
     }

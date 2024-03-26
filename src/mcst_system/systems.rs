@@ -567,13 +567,16 @@ pub fn cleanup_system(
 //Move removing the energy into the message handling
 //Fix the movement issue of randomly moving to 0, as well as using th path isntead of the current position
 pub fn perform_action(
-    query: Query<&mut Agent>,
+    mut query: Query<&mut Agent>,
     world: ResMut<World>,
     commands: Commands,
     agent_messages: ResMut<AgentMessages>,
     monster_messages: ResMut<MonsterMessages>,
     treasure_messages: ResMut<TreasureMessages>,
 ) {
+    for mut agent in query.iter_mut() {
+        agent.set_status(Status::Idle);
+    }
     //for mut agent in query.iter_mut() {
     //    if !(agent.is_leader() && !agent.get_followers().is_empty()) {
     //        let current_target = agent.get_target();

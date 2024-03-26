@@ -1,3 +1,4 @@
+#![allow(dead_code)]
 use bevy::prelude::*;
 use camera::camera_drag_system;
 use camera::CameraDragging;
@@ -6,6 +7,12 @@ mod components;
 mod camera;
 mod world;
 mod debug;
+use mcst_system::backpropogate::backpropgate;
+use mcst_system::backpropogate::check_finish;
+use mcst_system::systems::agent_message_system;
+use mcst_system::systems::cleanup_system;
+use mcst_system::systems::monster_message_system;
+use mcst_system::systems::treasure_message_system;
 use world::World;
 mod movement; 
 mod errors;
@@ -41,8 +48,9 @@ use mcst_system::systems::TreasureMessages;
 
 
 use mcst_system::systems::perform_action;
+use mcst_system::selection_expansion::select_phase;
 
-use mcst_system::simulation::setup_simulation;
+use mcst_system::setup::setup_simulation;
 use crate::mcst_system::mcst::NpcAction;
 use crate::mcst_system::mcst;
 use crate::mcst_system::mcst::SimulationTree;
@@ -56,6 +64,7 @@ struct SimulationCompleteEvent;
 
 pub struct SimulationFlag(bool);
 pub struct RunningFlag(bool);
+pub struct FinishedRunningFlag(bool);
 pub struct Backpropogate(bool);
 pub struct SimulationTotal(i32);
 pub struct MCSTCurrent(i32);
@@ -146,6 +155,7 @@ fn main() {
         .insert_resource(Vec::<Agent>::new())
         .insert_resource(SimulationFlag(false))
         .insert_resource(RunningFlag(false))
+        .insert_resource(FinishedRunningFlag(false))
         .insert_resource(Backpropogate(false))
         .insert_resource(NpcActions(Vec::new()))
         .insert_resource(NpcActionsCopy(Vec::new()))
@@ -153,17 +163,23 @@ fn main() {
         .add_system(toggle_flag_system.system())
         
         
-        // Add the simulation
-        .add_system(setup_simulation.system())
+        // Setup System
+        .add_system(setup_simulation.system().label("setup"))
+        .add_system(select_phase.system().after("setup").label("selection_phase"))
+        .add_system(check_finish.system().after("selection_phase").label("simulation"))
+        .add_system(perform_action.system().after("simulation").label("action"))
+
+        //After Simulation phase
+        .add_system(check_finish.system().after("action").label("end_simulation"))
+        .add_system(backpropgate.system().after("end_simulation").label("backpropegate"))
         // Add the agent action handling
-        .add_system(perform_action.system().label("action"))
 
         // Add the agent message system to handle messages after actions.
-        //.add_system(treasure_message_system.system().after("action").label("message"))
-        //.add_system(monster_message_system.system().after("action").label("message"))
-        //.add_system(agent_message_system.system().after("action").label("message"))
-        // Add the despawn handler after all message systems
-        //.add_system(cleanup_system.system().after("message"))
+        .add_system(treasure_message_system.system().after("action").label("message"))
+        .add_system(monster_message_system.system().after("action").label("message"))
+        .add_system(agent_message_system.system().after("action").label("message"))
+        //Add the despawn handler after all message systems
+        .add_system(cleanup_system.system().after("message"))
         
         //.add_system(debug.system())
         //)

@@ -4,7 +4,7 @@ use crate::mcst_system::mcst::{ActionRating, ActionsTaken, NpcAction};
 
 
 use std::sync::{Arc, Mutex};
-use std::collections::{VecDeque};
+use std::collections::VecDeque;
 
 
 
@@ -15,6 +15,7 @@ pub struct MCTSNode {
     action: Option<NpcAction>,
     action_score: ActionsTaken,
     depth: u8,
+    height: u16,
     visits: usize,
     total_reward: u32,
     reward_visits: u32,
@@ -42,6 +43,7 @@ impl MCTSNode {
             action,
             action_score: ActionsTaken::new_with_rating(action_rating),
             depth: 0,
+            height: 0,
             visits: 0,
             total_reward: 0,
             reward_visits: 0,
@@ -100,6 +102,7 @@ impl MCTSNode {
             action: Some(action),
             action_score: ActionsTaken::new_with_rating(self.action_score.get_action_rating()),
             depth: self.depth + 1,
+            height: 0,
             visits: 0,
             total_reward: 0,
             reward_visits: 0,
@@ -147,4 +150,19 @@ impl MCTSNode {
         self.reward_visits = self.reward_visits + 1;
         self.average_reward = self.total_reward/self.reward_visits;
     }
+
+    
+    pub fn get_height(&self) -> u16 {
+        self.height
+    }
+    
+    pub fn calculate_height(&mut self) {
+        self.height = 0;
+        for child in &self.children {
+            let mut child_node = child.lock().unwrap();
+            child_node.calculate_height();
+            self.height = self.height.max(child_node.get_height() + 1);
+        }
+    }
+
 }

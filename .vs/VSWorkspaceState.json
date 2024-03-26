@@ -4,8 +4,9 @@
     "\\src",
     "\\src\\entities",
     "\\src\\mcst_system",
+    "\\src\\mcst_system\\mcst_tree",
     "\\src\\tests"
   ],
-  "SelectedNode": "\\src\\mcst_system",
+  "SelectedNode": "\\src\\mcst_system\\backpropogate.rs",
   "PreviewInSolutionExplorer": false
 }

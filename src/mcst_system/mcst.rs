@@ -3,7 +3,7 @@ use crate::entities::agent::GeneType::{Aggression, SelfPreservation};
 
 
 use std::sync::{Arc, Mutex};
-use std::collections::{HashMap};
+use std::collections::HashMap;
 
 use crate::entities::agent::Genes;
 use rand::Rng;

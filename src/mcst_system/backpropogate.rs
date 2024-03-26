@@ -2,13 +2,15 @@
 
 use bevy::prelude::*;
 
-use crate::{entities::agent::{Agent, Status}, Backpropogate, MCSTCurrent, NpcActions, NpcActionsCopy, ScoreTracker, SimulationFlag};
+use crate::{entities::agent::{Agent, Status}, Backpropogate, MCSTCurrent, NpcActions, NpcActionsCopy, RunningFlag, ScoreTracker, SimulationFlag};
 
 use super::{mcst::SimulationTree, mcst_tree::mcst_tree::MCTSTree};
 
 
 pub fn check_finish(
+    mut simulation_tree: ResMut<SimulationTree>,
     mut simulation_flag: ResMut<SimulationFlag>,
+    mut running_flag: ResMut<RunningFlag>,
     mut score_tracker_res: ResMut<ScoreTracker>,
     mut npc_actions_res: ResMut<NpcActions>,
     mut backpropogate_flag: ResMut<Backpropogate>,
@@ -16,7 +18,7 @@ pub fn check_finish(
     mut mcstcurrent: ResMut<MCSTCurrent>,
     
 ){
-    if !simulation_flag.0 {
+    if simulation_flag.0 {
         let score_tracker = &mut score_tracker_res.0;
         let npc_actions = &mut npc_actions_res.0;
         let mut finished = true;
@@ -49,6 +51,25 @@ pub fn check_finish(
             backpropogate_flag.0 = true;
             simulation_flag.0 = false;
             mcstcurrent.0 = mcstcurrent.0 + 1;
+        }
+    }
+    if running_flag.0 {
+        let mut min_size = u16::MAX;
+        let mut max_size = 0;
+        let mut less_than_100_height = false;
+        let forest_guard = simulation_tree.get_forest();
+       for (_, tree) in forest_guard.lock().unwrap().iter_mut(){
+           let tree_height = tree.get_height() as u16;
+           min_size = tree_height.min(min_size);
+           max_size = tree_height.max(max_size);
+           if tree_height <= 100{
+               less_than_100_height = true;
+           }
+       }
+        //If a tree has a difference of more than 10 actions to another 
+        //tree or a tree has less than 100 actions in the tree left, restart mcst
+        if less_than_100_height || (max_size - min_size) >= 10{
+            running_flag.0 = false;
         }
     }
 }
