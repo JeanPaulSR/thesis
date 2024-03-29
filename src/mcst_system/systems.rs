@@ -1,4 +1,5 @@
 use bevy::prelude::*;
+use rand::{thread_rng, Rng};
 use crate::entities::agent::{Agent, Status};
 use crate::entities::monster::Monster;
 
@@ -576,6 +577,9 @@ pub fn perform_action(
 ) {
     for mut agent in query.iter_mut() {
         agent.set_status(Status::Idle);
+        let mut rng = thread_rng();
+        let reward = rng.gen_range(10..=100);
+        agent.add_reward(reward);
     }
     //for mut agent in query.iter_mut() {
     //    if !(agent.is_leader() && !agent.get_followers().is_empty()) {

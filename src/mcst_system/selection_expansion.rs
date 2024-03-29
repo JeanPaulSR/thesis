@@ -18,8 +18,11 @@ pub fn select_phase(
     *iteration_counter2 += 1;
     if !simulation_flag.0 && !running_flag.0 {
         let forest_guard: &mut std::sync::Arc<std::sync::Mutex<Vec<(u32, MCTSTree)>>> = simulation_tree.get_forest();
+        *npc_actions_res = NpcActions(Vec::new());
         let npc_actions = &mut npc_actions_res.0;
+        *npc_actions_copy_res = NpcActionsCopy(Vec::new());
         let npc_actions_copy = &mut npc_actions_copy_res.0;
+        
 
         if finished_running_flag.0 {
             running_flag.0 = true;
@@ -29,6 +32,7 @@ pub fn select_phase(
             simulation_flag.0 = true;
             //Selection phase for each agent, expansion is included in this phase. Max tree height is 255 currently
             for agent in agent_query.iter_mut() {
+                
                 let agent_id = agent.get_id();
                 if let Some(tree_tuple) = forest_guard.lock().unwrap().iter_mut().find(|(simulation_tree, _)| *simulation_tree == agent_id) {
                     let (_, mcst_tree) = tree_tuple;

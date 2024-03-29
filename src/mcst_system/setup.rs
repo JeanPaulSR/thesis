@@ -5,6 +5,7 @@ use crate::entities::agent::Agent;
 use crate::mcst::NpcAction;
 use crate::mcst_system::mcst_tree::mcst_tree::MCTSTree;
 use crate::FinishedRunningFlag;
+use crate::ScoreTracker;
 use crate::WorldSim;
 use crate::{MCSTCurrent, MCSTTotal, RunningFlag, SimulationFlag, SimulationTotal, World,
             AgentMessages, MonsterMessages, TreasureMessages, mcst};
@@ -18,22 +19,28 @@ pub fn setup_simulation(
     iteration_total: ResMut<SimulationTotal>,
     mut iteration_counter: Local<i32>,
     mut mcst_current: ResMut<MCSTCurrent>,
-    mcst_total: ResMut<MCSTTotal>,
+    mut mcst_total: ResMut<MCSTTotal>,
     simulation_flag: ResMut<SimulationFlag>,
     running_flag: ResMut<RunningFlag>,
     mut finished_running_flag: ResMut<FinishedRunningFlag>,
     mut app_exit_events: ResMut<Events<AppExit>>,
     mut agent_query: Query<&mut Agent>, 
+    mut score_tracker_res: ResMut<ScoreTracker>,
 ){
     //If tree is empty, it is the first iteration
     if tree.is_empty() {
+        mcst_total.0 = 100;
+        let score_tracker = &mut score_tracker_res.0;
         for agent in agent_query.iter_mut() {
             let mut new_tree = MCTSTree::new_empty();
             new_tree.initialize_tree(agent.clone());
             tree.insert_tree(new_tree, agent.get_id());
+            let tuple = (agent.get_id(), 0);
+            score_tracker.push(tuple);
             println!("Finished setup for agent {}", agent.get_id());
         }
     }
+    //For Running flag, if not having an action, select a new one then prune tree
     if !simulation_flag.0 && !running_flag.0 {
         *agent_copy = save_agents_to_vector(&mut agent_query);
         world_sim.copy_world(&world);
@@ -44,8 +51,10 @@ pub fn setup_simulation(
                 *iteration_counter += 1;
                 // Check if it's time to end the simulation
                 if *iteration_counter >= iteration_total.0 + 1 {
-                        // Trigger AppExit event to end the program
+                    // Trigger AppExit event to end the program
+                    tree.print_tree_id(1);
                     app_exit_events.send(AppExit);
+                    std::process::exit(0);
                 }
                 finished_running_flag.0 = false;
                 mcst_current.0 = 0;

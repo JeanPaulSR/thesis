@@ -1,9 +1,5 @@
-
-
 use bevy::prelude::*;
-
 use crate::{entities::agent::{Agent, Status}, Backpropogate, MCSTCurrent, NpcActions, NpcActionsCopy, RunningFlag, ScoreTracker, SimulationFlag};
-
 use super::{mcst::SimulationTree, mcst_tree::mcst_tree::MCTSTree};
 
 
@@ -23,29 +19,53 @@ pub fn check_finish(
         let npc_actions = &mut npc_actions_res.0;
         let mut finished = true;
 
-        for (score_id, score) in score_tracker.iter_mut() {
-            if *score != 0 {
-                for (action_id, action) in npc_actions.iter_mut() {
-                    if *action_id == *score_id {
-                        if action.is_empty() {
-                            for agent in agent_query.iter_mut() {
-                                if agent.get_id() == *score_id {
-                                    if agent.get_status() == Status::Idle {
-                                        *score = agent.get_reward();
+        for mut agent in agent_query.iter_mut(){
+            for (action_id, action) in npc_actions.iter_mut(){
+                if *action_id == agent.get_id(){
+                    for (score_id, score) in score_tracker.iter_mut() {
+                        if *score_id == agent.get_id(){
+                            if !(*score < 0){
+                                if agent.get_status() == Status::Idle {
+                                    if action.is_empty() {
+                                        *score = 0 - (agent.get_reward() as i32);
                                     } else {
-                                        finished = false;
+                                        agent.set_action(action.pop_front().unwrap());
                                     }
-                                    break;
                                 }
+                                finished = false;
                             }
-                        } else {
-                            finished = false;
+                            break;
                         }
-                        break;
                     }
+                    break;
                 }
             }
         }
+        //for (score_id, score) in score_tracker.iter_mut() {
+            
+        //    if *score != 0 {
+        //println!("Current score: {}", score);
+        //        for (action_id, action) in npc_actions.iter_mut() {
+        //            if *action_id == *score_id {
+        //                if action.is_empty() {
+        //                    for agent in agent_query.iter_mut() {
+        //                        if agent.get_id() == *score_id {
+        //                            if agent.get_status() == Status::Idle {
+        //                                *score = agent.get_reward();
+        //                            } else {
+        //                                finished = false;
+        //                            }
+        //                            break;
+        //                        }
+        //                    }
+        //                } else {
+        //                    finished = false;
+        //                }
+        //                break;
+        //            }
+        //        }
+        //    }
+        //}
 
         if finished {
             backpropogate_flag.0 = true;
@@ -69,6 +89,7 @@ pub fn check_finish(
         //If a tree has a difference of more than 10 actions to another 
         //tree or a tree has less than 100 actions in the tree left, restart mcst
         if less_than_100_height || (max_size - min_size) >= 10{
+            println!("Entered into end of running phase");
             running_flag.0 = false;
         }
     }
@@ -93,11 +114,12 @@ pub fn backpropgate(
             if let Some((_tree_id, mcst_tree)) = forest_guard.lock().unwrap().iter_mut().find(|(tree_id, _)| *tree_id == agent_id) {
                 for (score_id, score) in score_tracker.iter() {
                     if *score_id == agent_id {
-                        for (_action_id, action) in &mut *npc_actions_copy{
-                            mcst_tree.backpropegate(action.clone(), *score);
+                        for (action_id, action) in &mut *npc_actions_copy{
+                            if *action_id == agent_id{
+                                mcst_tree.backpropegate(action.clone(), (-1 * *score) as u32);
+                            }
                         }
-                    } else {
-                        println!("No matching Score found for agent_id: {}", agent_id);
+                        break;
                     }
                 }
             } else {

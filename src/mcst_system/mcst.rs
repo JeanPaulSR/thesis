@@ -1,4 +1,4 @@
-use crate::entities::agent::GeneType::{Aggression, SelfPreservation};
+use crate::entities::agent::GeneType::{Aggression, SelfPreservation, Greed, Social};
 
 
 
@@ -31,7 +31,7 @@ impl ToString for NpcAction {
             NpcAction::Steal => "Steal".to_string(),
             NpcAction::Rest => "Rest".to_string(),
             NpcAction::Talk => "Talk".to_string(),
-            NpcAction::None => "None".to_string(),
+            NpcAction::None => "Root".to_string(),
         }
     }
 }
@@ -72,9 +72,9 @@ impl ActionRating {
     pub fn generate_ratings(&mut self, genes: Genes) {
         self.actions.clear();
         self.actions.insert(NpcAction::Attack, 1.0 * genes.return_type_score(Aggression) * (1.0 - genes.return_type_score(SelfPreservation)));
-        self.actions.insert(NpcAction::Steal, 0.0);
-        self.actions.insert(NpcAction::Rest, 0.0);
-        self.actions.insert(NpcAction::Talk, 0.0);
+        self.actions.insert(NpcAction::Steal, 1.0 * genes.return_type_score(Greed) * (1.0 - genes.return_type_score(SelfPreservation)));
+        self.actions.insert(NpcAction::Rest, 1.0 * genes.return_type_score(SelfPreservation));
+        self.actions.insert(NpcAction::Talk, 1.0 * genes.return_type_score(Social));
         self.actions.insert(NpcAction::None, 0.0);
     }
 
@@ -161,6 +161,9 @@ impl ActionsTaken {
         let mut best_score: f64 = f64::NEG_INFINITY;
 
         for (action, visits) in &self.actions_vec {
+            if *action == NpcAction::None{
+                continue;
+            }
             let selected_action_rating = self.action_rating.actions.get(action).unwrap_or(&0.0);
 
             let score = if *visits == 0 {
@@ -176,7 +179,6 @@ impl ActionsTaken {
                 best_score = score;
             }
         }
-
         best_action
     }
 }
@@ -217,6 +219,35 @@ impl SimulationTree {
         SimulationTree {
             forest: None,
             exploration_constant: 1.0,
+        }
+    }
+
+    
+    pub fn print_tree_id(&self, id: u32) {
+        if let Some(forest) = &self.forest {
+            let locked_forest = forest.lock().unwrap();
+            for (tree_id, tree) in locked_forest.iter() {
+                if *tree_id == id {
+                    println!("Printing Tree with ID {}", id);
+                    tree.print_tree();
+                    return;
+                }
+            }
+            println!("Tree with ID {} not found", id);
+        } else {
+            println!("Forest is empty");
+        }
+    }
+
+    pub fn print_trees(&self) {
+        if let Some(forest) = &self.forest {
+            let locked_forest = forest.lock().unwrap();
+            println!("Printing all trees in the forest:");
+            for (tree_id, _) in locked_forest.iter() {
+                println!("Tree ID: {}", tree_id);
+            }
+        } else {
+            println!("Forest is empty");
         }
     }
 }

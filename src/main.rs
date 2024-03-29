@@ -72,7 +72,7 @@ pub struct MCSTTotal(i32);
 pub struct WorldSim(World);
 pub struct NpcActions(Vec<(u32, VecDeque<mcst::NpcAction>)>);
 pub struct NpcActionsCopy(Vec<(u32, VecDeque<mcst::NpcAction>)>);
-pub struct ScoreTracker(Vec<(u32, u32)>);
+pub struct ScoreTracker(Vec<(u32, i32)>);
 
 impl WorldSim {
     pub fn get_world(&self) -> &World {
@@ -166,13 +166,11 @@ fn main() {
         // Setup System
         .add_system(setup_simulation.system().label("setup"))
         .add_system(select_phase.system().after("setup").label("selection_phase"))
-        .add_system(check_finish.system().after("selection_phase").label("simulation"))
-        .add_system(perform_action.system().after("simulation").label("action"))
+        .add_system(perform_action.system().after("selection_phase").label("action"))
 
         //After Simulation phase
-        .add_system(check_finish.system().after("action").label("end_simulation"))
+        .add_system(check_finish.system().after("selection_phase").label("end_simulation"))
         .add_system(backpropgate.system().after("end_simulation").label("backpropegate"))
-        // Add the agent action handling
 
         // Add the agent message system to handle messages after actions.
         .add_system(treasure_message_system.system().after("action").label("message"))
@@ -281,7 +279,7 @@ pub fn setup(
         } 
     }
     iteration_total.0 = 3;
-    mcst_total.0 = 10;
+    
 }
 
 fn debug(

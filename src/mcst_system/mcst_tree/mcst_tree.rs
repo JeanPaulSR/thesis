@@ -3,6 +3,7 @@
 use crate::mcst_system::mcst::{ActionRating, NpcAction};
 
 
+use std::fmt::Formatter;
 use std::sync::{Arc, Mutex};
 use std::collections::VecDeque;
 use crate::entities::agent::Agent;
@@ -95,5 +96,17 @@ impl MCTSTree {
         let mut root = self.root.as_ref().unwrap().lock().unwrap();
         
         root.backpropagate(actions, score);
+    }
+
+    
+    pub fn print_tree(&self) {
+        if let Some(root_node) = &self.root {
+            let locked_root = root_node.lock().unwrap();
+            println!("Root Node:");
+            println!("{}", locked_root.to_string());
+            locked_root.print_children(); // Call print_children on the root node
+        } else {
+            println!("Tree is empty");
+        }
     }
 }
