@@ -7,6 +7,6 @@
     "\\src\\mcst_system\\mcst_tree",
     "\\src\\tests"
   ],
-  "SelectedNode": "\\src\\mcst_system\\mcst_tree\\mcst_node.rs",
+  "SelectedNode": "\\src\\world.rs",
   "PreviewInSolutionExplorer": false
 }

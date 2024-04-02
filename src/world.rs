@@ -1,4 +1,11 @@
+use bevy::asset::AssetServer;
+use bevy::asset::Assets;
+use bevy::ecs::system::Res;
+use bevy::ecs::system::ResMut;
 use bevy::prelude::Commands;
+use bevy::sprite::ColorMaterial;
+use rand::thread_rng;
+use rand::prelude::SliceRandom;
 
 use crate::entities::agent::Agent;
 use crate::entities::monster::Monster;
@@ -209,6 +216,113 @@ impl World {
             })
             .collect()
     }
+
+    
+
+    pub fn find_valid_monster_spawns(&self) -> Vec<Vec<(u32, u32)>> {
+        let world = &self;
+        let mut valid_spawns: Vec<Vec<(u32, u32)>> = Vec::new();
+
+        for (row_index, row) in world.grid.iter().enumerate() {
+            let mut valid_row_spawns: Vec<(u32, u32)> = Vec::new();
+
+            for (col_index, tile_mutex) in row.iter().enumerate() {
+                let tile = tile_mutex.lock().unwrap();
+                let tile_type = tile.get_tile_type();
+
+                // Check conditions for valid spawn
+                let mut is_valid_spawn = true;
+
+                // Check if within 5 tiles of an agent
+                for agent_pos in world.agents.lock().unwrap().values() {
+                    let agent_row = agent_pos.0;
+                    let agent_col = agent_pos.1;
+                    let distance_squared = ((row_index as isize - agent_row as isize).pow(2)
+                        + (col_index as isize - agent_col as isize).pow(2)) as usize;
+
+                    if distance_squared <= 25 {
+                        is_valid_spawn = false;
+                        break;
+                    }
+                }
+
+                // Check if atop another monster
+                if world.monsters.lock().unwrap().values().any(|pos| pos == &(row_index, col_index)) {
+                    is_valid_spawn = false;
+                }
+
+                // Check if within 10 tiles of a village
+                match tile_type {
+                    TileType::Village => {
+                        is_valid_spawn = false;
+                        break;
+                    }
+                    _ => {}
+                }
+
+                // Check if on top of a Mountain or Lake
+                match tile_type {
+                    TileType::Mountain | TileType::Lake => {
+                        is_valid_spawn = false;
+                        break;
+                    }
+                    _ => {}
+                }
+
+                if is_valid_spawn {
+                    valid_row_spawns.push((row_index as u32, col_index as u32));
+                }
+            }
+
+            if !valid_row_spawns.is_empty() {
+                valid_spawns.push(valid_row_spawns);
+            }
+        }
+
+        valid_spawns
+    }
+
+
+    // Function to check if the position (x, y) is within the grid's bounds
+    fn is_valid_position_bool(&self, x: isize, y: isize) -> bool {
+        x >= 0 && y >= 0 && (y as usize) < self.grid.len() && (x as usize) < self.grid[y as usize].len()
+    }
+
+    pub fn set_valid_spawns(&self) {
+        let world = &self;
+        for (row_index, row) in world.grid.iter().enumerate() {
+            for (col_index, tile_mutex) in row.iter().enumerate() {
+                let mut tile = tile_mutex.lock().unwrap();
+                if tile.is_monster_spawn() {
+                    let tile_type = tile.get_tile_type().clone();
+                    match tile_type {
+                        TileType::Village => {
+                            tile.set_monster_spawn(false);
+                            for i in -5..=5 {
+                                for j in -5..=5 {
+                                    if j != 0 || i != 0 {
+                                        let new_row = row_index as isize + i;
+                                        let new_col = col_index as isize + j;
+                                        if world.is_valid_position_bool(new_col, new_row) {
+                                            let mut new_tile = world.grid[new_row as usize][new_col as usize].lock().unwrap();
+                                            new_tile.set_monster_spawn(false);
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                        TileType::Mountain => {
+                            tile.set_monster_spawn(false);
+                        }
+                        TileType::Lake =>{
+                            tile.set_monster_spawn(false);
+                        } 
+                        _ => {}
+                    }
+                }
+            }
+        }
+    }
 //    _____                         __   
 //    /  _  \    ____   ____   _____/  |_ 
 //   /  /_\  \  / ___\_/ __ \ /    \   __\
@@ -226,17 +340,6 @@ impl World {
         let entity = agent.get_entity();
         commands.entity(entity).insert(agent);
 
-        Ok(())
-    }
-
-    // Function to add an agent to the world and its current tile
-    pub fn add_simple_agent(&mut self, agent: SimpleAgent,) -> Result<(), MyError> {
-        let (x, y) = agent.get_position();
-
-        self.is_valid_position(x as usize, y as usize)?;
-        let mut agents = self.agents.lock().unwrap();
-        agents.insert(agent.get_id(), (x as usize, y as usize));
-        
         Ok(())
     }
 
@@ -279,6 +382,44 @@ impl World {
         }
     }
 
+    // Function to spawn agents based on START_AGENT_COUNT
+    // Function to populate agents in villages up to a given count
+    pub fn populate_agents(&mut self, start_agent_count: usize, commands: &mut Commands,
+    materials: &mut ResMut<Assets<ColorMaterial>>, asset_server: &Res<AssetServer>) {
+        let mut villages: Vec<(usize, usize)> = Vec::new();
+        for (y, column) in self.grid.iter().enumerate() {
+            for (x, tile_mutex) in column.iter().enumerate() {
+                let tile = tile_mutex.lock().unwrap();
+                if tile.get_tile_type() == TileType::Village {
+                    villages.push((x, y));
+                }
+            }
+        }
+
+        for i in 0..start_agent_count {
+            let village = villages[i % villages.len()];
+
+            let agent = Agent::new_agent(
+                village.0 as f32,
+                village.1 as f32,
+                commands,
+                materials,
+                asset_server,
+            );
+
+            // Try to add the agent to the world
+            if let Err(err) = self.add_agent(agent.clone(), commands) {
+                match err {
+                    MyError::TileNotFound => {
+                        println!("Failed to add agent: Tile not found.");
+                    }
+                    _ => {
+                        println!("Failed to add agent: Unknown error.");
+                    }
+                }
+            } 
+        }
+    }
 
     
 //     _____                          __                
@@ -289,12 +430,14 @@ impl World {
 //          \/            \/     \/            \/       
  
     // Function to add a monster to the world and its current tile
-    pub fn add_monster(&mut self, monster: Monster) -> Result<(), MyError> {
+    pub fn add_monster(&mut self, monster: Monster, commands: &mut Commands,) -> Result<(), MyError> {
         let (x, y) = monster.get_position();
         self.is_valid_position(x as usize, y as usize)?;
 
         let mut monsters = self.monsters.lock().unwrap();
         monsters.insert(monster.get_id(), (x as usize, y as usize));
+        let entity = monster.get_entity();
+        commands.entity(entity).insert(monster);
         Ok(())
     }
 
@@ -306,6 +449,35 @@ impl World {
             return Ok(());
         }
         Err(MyError::MonsterNotFound)
+    }
+    
+    pub fn populate_monsters(
+        &mut self,
+        valid_spawns: Vec<Vec<(u32, u32)>>,
+        max_monsters: usize,
+        commands: &mut Commands,
+        materials: &mut ResMut<Assets<ColorMaterial>>,
+        asset_server: &Res<AssetServer>,
+    ) {
+        let mut rng = rand::thread_rng();
+        let mut monsters_added = 0;
+        let mut all_spawns: Vec<(u32, u32)> = valid_spawns.into_iter().flatten().collect();
+        all_spawns.shuffle(&mut rng);
+
+        for (row, col) in all_spawns {
+            if monsters_added >= max_monsters {
+                return;
+            }
+
+            let x = row as f32; 
+            let y = col as f32; 
+            let monster = Monster::new_monster(x, y, commands, materials, asset_server);
+            if let Err(err) = self.add_monster(monster, commands) {
+                eprintln!("Error adding monster: {:?}", err);
+            }
+
+            monsters_added += 1;
+        }
     }
 
 // ___________                                                  

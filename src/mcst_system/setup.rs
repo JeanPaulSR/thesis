@@ -52,7 +52,7 @@ pub fn setup_simulation(
                 // Check if it's time to end the simulation
                 if *iteration_counter >= iteration_total.0 + 1 {
                     // Trigger AppExit event to end the program
-                    tree.print_tree_id(1);
+                    //tree.print_tree_id(1);
                     app_exit_events.send(AppExit);
                     std::process::exit(0);
                 }

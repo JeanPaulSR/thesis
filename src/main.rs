@@ -60,6 +60,7 @@ use crate::tile::TileType;
 use crate::errors::MyError;
 
 const START_AGENT_COUNT: usize = 5;
+const START_MONSTER_COUNT: usize = 5;
 struct SimulationCompleteEvent;
 
 pub struct SimulationFlag(bool);
@@ -219,7 +220,7 @@ pub fn setup(
                 TileType::Village => village_material.clone(),
                 TileType::Dungeon => dungeon_material.clone(),
             };
-
+            
             let sprite_bundle = SpriteBundle {
                 material: material_handle,
                 transform: Transform::from_xyz((x as f32) * 32.0, (y as f32) * 32.0, 0.0),
@@ -245,39 +246,45 @@ pub fn setup(
         .spawn_bundle(OrthographicCameraBundle::new_2d())
         .insert(Transform::from_xyz(half_grid_width, half_grid_height, 1000.0));
 
-    let mut villages: Vec<(usize, usize)> = Vec::new();
-    for (y, column) in world.grid.iter().enumerate() {
-        for (x, tile_mutex) in column.iter().enumerate() {
-            let tile = tile_mutex.lock().unwrap();
-            if tile.get_tile_type() == TileType::Village {
-                villages.push((x, y));
-            }
-        }
-    }
+    world.populate_agents(START_AGENT_COUNT, &mut commands, &mut materials, &asset_server);
+    //pub fn populate_agents(&mut self, start_agent_count: usize, commands: &mut Commands, materials: &mut ResMut<Assets<ColorMaterial>>, asset_server: &Res<AssetServer>) {
+    //let mut villages: Vec<(usize, usize)> = Vec::new();
+    //for (y, column) in world.grid.iter().enumerate() {
+    //    for (x, tile_mutex) in column.iter().enumerate() {
+    //        let tile = tile_mutex.lock().unwrap();
+    //        if tile.get_tile_type() == TileType::Village {
+    //            villages.push((x, y));
+    //        }
+    //    }
+    //}
     
-    for i in 0..START_AGENT_COUNT {
-        let village = villages[i % villages.len()];
+    //for i in 0..START_AGENT_COUNT {
+    //    let village = villages[i % villages.len()];
     
-        let agent = Agent::new_agent(
-            village.0 as f32,
-            village.1 as f32,
-            &mut commands,
-            &mut materials,
-            &asset_server,
-        );
+    //    let agent = Agent::new_agent(
+    //        village.0 as f32,
+    //        village.1 as f32,
+    //        &mut commands,
+    //        &mut materials,
+    //        &asset_server,
+    //    );
     
-        // // Try to add the agent to the world
-        if let Err(err) = world.add_agent(agent.clone(), &mut commands) {
-            match err {
-                MyError::TileNotFound => {
-                    println!("Failed to add agent: Tile not found.");
-                }
-                _ => {
-                    println!("Failed to add agent: Unknown error.");
-                }
-            }
-        } 
-    }
+    //    // // Try to add the agent to the world
+    //    if let Err(err) = world.add_agent(agent.clone(), &mut commands) {
+    //        match err {
+    //            MyError::TileNotFound => {
+    //                println!("Failed to add agent: Tile not found.");
+    //            }
+    //            _ => {
+    //                println!("Failed to add agent: Unknown error.");
+    //            }
+    //        }
+    //    } 
+    //}
+    
+    world.set_valid_spawns();
+    let valid_monster_spawns = world.find_valid_monster_spawns();
+    world.populate_monsters(valid_monster_spawns, START_MONSTER_COUNT, &mut commands, &mut materials, &asset_server);
     iteration_total.0 = 3;
     
 }

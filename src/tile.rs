@@ -1,6 +1,7 @@
 #[derive(Clone)]
 pub struct Tile {
     tile_type: TileType,
+    valid_monster_spawn: bool,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -17,6 +18,7 @@ impl Tile {
     pub fn new(tile_type: TileType) -> Self {
         Tile {
             tile_type,
+            valid_monster_spawn: true,
         }
     }
 
@@ -29,7 +31,14 @@ impl Tile {
     pub fn update_tile_type(&mut self, new_tile_type: TileType) {
         self.tile_type = new_tile_type;
     }
-
+    
+    pub fn set_monster_spawn(&mut self, spawn: bool) {
+        self.valid_monster_spawn = spawn;
+    }
+    
+    pub fn is_monster_spawn(&mut self) -> bool{
+        self.valid_monster_spawn 
+    }
 }
 
 
