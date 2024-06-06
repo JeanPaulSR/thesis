@@ -4,13 +4,13 @@ use bevy::ecs::system::Res;
 use bevy::ecs::system::ResMut;
 use bevy::prelude::Commands;
 use bevy::sprite::ColorMaterial;
-use rand::thread_rng;
+
 use rand::prelude::SliceRandom;
 
 use crate::entities::agent::Agent;
 use crate::entities::monster::Monster;
 use crate::entities::treasure::Treasure;
-use crate::tests::simple_agent::SimpleAgent;
+
 use crate::tile::TileType;
 use crate::tile::Tile;
 use crate::errors::MyError;

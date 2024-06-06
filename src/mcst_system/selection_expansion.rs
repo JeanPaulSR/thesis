@@ -13,11 +13,9 @@ pub fn select_phase(
     mut agent_query: Query<&mut Agent>, 
     mut npc_actions_res: ResMut<NpcActions>,
     mut npc_actions_copy_res: ResMut<NpcActionsCopy>,
-    mut iteration_counter2: Local<i32>,
 ){
-    *iteration_counter2 += 1;
     if !simulation_flag.0 && !running_flag.0 {
-        let forest_guard: &mut std::sync::Arc<std::sync::Mutex<Vec<(u32, MCTSTree)>>> = simulation_tree.get_forest();
+        let forest_guard = simulation_tree.get_forest();
         *npc_actions_res = NpcActions(Vec::new());
         let npc_actions = &mut npc_actions_res.0;
         *npc_actions_copy_res = NpcActionsCopy(Vec::new());

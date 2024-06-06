@@ -3,7 +3,7 @@
 use crate::mcst_system::mcst::{ActionRating, NpcAction};
 
 
-use std::fmt::Formatter;
+
 use std::sync::{Arc, Mutex};
 use std::collections::VecDeque;
 use crate::entities::agent::Agent;

@@ -528,8 +528,6 @@ pub fn cleanup_system(
     mut query_m: Query<&mut Monster>,
     mut world: ResMut<World>,
     mut agent_messages: ResMut<AgentMessages>,
-    _simulation_flag: ResMut<SimulationFlag>,
-    _running_flag: ResMut<RunningFlag>,
 ) {
     // Handle received messages
     for mut agent in query_a.iter_mut() {

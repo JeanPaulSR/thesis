@@ -57,18 +57,22 @@ use crate::mcst_system::mcst::SimulationTree;
 use crate::components::{Position, TileComponent};
 use crate::entities::agent::Agent;
 use crate::tile::TileType;
-use crate::errors::MyError;
+
 
 const START_AGENT_COUNT: usize = 5;
 const START_MONSTER_COUNT: usize = 5;
-struct SimulationCompleteEvent;
 
+//Flag that tells if the program is in the simulation phase
 pub struct SimulationFlag(bool);
+//Flag that tells if the program is in the execute found action phase
 pub struct RunningFlag(bool);
+//Flag that marks that the program has finished its simulation phase
 pub struct FinishedRunningFlag(bool);
 pub struct Backpropogate(bool);
 pub struct SimulationTotal(i32);
+//Current mcst simulation count
 pub struct MCSTCurrent(i32);
+//Total number of mcst simulations
 pub struct MCSTTotal(i32);
 pub struct WorldSim(World);
 pub struct NpcActions(Vec<(u32, VecDeque<mcst::NpcAction>)>);
@@ -137,8 +141,6 @@ fn main() {
         
         //Insert the world tree
         .insert_resource(SimulationTree::new_empty())
-        //Simulation Event
-        .add_event::<SimulationCompleteEvent>()
         
 
         // Insert AgentMessages resource with an empty vector.
@@ -192,7 +194,7 @@ pub fn setup(
     mut materials: ResMut<Assets<ColorMaterial>>,
     mut world: ResMut<World>,
     mut iteration_total: ResMut<SimulationTotal>,
-    mut mcst_total: ResMut<MCSTTotal>,
+    _mcst_total: ResMut<MCSTTotal>,
 ) {
     commands.insert_resource::<i32>(0);
     
@@ -247,41 +249,7 @@ pub fn setup(
         .insert(Transform::from_xyz(half_grid_width, half_grid_height, 1000.0));
 
     world.populate_agents(START_AGENT_COUNT, &mut commands, &mut materials, &asset_server);
-    //pub fn populate_agents(&mut self, start_agent_count: usize, commands: &mut Commands, materials: &mut ResMut<Assets<ColorMaterial>>, asset_server: &Res<AssetServer>) {
-    //let mut villages: Vec<(usize, usize)> = Vec::new();
-    //for (y, column) in world.grid.iter().enumerate() {
-    //    for (x, tile_mutex) in column.iter().enumerate() {
-    //        let tile = tile_mutex.lock().unwrap();
-    //        if tile.get_tile_type() == TileType::Village {
-    //            villages.push((x, y));
-    //        }
-    //    }
-    //}
-    
-    //for i in 0..START_AGENT_COUNT {
-    //    let village = villages[i % villages.len()];
-    
-    //    let agent = Agent::new_agent(
-    //        village.0 as f32,
-    //        village.1 as f32,
-    //        &mut commands,
-    //        &mut materials,
-    //        &asset_server,
-    //    );
-    
-    //    // // Try to add the agent to the world
-    //    if let Err(err) = world.add_agent(agent.clone(), &mut commands) {
-    //        match err {
-    //            MyError::TileNotFound => {
-    //                println!("Failed to add agent: Tile not found.");
-    //            }
-    //            _ => {
-    //                println!("Failed to add agent: Unknown error.");
-    //            }
-    //        }
-    //    } 
-    //}
-    
+
     world.set_valid_spawns();
     let valid_monster_spawns = world.find_valid_monster_spawns();
     world.populate_monsters(valid_monster_spawns, START_MONSTER_COUNT, &mut commands, &mut materials, &asset_server);

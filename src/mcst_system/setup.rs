@@ -2,14 +2,13 @@ use bevy::prelude::*;
 use bevy::app::Events;
 use bevy::app::AppExit;
 use crate::entities::agent::Agent;
-use crate::mcst::NpcAction;
+
 use crate::mcst_system::mcst_tree::mcst_tree::MCTSTree;
 use crate::FinishedRunningFlag;
 use crate::ScoreTracker;
 use crate::WorldSim;
-use crate::{MCSTCurrent, MCSTTotal, RunningFlag, SimulationFlag, SimulationTotal, World,
-            AgentMessages, MonsterMessages, TreasureMessages, mcst};
-use crate::entities::agent;
+use crate::{MCSTCurrent, MCSTTotal, RunningFlag, SimulationFlag, SimulationTotal, World, mcst};
+
 
 pub fn setup_simulation(
     world: ResMut<World>,
