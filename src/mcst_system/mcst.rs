@@ -1,11 +1,14 @@
 use crate::entities::agent::GeneType::{Aggression, SelfPreservation, Greed, Social};
 
+use bevy::prelude::*;
 
 
 use std::sync::{Arc, Mutex};
 use std::collections::HashMap;
 
 use crate::entities::agent::Genes;
+use bevy::app::Events;
+use bevy::app::AppExit;
 use rand::Rng;
 
 
@@ -211,7 +214,11 @@ impl SimulationTree {
         let trees = &mut self.forest;
         match trees {
             Some(return_trees) => return_trees,
-            None => !unreachable!(),
+            //Should never ever enter her. System is otherwise fundamentally flawed
+            None => {
+                println!("Error generation MCST Tree, system unsalvegable");
+                std::process::exit(0);
+            },
         }
     }
     

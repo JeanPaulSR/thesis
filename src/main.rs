@@ -48,32 +48,40 @@ use mcst_system::systems::TreasureMessages;
 
 
 use mcst_system::systems::perform_action;
-use mcst_system::selection_expansion::select_phase;
+use mcst_system::selection_expansion::select_expansion;
 
-use mcst_system::setup::setup_simulation;
+use mcst_system::setup::setup_tree;
+use mcst_system::setup::check_end;
+use mcst_system::setup::change_state;
+use mcst_system::setup::setup;
 use crate::mcst_system::mcst::NpcAction;
 use crate::mcst_system::mcst;
 use crate::mcst_system::mcst::SimulationTree;
-use crate::components::{Position, TileComponent};
 use crate::entities::agent::Agent;
-use crate::tile::TileType;
 
 
-const START_AGENT_COUNT: usize = 5;
-const START_MONSTER_COUNT: usize = 5;
 
 //Flag that tells if the program is in the simulation phase
 pub struct SimulationFlag(bool);
 //Flag that tells if the program is in the execute found action phase
 pub struct RunningFlag(bool);
-//Flag that marks that the program has finished its simulation phase
+//Flag that tells selection phase has been completed
+pub struct FinishedSelectionPhase(bool);
+//Flag that marks that the program has finished running all phases
+pub struct FinishedAllFlag(bool);
+//Flag that marks that the program has finished running execution phases
 pub struct FinishedRunningFlag(bool);
+//Flag that marks that the program has finished running simulation phases
+pub struct FinishedSimulationFlag(bool);
 pub struct Backpropogate(bool);
-pub struct SimulationTotal(i32);
 //Current mcst simulation count
 pub struct MCSTCurrent(i32);
 //Total number of mcst simulations
 pub struct MCSTTotal(i32);
+//Current execution iteration count
+pub struct IterationCurrent(i32);
+//Total number of execution iterations
+pub struct IterationTotal(i32);
 pub struct WorldSim(World);
 pub struct NpcActions(Vec<(u32, VecDeque<mcst::NpcAction>)>);
 pub struct NpcActionsCopy(Vec<(u32, VecDeque<mcst::NpcAction>)>);
@@ -128,6 +136,8 @@ fn main() {
         .insert_resource(world::create_world())
         // Insert a World resource that can be modifed for simulations.
         .insert_resource(WorldSim(World::new()))
+        //Insert the world tree
+        .insert_resource(SimulationTree::new_empty())
         // Add a system that handles camera drag functionality.
         .add_system(camera_drag_system.system())
         // Add a startup system that sets up the initial state of the game (e.g., camera, entities, etc.).
@@ -139,8 +149,6 @@ fn main() {
             previous_mouse_position: None,
         })
         
-        //Insert the world tree
-        .insert_resource(SimulationTree::new_empty())
         
 
         // Insert AgentMessages resource with an empty vector.
@@ -152,13 +160,16 @@ fn main() {
         
         //End simulation key
         
-        .insert_resource(SimulationTotal(0))
         .insert_resource(MCSTCurrent(0))
         .insert_resource(MCSTTotal(0))
+        .insert_resource(IterationCurrent(0))
+        .insert_resource(IterationTotal(0))
+        .insert_resource(FinishedSelectionPhase(false))
         .insert_resource(Vec::<Agent>::new())
         .insert_resource(SimulationFlag(false))
         .insert_resource(RunningFlag(false))
         .insert_resource(FinishedRunningFlag(false))
+        .insert_resource(FinishedSimulationFlag(false))
         .insert_resource(Backpropogate(false))
         .insert_resource(NpcActions(Vec::new()))
         .insert_resource(NpcActionsCopy(Vec::new()))
@@ -167,95 +178,29 @@ fn main() {
         
         
         // Setup System
-        .add_system(setup_simulation.system().label("setup"))
-        .add_system(select_phase.system().after("setup").label("selection_phase"))
-        .add_system(perform_action.system().after("selection_phase").label("action"))
+        .add_system(setup_tree.system().label("setup_tree"))
+        .add_system(check_end.system().after("setup_tree").label("check_end"))
+        .add_system(change_state.system().after("check_end").label("change_state"))
+        .add_system(select_expansion.system().after("change_state").label("selection_expansion_phase"))
+        // .add_system(perform_action.system().after("selection_phase").label("action"))
 
-        //After Simulation phase
-        .add_system(check_finish.system().after("selection_phase").label("end_simulation"))
-        .add_system(backpropgate.system().after("end_simulation").label("backpropegate"))
+        // //After Simulation phase
+        // .add_system(check_finish.system().after("selection_phase").label("end_simulation"))
+        // .add_system(backpropgate.system().after("end_simulation").label("backpropegate"))
 
-        // Add the agent message system to handle messages after actions.
-        .add_system(treasure_message_system.system().after("action").label("message"))
-        .add_system(monster_message_system.system().after("action").label("message"))
-        .add_system(agent_message_system.system().after("action").label("message"))
-        //Add the despawn handler after all message systems
-        .add_system(cleanup_system.system().after("message"))
+        // // Add the agent message system to handle messages after actions.
+        // .add_system(treasure_message_system.system().after("action").label("message"))
+        // .add_system(monster_message_system.system().after("action").label("message"))
+        // .add_system(agent_message_system.system().after("action").label("message"))
+        // //Add the despawn handler after all message systems
+        // .add_system(cleanup_system.system().after("message"))
         
-        //.add_system(debug.system())
+        .add_system(debug_system.system().after("selection_expansion_phase").label("debug"))
         //)
         .run();
 }
 
 
-pub fn setup(
-    mut commands: Commands,
-    asset_server: Res<AssetServer>,
-    mut materials: ResMut<Assets<ColorMaterial>>,
-    mut world: ResMut<World>,
-    mut iteration_total: ResMut<SimulationTotal>,
-    _mcst_total: ResMut<MCSTTotal>,
-) {
-    commands.insert_resource::<i32>(0);
-    
-    // Load the individual textures
-    let forest_texture = asset_server.load("textures/forest.png");
-    let mountain_texture = asset_server.load("textures/mountain.png");
-    let lake_texture = asset_server.load("textures/water.png");
-    let village_texture = asset_server.load("textures/village.png");
-    let dungeon_texture = asset_server.load("textures/dungeon.png");
-
-    // Add the materials directly to the `materials` variable
-    let forest_material = materials.add(forest_texture.into());
-    let mountain_material = materials.add(mountain_texture.into());
-    let lake_material = materials.add(lake_texture.into());
-    let village_material = materials.add(village_texture.into());
-    let dungeon_material = materials.add(dungeon_texture.into());
-
-    for (y, column) in world.grid.iter_mut().enumerate() {
-        for (x, tile) in column.iter_mut().enumerate() {
-            //let treasure = None;
-            let material_handle = match tile.lock().unwrap().get_tile_type() {
-                TileType::Forest => forest_material.clone(),
-                TileType::Mountain => mountain_material.clone(),
-                TileType::Lake => lake_material.clone(),
-                TileType::Village => village_material.clone(),
-                TileType::Dungeon => dungeon_material.clone(),
-            };
-            
-            let sprite_bundle = SpriteBundle {
-                material: material_handle,
-                transform: Transform::from_xyz((x as f32) * 32.0, (y as f32) * 32.0, 0.0),
-                sprite: Sprite::new(Vec2::new(32.0, 32.0)),
-                ..Default::default()
-            };
-
-            let mut tile_entity = commands.spawn_bundle(sprite_bundle);
-            tile_entity.insert(Position { x: x as i32, y: y as i32 });
-            tile_entity.insert(TileComponent { tile_type: tile.lock().unwrap().get_tile_type().clone() });
-        }
-    }
-
-
-    // Calculate the center of the grid
-    let grid_width = world.grid[0].len() as f32;
-    let grid_height = world.grid.len() as f32;
-    let half_grid_width = grid_width * 16.0;
-    let half_grid_height = grid_height * 16.0;
-
-    // Set up the 2D camera at the center of the grid
-    commands
-        .spawn_bundle(OrthographicCameraBundle::new_2d())
-        .insert(Transform::from_xyz(half_grid_width, half_grid_height, 1000.0));
-
-    world.populate_agents(START_AGENT_COUNT, &mut commands, &mut materials, &asset_server);
-
-    world.set_valid_spawns();
-    let valid_monster_spawns = world.find_valid_monster_spawns();
-    world.populate_monsters(valid_monster_spawns, START_MONSTER_COUNT, &mut commands, &mut materials, &asset_server);
-    iteration_total.0 = 3;
-    
-}
 
 fn debug(
     mut query: Query<&mut Agent>, 
@@ -280,17 +225,11 @@ fn debug(
 }
 
 fn debug_system(
-    query: Query<&mut Agent>,
-    // world: ResMut<World>,
-    // agent_messages: ResMut<AgentMessages>,
-    // mut commands: Commands,
+    mut simulation_flag: ResMut<SimulationFlag>,
+    mut running_flag: ResMut<RunningFlag>,
 ) {
-    debug(query, 
-        // world, 
-        // agent_messages, 
-        // &mut commands
-    );
-    
+    simulation_flag.0 = false;
+    running_flag.0 = false;    
 }
 
 

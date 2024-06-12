@@ -4,7 +4,7 @@ use crate::entities::agent::{Agent, Status};
 use crate::entities::monster::Monster;
 
 
-use crate::{RunningFlag, SimulationFlag, World};
+use crate::World;
 
 #[derive()]
 #[derive(Clone)]

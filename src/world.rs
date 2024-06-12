@@ -469,9 +469,9 @@ impl World {
                 return;
             }
 
-            let x = row as f32; 
-            let y = col as f32; 
-            let monster = Monster::new_monster(x, y, commands, materials, asset_server);
+            let x = col as f32; 
+            let y = row as f32; 
+            let monster = Monster::new_monster(x * 32.0, y * 32.0, commands, materials, asset_server);
             if let Err(err) = self.add_monster(monster, commands) {
                 eprintln!("Error adding monster: {:?}", err);
             }
