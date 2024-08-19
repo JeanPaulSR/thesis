@@ -20,8 +20,10 @@ use super::mcst_tree::mcst_tree::MCTSTree;
 #[derive(Debug)]
 #[derive(Eq, Hash, PartialEq)]
 pub enum NpcAction {
-    Attack,
+    AttackAgent,
+    AttackMonster,
     Steal,
+    TreasureHunt,
     Rest,
     Talk,
     None,
@@ -30,8 +32,10 @@ pub enum NpcAction {
 impl ToString for NpcAction {
     fn to_string(&self) -> String {
         match self {
-            NpcAction::Attack => "Attack".to_string(),
+            NpcAction::AttackAgent => "Attack Agent".to_string(),
+            NpcAction::AttackMonster => "Attack Monster".to_string(),
             NpcAction::Steal => "Steal".to_string(),
+            NpcAction::TreasureHunt => "Treasure Hunt".to_string(),
             NpcAction::Rest => "Rest".to_string(),
             NpcAction::Talk => "Talk".to_string(),
             NpcAction::None => "Root".to_string(),
@@ -50,8 +54,10 @@ pub struct ActionRating{
 impl ActionRating {
     pub fn new() -> Self {
         let mut actions = HashMap::new();
-        actions.insert(NpcAction::Attack, 0.0);
+        actions.insert(NpcAction::AttackAgent, 0.0);
+        actions.insert(NpcAction::AttackMonster, 0.0);
         actions.insert(NpcAction::Steal, 0.0);
+        actions.insert(NpcAction::TreasureHunt, 0.0);
         actions.insert(NpcAction::Rest, 0.0);
         actions.insert(NpcAction::Talk, 0.0);
         actions.insert(NpcAction::None, 0.0);
@@ -74,7 +80,9 @@ impl ActionRating {
     //}
     pub fn generate_ratings(&mut self, genes: Genes) {
         self.actions.clear();
-        self.actions.insert(NpcAction::Attack, 1.0 * genes.return_type_score(Aggression) * (1.0 - genes.return_type_score(SelfPreservation)));
+        self.actions.insert(NpcAction::AttackAgent, 1.0 * genes.return_type_score(Aggression) * (1.0 - genes.return_type_score(SelfPreservation)));
+        self.actions.insert(NpcAction::AttackMonster, 1.0 * genes.return_type_score(Aggression) * (1.0 - genes.return_type_score(SelfPreservation)));
+        self.actions.insert(NpcAction::Steal, 1.0 * genes.return_type_score(Greed) * (1.0 - genes.return_type_score(SelfPreservation)));
         self.actions.insert(NpcAction::Steal, 1.0 * genes.return_type_score(Greed) * (1.0 - genes.return_type_score(SelfPreservation)));
         self.actions.insert(NpcAction::Rest, 1.0 * genes.return_type_score(SelfPreservation));
         self.actions.insert(NpcAction::Talk, 1.0 * genes.return_type_score(Social));
@@ -121,8 +129,10 @@ impl ActionsTaken {
         let action_rating = ActionRating::default(); 
         let mut actions_vec = Vec::new();
             
-        actions_vec.push((NpcAction::Attack, 0));
+        actions_vec.push((NpcAction::AttackAgent, 0));
+        actions_vec.push((NpcAction::AttackMonster, 0));
         actions_vec.push((NpcAction::Steal, 0));
+        actions_vec.push((NpcAction::TreasureHunt, 0));
         actions_vec.push((NpcAction::Rest, 0));
         actions_vec.push((NpcAction::Talk, 0));
         actions_vec.push((NpcAction::None, 0));
@@ -134,8 +144,10 @@ impl ActionsTaken {
     ) -> Self {
         let mut actions_vec = Vec::new();
             
-        actions_vec.push((NpcAction::Attack, 0));
+        actions_vec.push((NpcAction::AttackAgent, 0));
+        actions_vec.push((NpcAction::AttackMonster, 0));
         actions_vec.push((NpcAction::Steal, 0));
+        actions_vec.push((NpcAction::TreasureHunt, 0));
         actions_vec.push((NpcAction::Rest, 0));
         actions_vec.push((NpcAction::Talk, 0));
         actions_vec.push((NpcAction::None, 0));

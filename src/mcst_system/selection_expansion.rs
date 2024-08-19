@@ -1,6 +1,6 @@
 use bevy::prelude::*;
 
-use crate::{entities::agent::Agent, FinishedRunningFlag, FinishedSelectionPhase, NpcActions, NpcActionsCopy, RunningFlag, SimulationFlag};
+use crate::{entities::agent::Agent, FinishedRunningFlag, FinishedSelectionPhase, NpcActions, NpcActionsCopy, RunningFlag, MCSTFlag};
 
 use super::{mcst::SimulationTree, mcst_tree::mcst_tree::MCTSTree};
 
@@ -8,7 +8,7 @@ use super::{mcst::SimulationTree, mcst_tree::mcst_tree::MCTSTree};
 
 pub fn select_expansion(
     mut simulation_tree: ResMut<SimulationTree>,
-    mut simulation_flag: ResMut<SimulationFlag>,
+    mut mcst_flag: ResMut<MCSTFlag>,
     mut running_flag: ResMut<RunningFlag>,
     finished_running_flag: ResMut<FinishedRunningFlag>,
     mut agent_query: Query<&mut Agent>, 
@@ -18,7 +18,7 @@ pub fn select_expansion(
     mut selection_flag: ResMut<FinishedSelectionPhase>,
 
 ){
-    if simulation_flag.0 && !selection_flag.0{
+    if mcst_flag.0 && !selection_flag.0{
         let forest_guard = simulation_tree.get_forest();
         *npc_actions_res = NpcActions(Vec::new());
         let npc_actions = &mut npc_actions_res.0;

@@ -1,4 +1,4 @@
-use std::iter;
+
 
 use bevy::prelude::*;
 use bevy::app::Events;
@@ -9,7 +9,7 @@ use crate::mcst_system::mcst_tree::mcst_tree::MCTSTree;
 use crate::FinishedSelectionPhase;
 use crate::ScoreTracker;
 use crate::WorldSim;
-use crate::{MCSTCurrent, MCSTTotal, RunningFlag, SimulationFlag, IterationCurrent, IterationTotal, World, mcst};
+use crate::{MCSTCurrent, MCSTTotal, RunningFlag, MCSTFlag, IterationCurrent, IterationTotal, World, mcst};
 use crate::components::{Position, TileComponent};
 use crate::tile::TileType;
 
@@ -59,29 +59,29 @@ pub fn setup(
             };
 
             let mut tile_entity = commands.spawn_bundle(sprite_bundle);
-            tile_entity.insert(Position { x: x as i32, y: y as i32 });
-            tile_entity.insert(TileComponent { tile_type: tile.lock().unwrap().get_tile_type().clone() });
+            // tile_entity.insert(Position { x: x as i32, y: y as i32 });
+            // tile_entity.insert(TileComponent { tile_type: tile.lock().unwrap().get_tile_type().clone() });
         }
     }
 
 
-    // Calculate the center of the grid
-    let grid_width = world.grid[0].len() as f32;
-    let grid_height = world.grid.len() as f32;
-    let half_grid_width = grid_width * 16.0;
-    let half_grid_height = grid_height * 16.0;
+    // // Calculate the center of the grid
+    // let grid_width = world.grid[0].len() as f32;
+    // let grid_height = world.grid.len() as f32;
+    // let half_grid_width = grid_width * 16.0;
+    // let half_grid_height = grid_height * 16.0;
 
-    // Set up the 2D camera at the center of the grid
-    commands
-        .spawn_bundle(OrthographicCameraBundle::new_2d())
-        .insert(Transform::from_xyz(half_grid_width, half_grid_height, 1000.0));
+    // // Set up the 2D camera at the center of the grid
+    // commands
+    //     .spawn_bundle(OrthographicCameraBundle::new_2d())
+    //     .insert(Transform::from_xyz(half_grid_width, half_grid_height, 1000.0));
 
-    world.populate_agents(START_AGENT_COUNT, &mut commands, &mut materials, &asset_server);
+    // world.populate_agents(START_AGENT_COUNT, &mut commands, &mut materials, &asset_server);
 
-    world.set_valid_spawns();
-    let valid_monster_spawns = world.find_valid_monster_spawns();
-    world.populate_monsters(valid_monster_spawns, START_MONSTER_COUNT, &mut commands, &mut materials, &asset_server);
-    iteration_total.0 = 3;
+    // world.set_valid_spawns();
+    // let valid_monster_spawns = world.find_valid_monster_spawns();
+    // world.populate_monsters(valid_monster_spawns, START_MONSTER_COUNT, &mut commands, &mut materials, &asset_server);
+    // iteration_total.0 = 3;
     
 }
 
@@ -111,13 +111,18 @@ pub fn check_end(
     iteration_counter: ResMut<IterationCurrent>,
     mcst_current: ResMut<MCSTCurrent>,
     mcst_total: ResMut<MCSTTotal>,
-    simulation_flag: ResMut<SimulationFlag>,
+    mcst_flag: ResMut<MCSTFlag>,
     running_flag: ResMut<RunningFlag>,
     mut app_exit_events: ResMut<Events<AppExit>>,
+    mut agent_query: Query<&mut Agent>, 
+    score_tracker_res: ResMut<ScoreTracker>,
 ){
-    if !simulation_flag.0 && !running_flag.0 {
+    if !mcst_flag.0 && !running_flag.0 {
         if mcst_current.0 == mcst_total.0 {
             if iteration_counter.0 == iteration_total.0{
+                for agent in agent_query.iter_mut(){
+                    println!("Debug in 'check_end '{}", agent.get_reward());
+                }
                 app_exit_events.send(AppExit);
                 std::process::exit(0);
             }
@@ -130,18 +135,18 @@ pub fn change_state(
     world_sim: ResMut<WorldSim>,
     mut agent_query: Query<&mut Agent>, 
     mut agent_copy: ResMut<Vec::<Agent>>,
-    mut simulation_flag: ResMut<SimulationFlag>,
+    mut mcst_flag: ResMut<MCSTFlag>,
     mut selection_flag: ResMut<FinishedSelectionPhase>,
     mut running_flag: ResMut<RunningFlag>,
     mut mcst_current: ResMut<MCSTCurrent>,
     mcst_total: ResMut<MCSTTotal>,
     mut iteration_counter: ResMut<IterationCurrent>,
 ){
-    if !simulation_flag.0 && !running_flag.0 {
+    if !mcst_flag.0 && !running_flag.0 {
         if mcst_current.0 < mcst_total.0{
             *agent_copy = save_agents_to_vector(&mut agent_query);
             world_sim.copy_world(&world);
-            simulation_flag.0 = true;
+            mcst_flag.0 = true;
             mcst_current.0 = mcst_current.0 + 1;
             selection_flag.0 = false;
         } else {

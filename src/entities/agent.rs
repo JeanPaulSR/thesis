@@ -77,12 +77,17 @@ impl Genes {
     }
 }
 
+#[derive(Clone, Debug)]
+pub struct Opinions {
+    pub opinion_scores: HashMap<u32, f32>,
+}
 
 #[derive(Clone, Bundle)]
 #[allow(dead_code)]
 pub struct Agent {
     entity: Entity,
     genes: Genes,
+    opinions: Opinions,
     energy: u8,
     max_energy: u8,
     transform: Transform,
@@ -154,6 +159,9 @@ impl Agent {
         let _tile_target = (10 as u32, 10 as u32);
         Agent {
             genes : Genes::generate(),
+            opinions: Opinions {
+                opinion_scores: HashMap::new(),
+            },
             id: unsafe { A_COUNTER },
             entity,
             transform: Transform::from_translation(Vec3::new(x , y , 0.0)),
@@ -185,6 +193,9 @@ impl Agent {
     pub fn default() -> Self {
         Agent {
             genes: Genes::generate(),
+            opinions: Opinions {
+                opinion_scores: HashMap::new(),
+            },
             id: 0,
             energy: 100,
             max_energy: 100,
@@ -337,6 +348,10 @@ impl Agent {
 
     pub fn get_path(&self) -> Option<Vec<(i32, i32)>>{
         self.path.clone()
+    }
+
+    pub fn set_path(&mut self, new_path: Vec<(i32, i32)>){
+        self.path = Some(new_path);
     }
     
     pub fn is_leader(&self) -> bool{
@@ -493,6 +508,54 @@ impl Agent {
             println!("Genes: {:?}", agent.genes);
             println!("Energy: {}", agent.energy);
         }
+    }
+
+    pub fn calculate_best_agent(&self, action: NpcAction, agent_ids: &Vec<u32>) -> u32 {
+        match action {
+            NpcAction::AttackAgent | NpcAction::Steal | NpcAction::Talk => {
+                let mut best_score = f32::MIN;
+                let mut best_agent_id = u32::MAX;
+
+                for &agent_id in agent_ids {
+                    let opinion_score = self.opinions.opinion_scores.get(&agent_id).cloned().unwrap_or(1.0);
+
+                    let total_score = match action {
+                        NpcAction::AttackAgent => self.calculate_attack_score(opinion_score, self.genes.return_type_score(GeneType::Aggression)),
+                        NpcAction::Steal => self.calculate_steal_score(opinion_score, self.genes.return_type_score(GeneType::Greed)),
+                        NpcAction::Talk => self.calculate_talk_score(opinion_score, self.genes.return_type_score(GeneType::Social)),
+                        _ => 0.0,
+                    };
+
+                    if total_score > best_score {
+                        best_score = total_score;
+                        best_agent_id = agent_id;
+                    }
+                }
+
+                best_agent_id
+            }
+            _ => u32::MAX,
+        }
+    }
+
+    fn calculate_gene_score(&self, genes: &Genes) -> f32 {
+        // Placeholder for gene score calculation
+        1.0
+    }
+
+    fn calculate_attack_score(&self, opinion_score: f32, gene_score: f32) -> f32 {
+        // Placeholder for attack score calculation formula
+        opinion_score * gene_score
+    }
+
+    fn calculate_steal_score(&self, opinion_score: f32, gene_score: f32) -> f32 {
+        // Placeholder for steal score calculation formula
+        opinion_score * gene_score
+    }
+
+    fn calculate_talk_score(&self, opinion_score: f32, gene_score: f32) -> f32 {
+        // Placeholder for talk score calculation formula
+        opinion_score * gene_score
     }
 
 }

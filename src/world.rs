@@ -217,6 +217,7 @@ impl World {
             .collect()
     }
 
+
     
 
     pub fn find_valid_monster_spawns(&self) -> Vec<Vec<(u32, u32)>> {
@@ -323,6 +324,43 @@ impl World {
             }
         }
     }
+
+    pub fn find_closest_villages(&self) -> Vec<(u32, (u32, u32))> {
+        let agents = self.agents.lock().unwrap();
+        let mut village_positions = HashMap::new();
+
+        // Collect all village positions and their agent IDs
+        for (&agent_id, &(x, y)) in agents.iter() {
+            let tile = self.grid[y][x].lock().unwrap();
+            if tile.get_tile_type() == TileType::Village {
+                village_positions.insert(agent_id, (x, y));
+            }
+        }
+
+        let mut result = Vec::new();
+
+        // Find the closest village for each village
+        for (&agent_id, &(x1, y1)) in &village_positions {
+            let mut closest_village = None;
+            let mut min_distance = std::f64::MAX;
+
+            for (&other_id, &(x2, y2)) in &village_positions {
+                if agent_id != other_id {
+                    let distance = ((x1 as f64 - x2 as f64).powi(2) + (y1 as f64 - y2 as f64).powi(2)).sqrt();
+                    if distance < min_distance {
+                        min_distance = distance;
+                        closest_village = Some((other_id, (x2 as u32, y2 as u32)));
+                    }
+                }
+            }
+
+            if let Some(closest) = closest_village {
+                result.push((agent_id, closest.1));
+            }
+        }
+
+        result
+    }
 //    _____                         __   
 //    /  _  \    ____   ____   _____/  |_ 
 //   /  /_\  \  / ___\_/ __ \ /    \   __\
@@ -421,6 +459,32 @@ impl World {
         }
     }
 
+    pub fn find_closest_agents(&self) -> Vec<(u32, u32)> {
+        let agents = self.agents.lock().unwrap();
+        let mut result = Vec::new();
+
+        for (&agent_id, &(x1, y1)) in agents.iter() {
+            let mut closest_id = None;
+            let mut min_distance = std::f64::MAX;
+
+            for (&other_id, &(x2, y2)) in agents.iter() {
+                if agent_id != other_id {
+                    let distance = ((x1 as f64 - x2 as f64).powi(2) + (y1 as f64 - y2 as f64).powi(2)).sqrt();
+                    if distance < min_distance {
+                        min_distance = distance;
+                        closest_id = Some(other_id);
+                    }
+                }
+            }
+
+            if let Some(id) = closest_id {
+                result.push((agent_id, id));
+            }
+        }
+
+        result
+    }
+
     
 //     _____                          __                
 //    /     \   ____   ____   _______/  |_  ___________ 
@@ -480,6 +544,32 @@ impl World {
         }
     }
 
+
+    pub fn find_closest_monsters(&self) -> Vec<(u32, u32)> {
+        let agents = self.agents.lock().unwrap();
+        let monsters = self.monsters.lock().unwrap();
+        let mut result = Vec::new();
+
+        for (&agent_id, &(x1, y1)) in agents.iter() {
+            let mut closest_id = None;
+            let mut min_distance = std::f64::MAX;
+
+            for (&monster_id, &(x2, y2)) in monsters.iter() {
+                let distance = ((x1 as f64 - x2 as f64).powi(2) + (y1 as f64 - y2 as f64).powi(2)).sqrt();
+                if distance < min_distance {
+                    min_distance = distance;
+                    closest_id = Some(monster_id);
+                }
+            }
+
+            if let Some(id) = closest_id {
+                result.push((agent_id, id));
+            }
+        }
+
+        result
+    }
+
 // ___________                                                  
 // \__    ___/______   ____ _____    ________ _________   ____  
 //   |    |  \_  __ \_/ __ \\__  \  /  ___/  |  \_  __ \_/ __ \ 
@@ -506,4 +596,29 @@ impl World {
         Err(MyError::TreasureNotFound)
     }
 
+    
+    pub fn find_closest_treasures(&self) -> Vec<(u32, u32)> {
+        let agents = self.agents.lock().unwrap();
+        let treasures = self.treasures.lock().unwrap();
+        let mut result = Vec::new();
+
+        for (&agent_id, &(x1, y1)) in agents.iter() {
+            let mut closest_id = None;
+            let mut min_distance = std::f64::MAX;
+
+            for (&treasure_id, &(x2, y2)) in treasures.iter() {
+                let distance = ((x1 as f64 - x2 as f64).powi(2) + (y1 as f64 - y2 as f64).powi(2)).sqrt();
+                if distance < min_distance {
+                    min_distance = distance;
+                    closest_id = Some(treasure_id);
+                }
+            }
+
+            if let Some(id) = closest_id {
+                result.push((agent_id, id));
+            }
+        }
+
+        result
+    }
 }

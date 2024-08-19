@@ -1,96 +1,43 @@
 use bevy::prelude::*;
-use crate::{entities::agent::{Agent, Status}, Backpropogate, MCSTCurrent, NpcActions, NpcActionsCopy, RunningFlag, ScoreTracker, SimulationFlag};
-use super::{mcst::SimulationTree, mcst_tree::mcst_tree::MCTSTree};
+use crate::{entities::agent::{Agent, Status}, Backpropogate, MCSTCurrent, MCSTFlag, NpcActions, NpcActionsCopy, RunningFlag, ScoreTracker, WorldSim};
+use super::{mcst::{NpcAction, SimulationTree}, mcst_tree::mcst_tree::MCTSTree};
 
 
-pub fn check_finish(
+
+pub fn check_simulation_finish(
     mut simulation_tree: ResMut<SimulationTree>,
-    mut simulation_flag: ResMut<SimulationFlag>,
-    mut running_flag: ResMut<RunningFlag>,
+    mut mcst_flag: ResMut<MCSTFlag>,
     mut score_tracker_res: ResMut<ScoreTracker>,
     mut npc_actions_res: ResMut<NpcActions>,
     mut backpropogate_flag: ResMut<Backpropogate>,
     mut agent_query: Query<&mut Agent>, 
     mut mcstcurrent: ResMut<MCSTCurrent>,
-    
 ){
-    if simulation_flag.0 {
+    if mcst_flag.0 {
         let score_tracker = &mut score_tracker_res.0;
         let npc_actions = &mut npc_actions_res.0;
         let mut finished = true;
 
-        for mut agent in agent_query.iter_mut(){
-            for (action_id, action) in npc_actions.iter_mut(){
-                if *action_id == agent.get_id(){
-                    for (score_id, score) in score_tracker.iter_mut() {
-                        if *score_id == agent.get_id(){
-                            if !(*score < 0){
-                                if agent.get_status() == Status::Idle {
-                                    if action.is_empty() {
-                                        *score = 0 - (agent.get_reward() as i32);
-                                    } else {
-                                        agent.set_action(action.pop_front().unwrap());
-                                    }
-                                }
-                                finished = false;
-                            }
-                            break;
+        for (score_id, score) in score_tracker.iter_mut() {
+            if score < &mut 0{
+                let agent = agent_query.iter_mut().find(|agent| agent.get_id() == *score_id);
+                match agent {
+                    Some(mut agent) => {
+                        if agent.get_status() != Status::Idle{
+                            finished = false;
+                            break
                         }
+                    },
+                    None => {
+                        println!("Agent with score_id {} not found.", *score_id);
                     }
-                    break;
                 }
             }
         }
-        //for (score_id, score) in score_tracker.iter_mut() {
-            
-        //    if *score != 0 {
-        //println!("Current score: {}", score);
-        //        for (action_id, action) in npc_actions.iter_mut() {
-        //            if *action_id == *score_id {
-        //                if action.is_empty() {
-        //                    for agent in agent_query.iter_mut() {
-        //                        if agent.get_id() == *score_id {
-        //                            if agent.get_status() == Status::Idle {
-        //                                *score = agent.get_reward();
-        //                            } else {
-        //                                finished = false;
-        //                            }
-        //                            break;
-        //                        }
-        //                    }
-        //                } else {
-        //                    finished = false;
-        //                }
-        //                break;
-        //            }
-        //        }
-        //    }
-        //}
 
         if finished {
             backpropogate_flag.0 = true;
-            simulation_flag.0 = false;
-            mcstcurrent.0 = mcstcurrent.0 + 1;
-        }
-    }
-    if running_flag.0 {
-        let mut min_size = u16::MAX;
-        let mut max_size = 0;
-        let mut less_than_100_height = false;
-        let forest_guard = simulation_tree.get_forest();
-       for (_, tree) in forest_guard.lock().unwrap().iter_mut(){
-           let tree_height = tree.get_height() as u16;
-           min_size = tree_height.min(min_size);
-           max_size = tree_height.max(max_size);
-           if tree_height <= 100{
-               less_than_100_height = true;
-           }
-       }
-        //If a tree has a difference of more than 10 actions to another 
-        //tree or a tree has less than 100 actions in the tree left, restart mcst
-        if less_than_100_height || (max_size - min_size) >= 10{
-            println!("Entered into end of running phase");
-            running_flag.0 = false;
+            mcst_flag.0 = false;
         }
     }
 }
@@ -102,6 +49,7 @@ pub fn backpropgate(
     mut agent_copy: ResMut<Vec::<Agent>>,
     mut score_tracker_res: ResMut<ScoreTracker>,
     mut npc_actions_copy_res: ResMut<NpcActionsCopy>,
+    mut running_flag: ResMut<RunningFlag>,
     mut commands: Commands,
 ){
     if backpropogate_flag.0 {
@@ -129,6 +77,7 @@ pub fn backpropgate(
 
         restore_agents_from_vector(&mut commands, &mut agent_query, &mut agent_copy);
         backpropogate_flag.0 = false;
+        running_flag.0 = true;
         *npc_actions_copy_res = NpcActionsCopy(Vec::new());
     }
 }

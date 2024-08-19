@@ -8,7 +8,9 @@ mod camera;
 mod world;
 mod debug;
 use mcst_system::backpropogate::backpropgate;
-use mcst_system::backpropogate::check_finish;
+use mcst_system::backpropogate::check_simulation_finish;
+use mcst_system::simulation::run_actual;
+use mcst_system::simulation::{run_simulation, set_simulation_actions};
 use mcst_system::systems::agent_message_system;
 use mcst_system::systems::cleanup_system;
 use mcst_system::systems::monster_message_system;
@@ -16,6 +18,7 @@ use mcst_system::systems::treasure_message_system;
 use world::World;
 mod movement; 
 mod errors;
+use std::iter::empty;
 use std::sync::Arc;
 use std::sync::Mutex;
 use crate::tile::Tile;
@@ -61,12 +64,14 @@ use crate::entities::agent::Agent;
 
 
 
-//Flag that tells if the program is in the simulation phase
-pub struct SimulationFlag(bool);
+//Flag that tells if the program is in the mcst phase
+pub struct MCSTFlag(bool);
 //Flag that tells if the program is in the execute found action phase
 pub struct RunningFlag(bool);
-//Flag that tells selection phase has been completed
+//Flag that tells selection phase of MCST has been completed
 pub struct FinishedSelectionPhase(bool);
+//Flag that tells if all
+pub struct FinishedSelectingActions(bool);
 //Flag that marks that the program has finished running all phases
 pub struct FinishedAllFlag(bool);
 //Flag that marks that the program has finished running execution phases
@@ -138,11 +143,6 @@ fn main() {
         .insert_resource(WorldSim(World::new()))
         //Insert the world tree
         .insert_resource(SimulationTree::new_empty())
-        // Add a system that handles camera drag functionality.
-        .add_system(camera_drag_system.system())
-        // Add a startup system that sets up the initial state of the game (e.g., camera, entities, etc.).
-        .add_startup_system(setup.system())
-        
         // Insert a CameraDragging resource to track the camera dragging state.
         .insert_resource(CameraDragging {
             is_dragging: false,
@@ -150,43 +150,55 @@ fn main() {
         })
         
         
-
-        // Insert AgentMessages resource with an empty vector.
-        .insert_resource(AgentMessages::new())
-        // Insert MonsterMessages resource with an empty vector.
-        .insert_resource(MonsterMessages::new())
-        // Insert TreasureMessages resource with an empty vector.
-        .insert_resource(TreasureMessages::new())
-        
-        //End simulation key
-        
-        .insert_resource(MCSTCurrent(0))
-        .insert_resource(MCSTTotal(0))
-        .insert_resource(IterationCurrent(0))
         .insert_resource(IterationTotal(0))
-        .insert_resource(FinishedSelectionPhase(false))
-        .insert_resource(Vec::<Agent>::new())
-        .insert_resource(SimulationFlag(false))
-        .insert_resource(RunningFlag(false))
-        .insert_resource(FinishedRunningFlag(false))
-        .insert_resource(FinishedSimulationFlag(false))
-        .insert_resource(Backpropogate(false))
-        .insert_resource(NpcActions(Vec::new()))
-        .insert_resource(NpcActionsCopy(Vec::new()))
-        .insert_resource(ScoreTracker(Vec::new()))
-        .add_system(toggle_flag_system.system())
+        // Add a system that handles camera drag functionality.
+        .add_system(camera_drag_system.system())
+        // Add a startup system that sets up the initial state of the game (e.g., camera, entities, etc.).
+        .add_startup_system(setup.system())
+        
+        
+
+        // // Insert AgentMessages resource with an empty vector.
+        // .insert_resource(AgentMessages::new())
+        // // Insert MonsterMessages resource with an empty vector.
+        // .insert_resource(MonsterMessages::new())
+        // // Insert TreasureMessages resource with an empty vector.
+        // .insert_resource(TreasureMessages::new())
+        
+        // //End simulation key
+        
+        // .insert_resource(MCSTCurrent(0))
+        // .insert_resource(MCSTTotal(0))
+        // .insert_resource(IterationCurrent(0))
+        // .insert_resource(FinishedSelectionPhase(false))
+        // .insert_resource(FinishedSelectingActions(false))
+        // .insert_resource(Vec::<Agent>::new())
+        // .insert_resource(MCSTFlag(false))
+        // .insert_resource(RunningFlag(false))
+        // .insert_resource(FinishedRunningFlag(false))
+        // .insert_resource(FinishedSimulationFlag(false))
+        // .insert_resource(Backpropogate(false))
+        // .insert_resource(NpcActions(Vec::new()))
+        // .insert_resource(NpcActionsCopy(Vec::new()))
+        // .insert_resource(ScoreTracker(Vec::new()))
+        // .add_system(toggle_flag_system.system())
         
         
         // Setup System
-        .add_system(setup_tree.system().label("setup_tree"))
-        .add_system(check_end.system().after("setup_tree").label("check_end"))
-        .add_system(change_state.system().after("check_end").label("change_state"))
-        .add_system(select_expansion.system().after("change_state").label("selection_expansion_phase"))
-        // .add_system(perform_action.system().after("selection_phase").label("action"))
+        //.add_system(setup_tree.system().label("setup_tree"))
+        //.add_system(check_end.system().after("setup_tree").label("check_end"))
+        //.add_system(change_state.system().after("check_end").label("change_state"))
+        //.add_system(select_expansion.system().after("change_state").label("selection_expansion_phase"))
+        //Simulation phase
+        //.add_system(set_simulation_actions.system().after("selection_expansion_phase").label("set_simulation_actions"))
+        //.add_system(run_simulation.system().after("set_simulation_actions").label("simulation_actions"))
 
-        // //After Simulation phase
-        // .add_system(check_finish.system().after("selection_phase").label("end_simulation"))
-        // .add_system(backpropgate.system().after("end_simulation").label("backpropegate"))
+        //.add_system(check_simulation_finish.system().after("simulation_actions").label("check_simulation_end"))
+        //.add_system(backpropgate.system().after("check_simulation_end").label("backpropegate"))
+
+        //Running Phase
+        //.add_system(run_actual.system().after("backpropegate").label("running_actions"))
+
 
         // // Add the agent message system to handle messages after actions.
         // .add_system(treasure_message_system.system().after("action").label("message"))
@@ -195,7 +207,7 @@ fn main() {
         // //Add the despawn handler after all message systems
         // .add_system(cleanup_system.system().after("message"))
         
-        .add_system(debug_system.system().after("selection_expansion_phase").label("debug"))
+        //.add_system(debug_system.system().after("running_actions").label("debug"))
         //)
         .run();
 }
@@ -215,9 +227,9 @@ fn debug(
             let (x, y) = agent.get_position();
             println!("Position for agent 1: ({},{})", x, y);
             // Found the desired agent by ID
-            agent.set_agent_target_id(2);
-            agent.set_target(entities::agent::Target::Agent);
-            agent.set_action(NpcAction::Attack);
+            //agent.set_agent_target_id(2);
+            //agent.set_target(entities::agent::Target::Agent);
+            //agent.set_action(NpcAction::AttackMonster);
             //agent.perform_action(world, commands, agent_messages);
         }
     }
@@ -225,17 +237,20 @@ fn debug(
 }
 
 fn debug_system(
-    mut simulation_flag: ResMut<SimulationFlag>,
     mut running_flag: ResMut<RunningFlag>,
+    mut agent_query: Query<&mut Agent>, 
 ) {
-    simulation_flag.0 = false;
-    running_flag.0 = false;    
+    //running_flag.0 = false;    
+    // for mut agent in agent_query.iter_mut(){
+    //     agent.set_action(NpcAction::None);
+    // }
+
 }
 
 
 fn toggle_flag_system(
     keyboard_input: Res<Input<KeyCode>>,
-    mut toggle_flag: ResMut<SimulationFlag>,
+    mut toggle_flag: ResMut<MCSTFlag>,
 ) {
     if keyboard_input.just_pressed(KeyCode::X) {
         // Toggle the flag to true when X key is pressed
