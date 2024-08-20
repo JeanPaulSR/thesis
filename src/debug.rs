@@ -1,6 +1,5 @@
-use bevy::prelude::*;
-use bevy::app::{AppBuilder, Plugin};
 use crate::debug_system;
+use bevy::prelude::*;
 
 pub fn debug(command: &str) {
     match command {
@@ -16,8 +15,7 @@ fn test_movement() {
 pub struct DebugPlugin;
 
 impl Plugin for DebugPlugin {
-    fn build(&self, app: &mut AppBuilder) {
-        app.add_startup_system(debug_system.system());
+    fn build(&self, app: &mut App) {
+        app.add_startup_system(debug_system);
     }
 }
-

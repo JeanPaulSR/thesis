@@ -1,11 +1,14 @@
-use crate::tile::TileType;
+use bevy::prelude::Component;
+
 use crate::entities::treasure::Treasure;
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+use crate::tile::TileType;
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Component)]
 pub struct Position {
     pub x: i32,
     pub y: i32,
 }
 
+#[derive(Component)]
 pub struct TileComponent {
     pub tile_type: TileType,
 }

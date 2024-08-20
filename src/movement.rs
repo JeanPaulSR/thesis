@@ -1,10 +1,14 @@
-use std::collections::HashMap;
-use crate::tile::{TileType, Tile};
-use std::collections::BinaryHeap;
+use crate::tile::{Tile, TileType};
 use std::cmp::Ordering;
+use std::collections::BinaryHeap;
+use std::collections::HashMap;
 
 //Using A* to caclulate path
-pub fn find_path(grid: Vec<Vec<Tile>>, start_pos: (i32, i32), end_pos: (i32, i32)) -> Option<Vec<(i32, i32)>> {
+pub fn find_path(
+    grid: Vec<Vec<Tile>>,
+    start_pos: (i32, i32),
+    end_pos: (i32, i32),
+) -> Option<Vec<(i32, i32)>> {
     let mut open_set = BinaryHeap::new();
     let mut came_from: HashMap<(i32, i32), (i32, i32)> = HashMap::new();
     let mut g_score: HashMap<(i32, i32), i32> = HashMap::new();
@@ -28,7 +32,8 @@ pub fn find_path(grid: Vec<Vec<Tile>>, start_pos: (i32, i32), end_pos: (i32, i32
             let new_x = x + dx;
             let new_y = y + dy;
 
-            if new_x < 0 || new_x >= grid[0].len() as i32 || new_y < 0 || new_y >= grid.len() as i32 {
+            if new_x < 0 || new_x >= grid[0].len() as i32 || new_y < 0 || new_y >= grid.len() as i32
+            {
                 continue;
             }
 
@@ -92,7 +97,10 @@ fn heuristic_cost_estimate(start: (i32, i32), end: (i32, i32)) -> i32 {
     dx + dy
 }
 
-fn reconstruct_path(came_from: HashMap<(i32, i32), (i32, i32)>, current: (i32, i32)) -> Vec<(i32, i32)> {
+fn reconstruct_path(
+    came_from: HashMap<(i32, i32), (i32, i32)>,
+    current: (i32, i32),
+) -> Vec<(i32, i32)> {
     let mut path = vec![current];
     let mut current = current;
     while let Some(&prev) = came_from.get(&current) {

@@ -19,21 +19,26 @@ impl Treasure {
         commands: &mut Commands,
         materials: &mut ResMut<Assets<ColorMaterial>>,
         asset_server: &Res<AssetServer>,
-        _reward: u32
+        _reward: u32,
     ) -> Self {
         // Convert x and y to world coordinates
         x = x * 32.0;
         y = y * 32.0;
-        
-        let sprite_size = Vec2::new(32.0, 32.0); 
+
+        let sprite_size = Vec2::new(32.0, 32.0);
         let texture_handle = asset_server.load("textures/treasure.png");
-    
-        let entity = commands.spawn_bundle(SpriteBundle {
-            material: materials.add(texture_handle.clone().into()),
-            sprite: Sprite::new(sprite_size),
-            transform: Transform::from_translation(Vec3::new(x, y, 1.0)),
-            ..Default::default()
-        }).id();
+
+        let entity = commands
+            .spawn(SpriteBundle {
+                texture: texture_handle.clone(),
+                sprite: Sprite {
+                    custom_size: Some(sprite_size),
+                    ..Default::default()
+                },
+                transform: Transform::from_translation(Vec3::new(x, y, 1.0)),
+                ..Default::default()
+            })
+            .id();
 
         unsafe {
             T_COUNTER += 1;
@@ -41,17 +46,20 @@ impl Treasure {
         Treasure {
             id: unsafe { T_COUNTER },
             entity,
-            transform: Transform::from_translation(Vec3::new(x , y , 0.0)),
+            transform: Transform::from_translation(Vec3::new(x, y, 0.0)),
             sprite_bundle: SpriteBundle {
-                material: materials.add(texture_handle.into()),
-                sprite: Sprite::new(sprite_size),
-                transform: Transform::from_translation(Vec3::new(0.0, 0.0, 1.0)),
+                texture: texture_handle.clone(),
+                sprite: Sprite {
+                    custom_size: Some(sprite_size),
+                    ..Default::default()
+                },
+                transform: Transform::from_translation(Vec3::new(0.0, 0.0, 0.0)),
                 ..Default::default()
             },
             reward: 0,
         }
     }
-    
+
     // Function to get the treasures entity
     pub fn get_entity(&self) -> Entity {
         self.entity
@@ -59,7 +67,10 @@ impl Treasure {
 
     // Function to get the position of the treasure
     pub fn get_position(&self) -> (f32, f32) {
-        (self.transform.translation.x / 32.0, self.transform.translation.y / 32.0)
+        (
+            self.transform.translation.x / 32.0,
+            self.transform.translation.y / 32.0,
+        )
     }
 
     // Function to set the reward of the treasure
@@ -74,7 +85,7 @@ impl Treasure {
 
     // Function to add reward to the treasure
     pub fn add_reward(&mut self, reward: u32) {
-        self.reward  = self.reward + reward; 
+        self.reward = self.reward + reward;
     }
 
     // Function to remove reward from the treasure
@@ -87,19 +98,22 @@ impl Treasure {
         self.id
     }
 
-    // ______      _     _ _      
-    // | ___ \    | |   | (_)     
-    // | |_/ /   _| |__ | |_  ___ 
+    // ______      _     _ _
+    // | ___ \    | |   | (_)
+    // | |_/ /   _| |__ | |_  ___
     // |  __/ | | | '_ \| | |/ __|
-    // | |  | |_| | |_) | | | (__ 
+    // | |  | |_| | |_) | | | (__
     // \_|   \__,_|_.__/|_|_|\___|
 
     // Function to print the treasure
     pub fn print(&self) {
         println!("Treasure ID: {}", self.id);
-        println!("Position: x={}, y={}", self.transform.translation.x/32.0, self.transform.translation.y/32.0);
+        println!(
+            "Position: x={}, y={}",
+            self.transform.translation.x / 32.0,
+            self.transform.translation.y / 32.0
+        );
     }
-
 }
 
 #[allow(dead_code)]
@@ -126,7 +140,10 @@ impl SimpleTreasure {
     }
 
     pub fn get_position(&self) -> (f32, f32) {
-        (self.transform.translation.x / 32.0, self.transform.translation.y / 32.0)
+        (
+            self.transform.translation.x / 32.0,
+            self.transform.translation.y / 32.0,
+        )
     }
 
     pub fn set_reward(&mut self, reward: u32) {
@@ -138,7 +155,7 @@ impl SimpleTreasure {
     }
 
     pub fn add_reward(&mut self, reward: u32) {
-        self.reward  = self.reward + reward; 
+        self.reward = self.reward + reward;
     }
 
     pub fn remove_reward(&mut self, reward: u32) {

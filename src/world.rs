@@ -3,23 +3,25 @@ use bevy::asset::Assets;
 use bevy::ecs::system::Res;
 use bevy::ecs::system::ResMut;
 use bevy::prelude::Commands;
+use bevy::prelude::Resource;
 use bevy::sprite::ColorMaterial;
 
+use bevy::sprite::TextureAtlas;
 use rand::prelude::SliceRandom;
 
 use crate::entities::agent::Agent;
 use crate::entities::monster::Monster;
 use crate::entities::treasure::Treasure;
 
-use crate::tile::TileType;
-use crate::tile::Tile;
 use crate::errors::MyError;
+use crate::tile::Tile;
+use crate::tile::TileType;
 use std::collections::HashMap;
 
 use std::sync::{Arc, Mutex};
 
 // Primary world constructor with a default map
-pub fn create_world() -> World {
+pub fn create_world() -> GameWorld {
     let map_data: Vec<&str> = vec![
         "vmfffffffffffffffffm",
         "fmfffffffffffffffflm",
@@ -43,8 +45,8 @@ pub fn create_world() -> World {
         "fmfffffffffffffflllm",
         "fmfffffffffffffflllm",
     ];
-    
-    let mut world = World::new();
+
+    let mut world = GameWorld::new();
     world.grid = Vec::new();
 
     for row_str in map_data.iter() {
@@ -68,22 +70,21 @@ pub fn create_world() -> World {
     world
 }
 
-#[derive(Clone)]
-pub struct World {
+#[derive(Clone, Resource)]
+pub struct GameWorld {
     pub agents: Arc<Mutex<HashMap<u32, (usize, usize)>>>,
     pub monsters: Arc<Mutex<HashMap<u32, (usize, usize)>>>,
     pub treasures: Arc<Mutex<HashMap<u32, (usize, usize)>>>,
-    pub grid: Vec<Vec<Arc<Mutex<Tile>>>>, 
+    pub grid: Vec<Vec<Arc<Mutex<Tile>>>>,
 }
 
-impl World {
-    
+impl GameWorld {
     //Construct a empty world
     pub fn new() -> Self {
         let agents = Arc::new(Mutex::new(HashMap::new()));
         let monsters = Arc::new(Mutex::new(HashMap::new()));
         let treasures = Arc::new(Mutex::new(HashMap::new()));
-    
+
         let mut grid: Vec<Vec<Arc<Mutex<Tile>>>> = Vec::new();
         for _ in 0..30 {
             let row = (0..30)
@@ -91,8 +92,8 @@ impl World {
                 .collect();
             grid.push(row);
         }
-        
-        World {
+
+        GameWorld {
             agents,
             monsters,
             treasures,
@@ -128,7 +129,7 @@ impl World {
             new_grid.push(new_row);
         }
 
-        World {
+        GameWorld {
             agents,
             monsters,
             treasures,
@@ -136,12 +137,11 @@ impl World {
         }
     }
 
-// ___________.__.__          
-// \__    ___/|__|  |   ____  
-//   |    |   |  |  | _/ __ \ 
-//   |    |   |  |  |_\  ___/ 
-//   |____|   |__|____/\____>
-
+    // ___________.__.__
+    // \__    ___/|__|  |   ____
+    //   |    |   |  |  | _/ __ \
+    //   |    |   |  |  |_\  ___/
+    //   |____|   |__|____/\____>
 
     // Function to get the Tile at position (x, y)
     pub fn get_tile(&self, x: usize, y: usize) -> Result<&Arc<Mutex<Tile>>, MyError> {
@@ -156,9 +156,13 @@ impl World {
             Err(_) => Err(MyError::TileNotFound),
         }
     }
-    
+
     // Function to get a mutable reference to the Tile at position (x, y)
-    pub fn get_tile_mut(&mut self, x: usize, y: usize) -> Result<Option<&mut Arc<Mutex<Tile>>>, MyError> {
+    pub fn get_tile_mut(
+        &mut self,
+        x: usize,
+        y: usize,
+    ) -> Result<Option<&mut Arc<Mutex<Tile>>>, MyError> {
         match self.is_valid_position(x, y) {
             Ok(_) => {
                 let grid_row = &mut self.grid[y];
@@ -171,7 +175,7 @@ impl World {
     // Function to get the TileType at position (x, y)
     pub fn get_tile_type(&self, x: usize, y: usize) -> Result<Option<TileType>, MyError> {
         self.is_valid_position(x, y)?;
-    
+
         match self.get_tile(x, y) {
             Ok(tile) => {
                 let tile_lock = tile.lock().unwrap();
@@ -188,7 +192,7 @@ impl World {
             None => Err(MyError::AgentNotFound),
         }
     }
-    
+
     // Function to get the position of a monster using their id
     pub fn get_monster_position(&self, monster_id: u32) -> Result<(usize, usize), MyError> {
         match self.monsters.lock().unwrap().get(&monster_id) {
@@ -196,7 +200,7 @@ impl World {
             None => Err(MyError::MonsterNotFound),
         }
     }
-    
+
     // Function to get the position of a treasure using its id
     pub fn get_treasure_position(&self, treasure_id: u32) -> Result<(usize, usize), MyError> {
         match self.treasures.lock().unwrap().get(&treasure_id) {
@@ -204,7 +208,7 @@ impl World {
             None => Err(MyError::TreasureNotFound),
         }
     }
-    
+
     // Function to return a clone of the grid
     pub fn get_grid(&self) -> Vec<Vec<Tile>> {
         self.grid
@@ -216,9 +220,6 @@ impl World {
             })
             .collect()
     }
-
-
-    
 
     pub fn find_valid_monster_spawns(&self) -> Vec<Vec<(u32, u32)>> {
         let world = &self;
@@ -239,7 +240,8 @@ impl World {
                     let agent_row = agent_pos.0;
                     let agent_col = agent_pos.1;
                     let distance_squared = ((row_index as isize - agent_row as isize).pow(2)
-                        + (col_index as isize - agent_col as isize).pow(2)) as usize;
+                        + (col_index as isize - agent_col as isize).pow(2))
+                        as usize;
 
                     if distance_squared <= 25 {
                         is_valid_spawn = false;
@@ -248,7 +250,13 @@ impl World {
                 }
 
                 // Check if atop another monster
-                if world.monsters.lock().unwrap().values().any(|pos| pos == &(row_index, col_index)) {
+                if world
+                    .monsters
+                    .lock()
+                    .unwrap()
+                    .values()
+                    .any(|pos| pos == &(row_index, col_index))
+                {
                     is_valid_spawn = false;
                 }
 
@@ -283,10 +291,12 @@ impl World {
         valid_spawns
     }
 
-
     // Function to check if the position (x, y) is within the grid's bounds
     fn is_valid_position_bool(&self, x: isize, y: isize) -> bool {
-        x >= 0 && y >= 0 && (y as usize) < self.grid.len() && (x as usize) < self.grid[y as usize].len()
+        x >= 0
+            && y >= 0
+            && (y as usize) < self.grid.len()
+            && (x as usize) < self.grid[y as usize].len()
     }
 
     pub fn set_valid_spawns(&self) {
@@ -305,7 +315,10 @@ impl World {
                                         let new_row = row_index as isize + i;
                                         let new_col = col_index as isize + j;
                                         if world.is_valid_position_bool(new_col, new_row) {
-                                            let mut new_tile = world.grid[new_row as usize][new_col as usize].lock().unwrap();
+                                            let mut new_tile = world.grid[new_row as usize]
+                                                [new_col as usize]
+                                                .lock()
+                                                .unwrap();
                                             new_tile.set_monster_spawn(false);
                                         }
                                     }
@@ -315,9 +328,9 @@ impl World {
                         TileType::Mountain => {
                             tile.set_monster_spawn(false);
                         }
-                        TileType::Lake =>{
+                        TileType::Lake => {
                             tile.set_monster_spawn(false);
-                        } 
+                        }
                         _ => {}
                     }
                 }
@@ -346,7 +359,8 @@ impl World {
 
             for (&other_id, &(x2, y2)) in &village_positions {
                 if agent_id != other_id {
-                    let distance = ((x1 as f64 - x2 as f64).powi(2) + (y1 as f64 - y2 as f64).powi(2)).sqrt();
+                    let distance =
+                        ((x1 as f64 - x2 as f64).powi(2) + (y1 as f64 - y2 as f64).powi(2)).sqrt();
                     if distance < min_distance {
                         min_distance = distance;
                         closest_village = Some((other_id, (x2 as u32, y2 as u32)));
@@ -361,15 +375,15 @@ impl World {
 
         result
     }
-//    _____                         __   
-//    /  _  \    ____   ____   _____/  |_ 
-//   /  /_\  \  / ___\_/ __ \ /    \   __\
-//  /    |    \/ /_/  >  ___/|   |  \  |  
-//  \____|__  /\___  / \___  >___|  /__|  
-//          \//_____/      \/     \/      
- 
+    //    _____                         __
+    //    /  _  \    ____   ____   _____/  |_
+    //   /  /_\  \  / ___\_/ __ \ /    \   __\
+    //  /    |    \/ /_/  >  ___/|   |  \  |
+    //  \____|__  /\___  / \___  >___|  /__|
+    //          \//_____/      \/     \/
+
     // Function to add an agent to the world and its current tile
-    pub fn add_agent(&mut self, agent: Agent, commands: &mut Commands,) -> Result<(), MyError> {
+    pub fn add_agent(&mut self, agent: Agent, commands: &mut Commands) -> Result<(), MyError> {
         let (x, y) = agent.get_position();
         self.is_valid_position(x as usize, y as usize)?;
 
@@ -390,7 +404,7 @@ impl World {
         }
         Err(MyError::AgentNotFound)
     }
-    
+
     // Function to print agents' positions
     pub fn print_agents(&self) {
         let agents_positions = self.agents.lock().unwrap();
@@ -402,17 +416,12 @@ impl World {
     }
 
     // Function to move the agent
-    pub fn move_agent(
-        &self,
-        agent_id: u32,
-        pos_y2: usize,
-        pos_x2: usize,
-    ) -> Result<(), MyError> {
+    pub fn move_agent(&self, agent_id: u32, pos_y2: usize, pos_x2: usize) -> Result<(), MyError> {
         let mut agents_positions = self.agents.lock().unwrap();
         if let Some((pos_y1, pos_x1)) = agents_positions.get_mut(&agent_id) {
             *pos_x1 = pos_x2;
             *pos_y1 = pos_y2;
-            
+
             println!("Agent ID: {}, ({} , {})", agent_id, pos_y2, pos_x2);
             Ok(())
         } else {
@@ -422,8 +431,13 @@ impl World {
 
     // Function to spawn agents based on START_AGENT_COUNT
     // Function to populate agents in villages up to a given count
-    pub fn populate_agents(&mut self, start_agent_count: usize, commands: &mut Commands,
-    materials: &mut ResMut<Assets<ColorMaterial>>, asset_server: &Res<AssetServer>) {
+    pub fn populate_agents(
+        &mut self,
+        start_agent_count: usize,
+        commands: &mut Commands,
+        texture_atlases: &mut ResMut<Assets<TextureAtlas>>, // Update to use TextureAtlas
+        asset_server: &Res<AssetServer>,
+    ) {
         let mut villages: Vec<(usize, usize)> = Vec::new();
         for (y, column) in self.grid.iter().enumerate() {
             for (x, tile_mutex) in column.iter().enumerate() {
@@ -441,8 +455,8 @@ impl World {
                 village.0 as f32,
                 village.1 as f32,
                 commands,
-                materials,
                 asset_server,
+                texture_atlases, // Pass texture_atlases instead of materials
             );
 
             // Try to add the agent to the world
@@ -455,7 +469,7 @@ impl World {
                         println!("Failed to add agent: Unknown error.");
                     }
                 }
-            } 
+            }
         }
     }
 
@@ -469,7 +483,8 @@ impl World {
 
             for (&other_id, &(x2, y2)) in agents.iter() {
                 if agent_id != other_id {
-                    let distance = ((x1 as f64 - x2 as f64).powi(2) + (y1 as f64 - y2 as f64).powi(2)).sqrt();
+                    let distance =
+                        ((x1 as f64 - x2 as f64).powi(2) + (y1 as f64 - y2 as f64).powi(2)).sqrt();
                     if distance < min_distance {
                         min_distance = distance;
                         closest_id = Some(other_id);
@@ -485,23 +500,29 @@ impl World {
         result
     }
 
-    
-//     _____                          __                
-//    /     \   ____   ____   _______/  |_  ___________ 
-//   /  \ /  \ /  _ \ /    \ /  ___/\   __\/ __ \_  __ \
-//  /    Y    (  <_> )   |  \\___ \  |  | \  ___/|  | \/
-//  \____|__  /\____/|___|  /____  > |__|  \___  >__|   
-//          \/            \/     \/            \/       
- 
+    //     _____                          __
+    //    /     \   ____   ____   _______/  |_  ___________
+    //   /  \ /  \ /  _ \ /    \ /  ___/\   __\/ __ \_  __ \
+    //  /    Y    (  <_> )   |  \\___ \  |  | \  ___/|  | \/
+    //  \____|__  /\____/|___|  /____  > |__|  \___  >__|
+    //          \/            \/     \/            \/
+
     // Function to add a monster to the world and its current tile
-    pub fn add_monster(&mut self, monster: Monster, commands: &mut Commands,) -> Result<(), MyError> {
+    pub fn add_monster(
+        &mut self,
+        monster: Monster,
+        commands: &mut Commands,
+    ) -> Result<(), MyError> {
         let (x, y) = monster.get_position();
         self.is_valid_position(x as usize, y as usize)?;
 
         let mut monsters = self.monsters.lock().unwrap();
         monsters.insert(monster.get_id(), (x as usize, y as usize));
         let entity = monster.get_entity();
+
+        // Insert `Monster` component into the entity
         commands.entity(entity).insert(monster);
+
         Ok(())
     }
 
@@ -514,13 +535,13 @@ impl World {
         }
         Err(MyError::MonsterNotFound)
     }
-    
+
     pub fn populate_monsters(
         &mut self,
         valid_spawns: Vec<Vec<(u32, u32)>>,
         max_monsters: usize,
         commands: &mut Commands,
-        materials: &mut ResMut<Assets<ColorMaterial>>,
+        texture_atlases: &mut ResMut<Assets<TextureAtlas>>, // Updated to use TextureAtlas
         asset_server: &Res<AssetServer>,
     ) {
         let mut rng = rand::thread_rng();
@@ -533,9 +554,11 @@ impl World {
                 return;
             }
 
-            let x = col as f32; 
-            let y = row as f32; 
-            let monster = Monster::new_monster(x * 32.0, y * 32.0, commands, materials, asset_server);
+            let x = col as f32;
+            let y = row as f32;
+
+            let monster =
+                Monster::new_monster(x * 32.0, y * 32.0, commands, texture_atlases, asset_server);
             if let Err(err) = self.add_monster(monster, commands) {
                 eprintln!("Error adding monster: {:?}", err);
             }
@@ -543,7 +566,6 @@ impl World {
             monsters_added += 1;
         }
     }
-
 
     pub fn find_closest_monsters(&self) -> Vec<(u32, u32)> {
         let agents = self.agents.lock().unwrap();
@@ -555,7 +577,8 @@ impl World {
             let mut min_distance = std::f64::MAX;
 
             for (&monster_id, &(x2, y2)) in monsters.iter() {
-                let distance = ((x1 as f64 - x2 as f64).powi(2) + (y1 as f64 - y2 as f64).powi(2)).sqrt();
+                let distance =
+                    ((x1 as f64 - x2 as f64).powi(2) + (y1 as f64 - y2 as f64).powi(2)).sqrt();
                 if distance < min_distance {
                     min_distance = distance;
                     closest_id = Some(monster_id);
@@ -570,12 +593,12 @@ impl World {
         result
     }
 
-// ___________                                                  
-// \__    ___/______   ____ _____    ________ _________   ____  
-//   |    |  \_  __ \_/ __ \\__  \  /  ___/  |  \_  __ \_/ __ \ 
-//   |    |   |  | \/\  ___/ / __ \_\___ \|  |  /|  | \/\  ___/ 
-//   |____|   |__|    \___  >____  /____  >____/ |__|    \___  >
-//                        \/     \/     \/                   \/ 
+    // ___________
+    // \__    ___/______   ____ _____    ________ _________   ____
+    //   |    |  \_  __ \_/ __ \\__  \  /  ___/  |  \_  __ \_/ __ \
+    //   |    |   |  | \/\  ___/ / __ \_\___ \|  |  /|  | \/\  ___/
+    //   |____|   |__|    \___  >____  /____  >____/ |__|    \___  >
+    //                        \/     \/     \/                   \/
 
     // Function to add a treasure to the world and its current tile
     pub fn add_treasure(&mut self, treasure: Treasure) -> Result<(), MyError> {
@@ -596,7 +619,6 @@ impl World {
         Err(MyError::TreasureNotFound)
     }
 
-    
     pub fn find_closest_treasures(&self) -> Vec<(u32, u32)> {
         let agents = self.agents.lock().unwrap();
         let treasures = self.treasures.lock().unwrap();
@@ -607,7 +629,8 @@ impl World {
             let mut min_distance = std::f64::MAX;
 
             for (&treasure_id, &(x2, y2)) in treasures.iter() {
-                let distance = ((x1 as f64 - x2 as f64).powi(2) + (y1 as f64 - y2 as f64).powi(2)).sqrt();
+                let distance =
+                    ((x1 as f64 - x2 as f64).powi(2) + (y1 as f64 - y2 as f64).powi(2)).sqrt();
                 if distance < min_distance {
                     min_distance = distance;
                     closest_id = Some(treasure_id);

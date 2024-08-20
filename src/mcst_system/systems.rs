@@ -1,15 +1,13 @@
-use bevy::prelude::*;
-use rand::{thread_rng, Rng};
 use crate::entities::agent::{Agent, Status};
 use crate::entities::monster::Monster;
+use bevy::prelude::*;
+use rand::{thread_rng, Rng};
 
+use crate::world::GameWorld;
 
-use crate::World;
-
-#[derive()]
 #[derive(Clone)]
 #[allow(dead_code)]
-pub enum MessageType{
+pub enum MessageType {
     Attack(u8),
     MonsterAttack(u8),
     GroupDamage(u8),
@@ -19,10 +17,10 @@ pub enum MessageType{
     Cooperate(Vec<u32>),
     BecomeFollower,
     StopCooperating,
-    Move((u32,u32)),
+    Move((u32, u32)),
     //True is add, false is remove
     Energy(bool, u8),
-    Inherit(Vec<u32>, u32)
+    Inherit(Vec<u32>, u32),
 }
 
 impl MessageType {
@@ -37,22 +35,21 @@ impl MessageType {
             MessageType::Cooperate(vec) => MessageType::Cooperate(vec.clone()),
             MessageType::StopCooperating => MessageType::StopCooperating,
             MessageType::BecomeFollower => MessageType::BecomeFollower,
-            MessageType::Move((val1,val2)) => MessageType::Move((*val1, *val2)),
+            MessageType::Move((val1, val2)) => MessageType::Move((*val1, *val2)),
             MessageType::Energy(flag, amount) => MessageType::Energy(*flag, *amount),
             MessageType::GroupReward(reward) => MessageType::GroupReward(*reward),
             MessageType::Inherit(agents, reward) => MessageType::Inherit(agents.clone(), *reward),
         }
     }
 }
-//     _   
-//     /\                   | |  
-//    /  \   __ _  ___ _ __ | |_ 
+//     _
+//     /\                   | |
+//    /  \   __ _  ___ _ __ | |_
 //   / /\ \ / _` |/ _ \ '_ \| __|
-//  / ____ \ (_| |  __/ | | | |_ 
+//  / ____ \ (_| |  __/ | | | |_
 // /_/    \_\__, |\___|_| |_|\__|
-//           __/ |               
-//          |___/                
-
+//           __/ |
+//          |___/
 
 #[allow(dead_code)]
 #[derive(Clone)]
@@ -62,18 +59,15 @@ pub struct AgentMessage {
     message_type: MessageType,
 }
 
-impl AgentMessage{
-    pub fn new(
-        sender_id: u32,
-        receiver_id: u32,
-        message_type: MessageType,) -> Self {
-            AgentMessage{
-                sender_id: sender_id,
-                receiver_id: receiver_id,
-                message_type: message_type,
-            }
+impl AgentMessage {
+    pub fn new(sender_id: u32, receiver_id: u32, message_type: MessageType) -> Self {
+        AgentMessage {
+            sender_id: sender_id,
+            receiver_id: receiver_id,
+            message_type: message_type,
+        }
     }
-    
+
     pub fn copy(&self) -> Self {
         Self {
             sender_id: self.sender_id,
@@ -83,6 +77,7 @@ impl AgentMessage{
     }
 }
 
+#[derive(Resource)]
 pub struct AgentMessages {
     pub(crate) messages: Vec<AgentMessage>,
 }
@@ -97,8 +92,8 @@ impl AgentMessages {
     pub fn add_message(&mut self, message: AgentMessage) {
         self.messages.push(message);
     }
-    
-    pub fn is_empty(&self) -> bool{
+
+    pub fn is_empty(&self) -> bool {
         return self.messages.is_empty();
     }
 }
@@ -109,11 +104,10 @@ impl AgentMessages {
 pub fn agent_message_system(
     mut agent_messages: ResMut<AgentMessages>,
     mut monster_messages: ResMut<MonsterMessages>,
-    world: ResMut<World>,
+    world: ResMut<GameWorld>,
     mut query: Query<&mut Agent>,
     mut commands: Commands,
 ) {
-    
     let mut new_messages = AgentMessages::new();
     // Handle received messages
     while !agent_messages.messages.is_empty() {
@@ -121,10 +115,9 @@ pub fn agent_message_system(
             let receiver_id = message.receiver_id;
 
             for mut agent in query.iter_mut() {
-                if agent.get_status() != Status::Dead{
+                if agent.get_status() != Status::Dead {
                     if agent.get_id() == receiver_id {
-                        match message.message_type{
-
+                        match message.message_type {
                             //Agent is attacked
                             //If agent is part of a group, send a GroupDamage
                             //Otherwise, remove damage from single agent
@@ -132,8 +125,8 @@ pub fn agent_message_system(
                                 if agent.is_follower() {
                                     // Send an attack message to the leader
                                     let leader_id = agent.get_leader_id();
-                                    let new_message = AgentMessage::new (
-                                        agent.get_id(), 
+                                    let new_message = AgentMessage::new(
+                                        agent.get_id(),
                                         leader_id,
                                         MessageType::Attack(damage),
                                     );
@@ -142,130 +135,133 @@ pub fn agent_message_system(
                                     let group_size = agent.get_group_size();
                                     let damage_per_agent = damage / group_size as u8;
                                     let remainder = damage % group_size as u8;
-                                    
+
                                     // Send GroupDamage to all agents in the group
                                     for follower_id in agent.get_followers() {
-                                        let new_message = AgentMessage::new (
-                                            agent.get_id(), 
+                                        let new_message = AgentMessage::new(
+                                            agent.get_id(),
                                             follower_id,
                                             MessageType::GroupDamage(damage_per_agent),
                                         );
                                         new_messages.add_message(new_message);
                                     }
-                                    
+
                                     // Leader takes the remainder damage
                                     agent.remove_energy(remainder + damage_per_agent);
                                 } else {
                                     agent.remove_energy(damage);
-                                    if agent.get_status() == Status::Dead{
-                                        let new_message = AgentMessage::new (
-                                            agent.get_id(), 
+                                    if agent.get_status() == Status::Dead {
+                                        let new_message = AgentMessage::new(
+                                            agent.get_id(),
                                             message.sender_id,
                                             MessageType::Reward(agent.get_reward()),
                                         );
                                         new_messages.add_message(new_message);
                                     }
                                 }
-                            },
+                            }
                             MessageType::GroupDamage(damage) => {
                                 agent.remove_energy(damage);
-                                    if agent.get_status() == Status::Dead{
-                                        let new_message = AgentMessage::new (
-                                            agent.get_id(), 
-                                            message.sender_id,
-                                            MessageType::Reward(agent.get_reward()),
-                                        );
-                                        new_messages.add_message(new_message);
-                                    }
-                            },
-
-
-                            MessageType::Reward(reward) => 
-                            if agent.is_follower() {
-                                // Send an attack message to the leader
-                                let leader_id = agent.get_leader_id();
-                                let new_message = AgentMessage::new (
-                                    agent.get_id(), 
-                                    leader_id,
-                                    MessageType::Reward(reward),
-                                );
-                                new_messages.add_message(new_message);
-                            } else if agent.is_leader() {
-                                if agent.get_status() == Status::Dead{
-                                    let new_leader = agent.get_followers().first().unwrap().clone();
-                                    agent.remove_follower(new_leader);
-                                    let new_message = AgentMessage::new (
-                                        agent.get_id(), 
-                                        new_leader,
-                                        MessageType::Inherit(agent.get_followers().clone(), agent.get_reward()),
+                                if agent.get_status() == Status::Dead {
+                                    let new_message = AgentMessage::new(
+                                        agent.get_id(),
+                                        message.sender_id,
+                                        MessageType::Reward(agent.get_reward()),
                                     );
                                     new_messages.add_message(new_message);
-                                    
-                                    let new_message_2 = AgentMessage::new (
-                                        agent.get_id(), 
-                                        agent.get_followers().first().unwrap().clone(),
+                                }
+                            }
+
+                            MessageType::Reward(reward) => {
+                                if agent.is_follower() {
+                                    // Send an attack message to the leader
+                                    let leader_id = agent.get_leader_id();
+                                    let new_message = AgentMessage::new(
+                                        agent.get_id(),
+                                        leader_id,
                                         MessageType::Reward(reward),
                                     );
-                                    new_messages.add_message(new_message_2);
-                                } else{
-                                    let group_size = agent.get_group_size();
-                                    let reward_per_agent = reward / group_size;
-                                    let remainder = reward % group_size;
-                                    
-                                    // Send GroupReward to all agents in the group
-                                    for follower_id in agent.get_followers() {
-                                        let new_message = AgentMessage::new (
-                                            agent.get_id(), 
-                                            follower_id,
-                                            MessageType::GroupReward(reward_per_agent),
+                                    new_messages.add_message(new_message);
+                                } else if agent.is_leader() {
+                                    if agent.get_status() == Status::Dead {
+                                        let new_leader =
+                                            agent.get_followers().first().unwrap().clone();
+                                        agent.remove_follower(new_leader);
+                                        let new_message = AgentMessage::new(
+                                            agent.get_id(),
+                                            new_leader,
+                                            MessageType::Inherit(
+                                                agent.get_followers().clone(),
+                                                agent.get_reward(),
+                                            ),
                                         );
                                         new_messages.add_message(new_message);
+
+                                        let new_message_2 = AgentMessage::new(
+                                            agent.get_id(),
+                                            agent.get_followers().first().unwrap().clone(),
+                                            MessageType::Reward(reward),
+                                        );
+                                        new_messages.add_message(new_message_2);
+                                    } else {
+                                        let group_size = agent.get_group_size();
+                                        let reward_per_agent = reward / group_size;
+                                        let remainder = reward % group_size;
+
+                                        // Send GroupReward to all agents in the group
+                                        for follower_id in agent.get_followers() {
+                                            let new_message = AgentMessage::new(
+                                                agent.get_id(),
+                                                follower_id,
+                                                MessageType::GroupReward(reward_per_agent),
+                                            );
+                                            new_messages.add_message(new_message);
+                                        }
+
+                                        // Leader takes the remainder damage
+                                        agent.add_reward(remainder + reward_per_agent);
                                     }
-                                    
-                                    // Leader takes the remainder damage
-                                    agent.add_reward(remainder + reward_per_agent);
+                                } else {
+                                    agent.add_reward(reward)
                                 }
-                            } else {
-                                agent.add_reward(reward)
-                            },
+                            }
                             MessageType::GroupReward(reward) => agent.add_reward(reward),
-
-
 
                             MessageType::Steal(amount) => {
                                 let stealing_amount: u32;
-                            
+
                                 if amount == 0 {
-                                    stealing_amount = (agent.get_reward() / 10) as u32; // Perform integer division
+                                    stealing_amount = (agent.get_reward() / 10) as u32;
+                                // Perform integer division
                                 } else {
                                     stealing_amount = amount;
                                 }
-                            
+
                                 agent.remove_reward(stealing_amount);
-                            
-                                let new_message = AgentMessage::new (
-                                    agent.get_id(), 
+
+                                let new_message = AgentMessage::new(
+                                    agent.get_id(),
                                     message.sender_id,
                                     MessageType::Reward(stealing_amount),
                                 );
                                 new_messages.add_message(new_message);
-                            },
+                            }
                             MessageType::MonsterAttack(damage) => {
                                 agent.remove_energy(damage);
-                                if agent.get_status() == Status::Dead{
-                                    let new_message = MonsterMessage::new (
-                                        agent.get_id(), 
+                                if agent.get_status() == Status::Dead {
+                                    let new_message = MonsterMessage::new(
+                                        agent.get_id(),
                                         message.sender_id,
                                         MessageType::Reward(agent.get_reward()),
                                     );
                                     monster_messages.add_message(new_message);
                                 }
-                            },
+                            }
                             MessageType::Cooperate(ref agents) => {
                                 agent.set_is_leader(true);
                                 agent.set_is_follower(false);
                                 agent.add_follower(agents.clone());
-                                for id in agents{
+                                for id in agents {
                                     let new_message = AgentMessage::new(
                                         agent.get_id(),
                                         *id,
@@ -273,46 +269,46 @@ pub fn agent_message_system(
                                     );
                                     new_messages.add_message(new_message);
                                 }
-                            },
+                            }
                             MessageType::BecomeFollower => {
                                 //If its a leader or has followers, send error
-                                if agent.get_group_size() > 0{
+                                if agent.get_group_size() > 0 {
                                     println!("Error in group size handling for BecomeFollower");
-                                } 
+                                }
                                 agent.set_is_leader(false);
                                 agent.set_is_follower(true);
                                 agent.set_leader_id(message.sender_id);
-                            },
-                            
+                            }
+
                             //It assumed the agent did the necessary removal from cooperating on its end
                             MessageType::StopCooperating => {
                                 agent.remove_follower(message.sender_id);
                                 if agent.get_group_size() <= 0 {
                                     agent.set_is_leader(false);
                                 }
-                            },
+                            }
 
                             MessageType::Move((x, y)) => {
                                 agent.move_to(x as f32, y as f32, &mut commands);
                                 // Call the move_between_tiles function to move the agent to the next position in the path
-                                match world.move_agent(agent.get_id(), x as usize, y as usize){
+                                match world.move_agent(agent.get_id(), x as usize, y as usize) {
                                     Ok(it) => it,
                                     Err(_) => println!("Invalid Move"),
                                 }
-                            },
+                            }
                             MessageType::Energy(flag, amount) => {
-                                if flag{
+                                if flag {
                                     agent.add_energy(amount);
-                                }else{
+                                } else {
                                     agent.remove_energy(amount);
                                 }
-                            },
+                            }
                             MessageType::Inherit(ref followers, reward) => {
                                 let cloned_followers = followers.clone();
                                 agent.add_reward(reward);
                                 agent.add_follower(cloned_followers);
                                 agent.set_is_leader(true);
-                            },
+                            }
                         }
                     }
                 }
@@ -320,26 +316,23 @@ pub fn agent_message_system(
         }
 
         agent_messages.messages.clear();
-         // Add any messages in new_messages to agent_messages
-         for message in &new_messages.messages{
+        // Add any messages in new_messages to agent_messages
+        for message in &new_messages.messages {
             agent_messages.add_message(message.clone())
-         }
+        }
 
-         new_messages.messages.clear();
+        new_messages.messages.clear();
     }
 }
 
-
-
-
-//  __  __                 _            
-// |  \/  |               | |           
-// | \  / | ___  _ __  ___| |_ ___ _ __ 
+//  __  __                 _
+// |  \/  |               | |
+// | \  / | ___  _ __  ___| |_ ___ _ __
 // | |\/| |/ _ \| '_ \/ __| __/ _ \ '__|
-// | |  | | (_) | | | \__ \ ||  __/ |   
-// |_|  |_|\___/|_| |_|___/\__\___|_|   
-                                                                    
+// | |  | | (_) | | | \__ \ ||  __/ |
+// |_|  |_|\___/|_| |_|___/\__\___|_|
 
+#[derive(Resource)]
 pub struct MonsterMessages {
     pub(crate) messages: Vec<MonsterMessage>,
 }
@@ -352,16 +345,13 @@ pub struct MonsterMessage {
     message_type: MessageType,
 }
 
-impl MonsterMessage{
-    pub fn new(
-        sender_id: u32,
-        receiver_id: u32,
-        message_type: MessageType,) -> Self {
-            MonsterMessage{
-                sender_id: sender_id,
-                receiver_id: receiver_id,
-                message_type: message_type,
-            }
+impl MonsterMessage {
+    pub fn new(sender_id: u32, receiver_id: u32, message_type: MessageType) -> Self {
+        MonsterMessage {
+            sender_id: sender_id,
+            receiver_id: receiver_id,
+            message_type: message_type,
+        }
     }
 
     pub fn copy(&self) -> Self {
@@ -396,7 +386,7 @@ pub fn monster_message_system(
 
         for mut monster in query.iter_mut() {
             if monster.get_id() == receiver_id {
-                match message.message_type{
+                match message.message_type {
                     MessageType::Attack(damage) => monster.remove_energy(damage),
                     MessageType::Reward(_) => todo!(),
                     MessageType::Steal(_) => todo!(),
@@ -417,14 +407,14 @@ pub fn monster_message_system(
     // Clean up processed messages
     monster_messages.messages.clear();
 }
-//  _______                                
-// |__   __|                               
-//    | |_ __ ___  __ _ ___ _   _ _ __ ___ 
+//  _______
+// |__   __|
+//    | |_ __ ___  __ _ ___ _   _ _ __ ___
 //    | | '__/ _ \/ _` / __| | | | '__/ _ \
 //    | | | |  __/ (_| \__ \ |_| | | |  __/
 //    |_|_|  \___|\__,_|___/\__,_|_|  \___|
-                                        
 
+#[derive(Resource)]
 pub struct TreasureMessages {
     pub(crate) messages: Vec<TreasureMessage>,
 }
@@ -449,16 +439,13 @@ pub struct TreasureMessage {
     message_type: MessageType,
 }
 
-impl TreasureMessage{
-    pub fn new(
-        sender_id: u32,
-        receiver_id: u32,
-        message_type: MessageType,) -> Self {
-            TreasureMessage{
-                sender_id: sender_id,
-                receiver_id: receiver_id,
-                message_type: message_type,
-            }
+impl TreasureMessage {
+    pub fn new(sender_id: u32, receiver_id: u32, message_type: MessageType) -> Self {
+        TreasureMessage {
+            sender_id: sender_id,
+            receiver_id: receiver_id,
+            message_type: message_type,
+        }
     }
 
     pub fn copy(&self) -> Self {
@@ -482,17 +469,17 @@ pub fn treasure_message_system(
 
         for treasure in query.iter_mut() {
             if treasure.get_id() == receiver_id {
-                match message.message_type{
+                match message.message_type {
                     MessageType::Steal(_) => {
-                        let new_message = AgentMessage::new (
-                            0, 
+                        let new_message = AgentMessage::new(
+                            0,
                             message.sender_id,
                             MessageType::Reward(treasure.get_reward()),
                         );
                         agent_messages.add_message(new_message);
-                            
+
                         commands.entity(treasure.get_entity()).despawn();
-                    },
+                    }
                     MessageType::Attack(_) => todo!(),
                     MessageType::Reward(_) => todo!(),
                     MessageType::MonsterAttack(_) => todo!(),
@@ -513,8 +500,7 @@ pub fn treasure_message_system(
     treasure_messages.messages.clear();
 }
 
-
-//   _____ _       _           _ 
+//   _____ _       _           _
 //  / ____| |     | |         | |
 // | |  __| | ___ | |__   __ _| |
 // | | |_ | |/ _ \| '_ \ / _` | |
@@ -526,15 +512,19 @@ pub fn cleanup_system(
     mut commands: Commands,
     mut query_a: Query<&mut Agent>,
     mut query_m: Query<&mut Monster>,
-    mut world: ResMut<World>,
+    mut world: ResMut<GameWorld>,
     mut agent_messages: ResMut<AgentMessages>,
 ) {
     // Handle received messages
     for mut agent in query_a.iter_mut() {
-        if agent.get_energy() == 0 || agent.get_status() == Status::Dead{
-            if agent.is_follower(){
-                send_agent_message(agent.get_id(), agent.get_leader_id(),
-                 MessageType::Reward(agent.get_reward()), &mut agent_messages)
+        if agent.get_energy() == 0 || agent.get_status() == Status::Dead {
+            if agent.is_follower() {
+                send_agent_message(
+                    agent.get_id(),
+                    agent.get_leader_id(),
+                    MessageType::Reward(agent.get_reward()),
+                    &mut agent_messages,
+                )
             }
             //If reward is currently greater than 0, create a treasure at that position
             //if agent.get_reward() > 0
@@ -545,18 +535,17 @@ pub fn cleanup_system(
             let _removed_agent = world.remove_agent(agent.get_id());
             commands.entity(agent.get_entity()).despawn();
         }
-        if agent.get_followers().len() == 0{ 
+        if agent.get_followers().len() == 0 {
             agent.set_is_leader(false);
         }
     }
     for monster in query_m.iter_mut() {
-        if monster.get_energy() == 0 || monster.get_status() == Status::Dead{
+        if monster.get_energy() == 0 || monster.get_status() == Status::Dead {
             commands.entity(monster.get_entity()).despawn();
         }
     }
-    //If simulation is finished, and flag is set to true, 
+    //If simulation is finished, and flag is set to true,
 }
-
 
 #[allow(unused_variables)]
 //Add error handling if the target is gone/dead
@@ -567,7 +556,7 @@ pub fn cleanup_system(
 //Fix the movement issue of randomly moving to 0, as well as using th path isntead of the current position
 pub fn perform_action(
     mut query: Query<&mut Agent>,
-    world: ResMut<World>,
+    world: ResMut<GameWorld>,
     commands: Commands,
     agent_messages: ResMut<AgentMessages>,
     monster_messages: ResMut<MonsterMessages>,
@@ -685,7 +674,7 @@ pub fn perform_action(
     //                    match current_target{
     //                        //For the target Agent of the Attack action
     //                        Target::Agent => {
-                                
+
     //                            let id = agent.get_agent_target_id();
     //                            send_agent_message(
     //                                agent.get_id(),
@@ -729,7 +718,7 @@ pub fn perform_action(
     //                }
     //            }
     //        } else {
-                
+
     //            // If the agent is not at the target position, initiate travel
     //            match agent.travel(world.get_grid(), &mut commands) {
     //                Ok(_) => {
@@ -745,38 +734,33 @@ pub fn perform_action(
     //                    }
     //                },
     //                Err(_) => println!("Invalid Target in system::perform_action line {}",573),
-    //            }; 
+    //            };
     //            agent.set_status(Status::Moving);
     //            // Call the move_between_tiles function to move the agent to the next position in the path
-                
+
     //            match world.move_agent(agent.get_id(), x as usize, y as usize){
     //                Ok(it) => it,
     //                Err(_) => println!("Invalid Move"),
     //            }
     //        }
     //    }
-        
+
     //}
 }
 
 fn follower_actions(
-    agent : Agent,
-    message : MessageType,
+    agent: Agent,
+    message: MessageType,
     target_id: u32,
     agent_messages: &mut AgentMessages,
-){
-    if agent.is_leader() && agent.get_followers().len() > 0{
-        for agent_id in agent.get_followers(){
-            send_agent_message(
-                agent_id,
-                target_id,
-                message.copy(),
-                agent_messages,
-            );  
+) {
+    if agent.is_leader() && agent.get_followers().len() > 0 {
+        for agent_id in agent.get_followers() {
+            send_agent_message(agent_id, target_id, message.copy(), agent_messages);
             send_agent_message(
                 agent_id,
                 agent_id,
-                match message{
+                match message {
                     MessageType::Attack(_) => MessageType::Energy(false, 5),
                     MessageType::MonsterAttack(_) => todo!(),
                     MessageType::Reward(_) => todo!(),
@@ -791,7 +775,7 @@ fn follower_actions(
                     MessageType::BecomeFollower => todo!(),
                 },
                 agent_messages,
-            );  
+            );
         }
     }
 }
@@ -802,11 +786,7 @@ pub fn send_agent_message(
     message_content: MessageType,
     agent_messages: &mut AgentMessages,
 ) {
-    let message = AgentMessage::new (
-        sender_id,
-        receiver_id,
-        message_content,
-    );
+    let message = AgentMessage::new(sender_id, receiver_id, message_content);
     agent_messages.messages.push(message);
 }
 
@@ -816,11 +796,7 @@ pub fn send_monster_message(
     message_content: MessageType,
     monster_messages: &mut MonsterMessages,
 ) {
-    let message = MonsterMessage::new (
-        sender_id,
-        receiver_id,
-        message_content,
-    );
+    let message = MonsterMessage::new(sender_id, receiver_id, message_content);
     monster_messages.messages.push(message);
 }
 
@@ -830,10 +806,6 @@ pub fn send_treasure_message(
     message_content: MessageType,
     treasure_messages: &mut TreasureMessages,
 ) {
-    let message = TreasureMessage::new (
-        sender_id,
-        receiver_id,
-        message_content,
-    );
+    let message = TreasureMessage::new(sender_id, receiver_id, message_content);
     treasure_messages.messages.push(message);
 }

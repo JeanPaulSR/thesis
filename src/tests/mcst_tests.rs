@@ -1,9 +1,9 @@
-use std::sync::{Mutex, Arc};
+use std::sync::{Arc, Mutex};
 
-use crate::{world::World, tile::{Tile, TileType}};
-
-
-
+use crate::{
+    tile::{Tile, TileType},
+    world::GameWorld,
+};
 
 #[cfg(test)]
 mod tests {
@@ -72,9 +72,7 @@ mod tests {
     // }
 }
 
-
-
-pub fn create_world() -> World {
+pub fn create_world() -> GameWorld {
     let map_data: Vec<&str> = vec![
         "vmfffffffffffffffffm",
         "fmfffffffffffffffflm",
@@ -98,8 +96,8 @@ pub fn create_world() -> World {
         "fmfffffffffffffflllm",
         "fmfffffffffffffflllm",
     ];
-    
-    let mut world = World::new(); // Create the initial World structure
+
+    let mut world = GameWorld::new(); // Create the initial GameWorld structure
 
     // Replace the entire grid with the appropriate tile types
     world.grid = Vec::new(); // Clear the existing grid
@@ -125,11 +123,10 @@ pub fn create_world() -> World {
     world
 }
 
-
 const START_AGENT_COUNT: usize = 5;
 
 //pub fn setup() -> GameState{
-//    
+//
 //    let mut world = create_world();
 //
 //    let mut villages: Vec<(usize, usize)> = Vec::new();
@@ -141,21 +138,21 @@ const START_AGENT_COUNT: usize = 5;
 //            }
 //        }
 //    }
-//    
+//
 //    let mut agents: Vec<SimpleAgent> = Vec::new();
 //    let mut monsters: Vec<SimpleMonster> = Vec::new();
 //    let mut treasures: Vec<SimpleTreasure> = Vec::new();
 //
 //    for i in 0..START_AGENT_COUNT {
 //        let village = villages[i % villages.len()];
-//    
+//
 //        let agent = SimpleAgent::new(
 //            village.0 as u32,
 //            village.1 as u32,
 //        );
 //
 //        agents.push(agent.clone());
-//    
+//
 //        if let Err(err) = world.add_simple_agent(agent.clone()) {
 //            // Handle the error here, e.g. print an error message
 //            match err {
@@ -167,7 +164,7 @@ const START_AGENT_COUNT: usize = 5;
 //                    println!("Failed to add agent: Unknown error.");
 //                }
 //            }
-//        } 
+//        }
 //    }
 //
 //    GameState::create_gamestate_simple(agents, monsters, treasures, world.clone())

@@ -1,6 +1,6 @@
 use crate::mcst_system::mcst::{ActionRating, ActionsTaken, NpcAction};
-use std::sync::{Arc, Mutex};
 use std::collections::VecDeque;
+use std::sync::{Arc, Mutex};
 
 #[derive(Clone)]
 pub struct MCTSNode {
@@ -12,7 +12,7 @@ pub struct MCTSNode {
     total_reward: u32,
     reward_visits: u32,
     average_reward: u32,
-    is_root:bool,
+    is_root: bool,
     children: Vec<Arc<Mutex<MCTSNode>>>,
 }
 
@@ -64,7 +64,7 @@ impl MCTSNode {
     pub fn is_valid_exploration_node(&self) -> bool {
         self.is_leaf() || self.get_depth() == 255
     }
-    
+
     pub fn select(&mut self) -> VecDeque<NpcAction> {
         let mut node_actions;
         self.visits = self.visits + 1;
@@ -106,14 +106,14 @@ impl MCTSNode {
     pub fn find_child(&self, action: NpcAction) -> Option<&Arc<Mutex<MCTSNode>>> {
         for child in &self.children {
             let child_node = &child.lock().unwrap();
-            
+
             if let Some(child_action) = &child_node.action {
                 if *child_action == action {
                     return Some(&child);
                 }
             }
         }
-        
+
         None
     }
 
@@ -126,7 +126,12 @@ impl MCTSNode {
             let reward;
 
             {
-                let mut current_child = self.find_child(current_action).as_ref().unwrap().lock().unwrap();
+                let mut current_child = self
+                    .find_child(current_action)
+                    .as_ref()
+                    .unwrap()
+                    .lock()
+                    .unwrap();
                 reward = current_child.backpropagate(actions, score);
             }
 
@@ -135,17 +140,16 @@ impl MCTSNode {
         }
     }
 
-    fn current_reward(&mut self, reward: u32){
-        self.total_reward = self.total_reward+reward;
+    fn current_reward(&mut self, reward: u32) {
+        self.total_reward = self.total_reward + reward;
         self.reward_visits = self.reward_visits + 1;
-        self.average_reward = self.total_reward/self.reward_visits;
+        self.average_reward = self.total_reward / self.reward_visits;
     }
 
-    
     pub fn get_height(&self) -> u16 {
         self.height
     }
-    
+
     pub fn calculate_height(&mut self) {
         self.height = 0;
         for child in &self.children {
@@ -154,12 +158,11 @@ impl MCTSNode {
             self.height = self.height.max(child_node.get_height() + 1);
         }
     }
-    
+
     pub fn get_children(&self) -> &[Arc<Mutex<MCTSNode>>] {
         &self.children
     }
 
-    
     pub fn print_children(&self) {
         println!("Current Node: {}", self.to_string());
         println!("Children {}: ", self.children.len());
@@ -167,8 +170,7 @@ impl MCTSNode {
         for child in &self.children {
             let child_node = child.lock().unwrap();
             println!("{}", child_node.to_string());
-            child_node.print_children(); 
+            child_node.print_children();
         }
     }
-
 }

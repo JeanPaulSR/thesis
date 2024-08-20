@@ -1,4 +1,4 @@
-use crate::entities::agent::{Genes, Agent, Target, Status};
+use crate::entities::agent::{Agent, Genes, Status, Target};
 
 static mut SA_COUNTER: u32 = 0;
 
@@ -54,19 +54,15 @@ impl SimpleAgent {
     }
 
     /// Creates a new [`SimpleAgent`].
-    pub fn new(
-        x: u32,
-        y: u32,
-    ) -> Self{
-    
+    pub fn new(x: u32, y: u32) -> Self {
         // Increment the static counter variable after creating a new instance
         unsafe {
             SA_COUNTER += 1;
         }
-        
+
         // Create and return a new instance of the Agent struct
         SimpleAgent {
-            genes : Genes::generate(),
+            genes: Genes::generate(),
             id: unsafe { SA_COUNTER },
             position: (x, y),
             energy: 100,

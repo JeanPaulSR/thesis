@@ -31,14 +31,12 @@ impl Tile {
     pub fn update_tile_type(&mut self, new_tile_type: TileType) {
         self.tile_type = new_tile_type;
     }
-    
+
     pub fn set_monster_spawn(&mut self, spawn: bool) {
         self.valid_monster_spawn = spawn;
     }
-    
-    pub fn is_monster_spawn(&mut self) -> bool{
-        self.valid_monster_spawn 
+
+    pub fn is_monster_spawn(&mut self) -> bool {
+        self.valid_monster_spawn
     }
 }
-
-

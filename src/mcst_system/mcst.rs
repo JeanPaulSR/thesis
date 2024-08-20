@@ -1,24 +1,17 @@
-use crate::entities::agent::GeneType::{Aggression, SelfPreservation, Greed, Social};
+use crate::entities::agent::GeneType::{Aggression, Greed, SelfPreservation, Social};
 
 use bevy::prelude::*;
 
-
-use std::sync::{Arc, Mutex};
 use std::collections::HashMap;
+use std::sync::{Arc, Mutex};
 
 use crate::entities::agent::Genes;
-use bevy::app::Events;
-use bevy::app::AppExit;
 use rand::Rng;
-
 
 use super::mcst_tree::mcst_tree::MCTSTree;
 
 #[allow(dead_code)]
-#[derive(Clone)]
-#[derive(Copy)]
-#[derive(Debug)]
-#[derive(Eq, Hash, PartialEq)]
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
 pub enum NpcAction {
     AttackAgent,
     AttackMonster,
@@ -43,13 +36,10 @@ impl ToString for NpcAction {
     }
 }
 
-
-#[derive(Default)]
-#[derive(Clone)]
-pub struct ActionRating{
+#[derive(Default, Clone)]
+pub struct ActionRating {
     actions: HashMap<NpcAction, f32>,
 }
-
 
 impl ActionRating {
     pub fn new() -> Self {
@@ -80,12 +70,32 @@ impl ActionRating {
     //}
     pub fn generate_ratings(&mut self, genes: Genes) {
         self.actions.clear();
-        self.actions.insert(NpcAction::AttackAgent, 1.0 * genes.return_type_score(Aggression) * (1.0 - genes.return_type_score(SelfPreservation)));
-        self.actions.insert(NpcAction::AttackMonster, 1.0 * genes.return_type_score(Aggression) * (1.0 - genes.return_type_score(SelfPreservation)));
-        self.actions.insert(NpcAction::Steal, 1.0 * genes.return_type_score(Greed) * (1.0 - genes.return_type_score(SelfPreservation)));
-        self.actions.insert(NpcAction::Steal, 1.0 * genes.return_type_score(Greed) * (1.0 - genes.return_type_score(SelfPreservation)));
-        self.actions.insert(NpcAction::Rest, 1.0 * genes.return_type_score(SelfPreservation));
-        self.actions.insert(NpcAction::Talk, 1.0 * genes.return_type_score(Social));
+        self.actions.insert(
+            NpcAction::AttackAgent,
+            1.0 * genes.return_type_score(Aggression)
+                * (1.0 - genes.return_type_score(SelfPreservation)),
+        );
+        self.actions.insert(
+            NpcAction::AttackMonster,
+            1.0 * genes.return_type_score(Aggression)
+                * (1.0 - genes.return_type_score(SelfPreservation)),
+        );
+        self.actions.insert(
+            NpcAction::Steal,
+            1.0 * genes.return_type_score(Greed)
+                * (1.0 - genes.return_type_score(SelfPreservation)),
+        );
+        self.actions.insert(
+            NpcAction::Steal,
+            1.0 * genes.return_type_score(Greed)
+                * (1.0 - genes.return_type_score(SelfPreservation)),
+        );
+        self.actions.insert(
+            NpcAction::Rest,
+            1.0 * genes.return_type_score(SelfPreservation),
+        );
+        self.actions
+            .insert(NpcAction::Talk, 1.0 * genes.return_type_score(Social));
         self.actions.insert(NpcAction::None, 0.0);
     }
 
@@ -126,9 +136,9 @@ pub struct ActionsTaken {
 
 impl ActionsTaken {
     pub fn new() -> Self {
-        let action_rating = ActionRating::default(); 
+        let action_rating = ActionRating::default();
         let mut actions_vec = Vec::new();
-            
+
         actions_vec.push((NpcAction::AttackAgent, 0));
         actions_vec.push((NpcAction::AttackMonster, 0));
         actions_vec.push((NpcAction::Steal, 0));
@@ -136,14 +146,15 @@ impl ActionsTaken {
         actions_vec.push((NpcAction::Rest, 0));
         actions_vec.push((NpcAction::Talk, 0));
         actions_vec.push((NpcAction::None, 0));
-        ActionsTaken { action_rating, actions_vec }
+        ActionsTaken {
+            action_rating,
+            actions_vec,
+        }
     }
 
-    pub fn new_with_rating(
-        action_rating: ActionRating,
-    ) -> Self {
+    pub fn new_with_rating(action_rating: ActionRating) -> Self {
         let mut actions_vec = Vec::new();
-            
+
         actions_vec.push((NpcAction::AttackAgent, 0));
         actions_vec.push((NpcAction::AttackMonster, 0));
         actions_vec.push((NpcAction::Steal, 0));
@@ -165,18 +176,22 @@ impl ActionsTaken {
         }
     }
 
-    pub fn get_action_rating(&self) -> ActionRating{
+    pub fn get_action_rating(&self) -> ActionRating {
         self.action_rating.clone()
     }
 
     pub fn select_action(&self) -> Option<NpcAction> {
-        let total_visits: f64 = self.actions_vec.iter().map(|(_, visits)| *visits as f64).sum();
+        let total_visits: f64 = self
+            .actions_vec
+            .iter()
+            .map(|(_, visits)| *visits as f64)
+            .sum();
 
         let mut best_action: Option<NpcAction> = None;
         let mut best_score: f64 = f64::NEG_INFINITY;
 
         for (action, visits) in &self.actions_vec {
-            if *action == NpcAction::None{
+            if *action == NpcAction::None {
                 continue;
             }
             let selected_action_rating = self.action_rating.actions.get(action).unwrap_or(&0.0);
@@ -198,8 +213,9 @@ impl ActionsTaken {
     }
 }
 
+#[derive(Resource)]
 pub struct SimulationTree {
-    forest: Option<Arc<Mutex<Vec<( u32,MCTSTree)>>>>,
+    forest: Option<Arc<Mutex<Vec<(u32, MCTSTree)>>>>,
     exploration_constant: f64,
 }
 
@@ -207,14 +223,14 @@ impl SimulationTree {
     pub fn is_empty(&self) -> bool {
         self.forest.is_none()
     }
-    
+
     pub fn insert_tree(&mut self, tree: MCTSTree, index: u32) {
         let new_tree = (index, tree);
-    
+
         match &mut self.forest {
             Some(forest_arc) => {
                 forest_arc.lock().unwrap().push(new_tree);
-            },
+            }
             None => {
                 let tree_arc = Arc::new(Mutex::new(vec![new_tree]));
                 self.forest = Some(tree_arc);
@@ -222,7 +238,7 @@ impl SimulationTree {
         }
     }
 
-    pub fn get_forest(&mut self) -> &mut Arc<Mutex<Vec<( u32, MCTSTree)>>> {
+    pub fn get_forest(&mut self) -> &mut Arc<Mutex<Vec<(u32, MCTSTree)>>> {
         let trees = &mut self.forest;
         match trees {
             Some(return_trees) => return_trees,
@@ -230,10 +246,10 @@ impl SimulationTree {
             None => {
                 println!("Error generation MCST Tree, system unsalvegable");
                 std::process::exit(0);
-            },
+            }
         }
     }
-    
+
     pub fn new_empty() -> Self {
         SimulationTree {
             forest: None,
@@ -241,7 +257,6 @@ impl SimulationTree {
         }
     }
 
-    
     pub fn print_tree_id(&self, id: u32) {
         if let Some(forest) = &self.forest {
             let locked_forest = forest.lock().unwrap();

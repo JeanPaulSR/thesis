@@ -31,7 +31,7 @@ impl fmt::Display for MyError {
             MyError::OutOfBounds => write!(f, "Treasure not found"),
             MyError::PathNotFound => write!(f, "Path not found"),
             MyError::UnecessaryMove => write!(f, "Unecessary move"),
-            MyError::InvalidTarget=> write!(f, "Invalid Target"),
+            MyError::InvalidTarget => write!(f, "Invalid Target"),
             MyError::OtherError => write!(f, "Other Error"),
         }
     }

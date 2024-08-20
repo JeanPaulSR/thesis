@@ -3,7 +3,7 @@ use rand::distributions::{Distribution, Uniform};
 
 use super::agent::Status;
 
-#[derive(Clone)]
+#[derive(Clone, Component)]
 pub struct Monster {
     entity: Entity,
     id: u32,
@@ -26,22 +26,34 @@ impl Monster {
         x: f32,
         y: f32,
         commands: &mut Commands,
-        materials: &mut ResMut<Assets<ColorMaterial>>,
+        texture_atlases: &mut ResMut<Assets<TextureAtlas>>, // Updated to use TextureAtlas
         asset_server: &Res<AssetServer>,
     ) -> Self {
         let mut rng = rand::thread_rng();
         let vision_distribution = Uniform::new(2, 4);
         let sprite_size = Vec2::new(32.0, 32.0);
 
+        // Load texture and create TextureAtlas
         let texture_handle = asset_server.load("textures/enemy.png");
+        let texture_atlas = TextureAtlas::from_grid(
+            texture_handle.clone(),
+            sprite_size,
+            1, // Number of columns
+            1, // Number of rows
+            None,
+            None,
+        );
+        let texture_atlas_handle = texture_atlases.add(texture_atlas);
 
-        let entity = commands.spawn_bundle(SpriteBundle {
-            material: materials.add(texture_handle.clone().into()),
-            sprite: Sprite::new(sprite_size),
-            transform: Transform::from_translation(Vec3::new(x, y, 1.0)),
-            ..Default::default()
-        }).id();
-        
+        // Spawn the entity with SpriteSheetBundle
+        let entity = commands
+            .spawn(SpriteSheetBundle {
+                texture_atlas: texture_atlas_handle.clone(),
+                transform: Transform::from_translation(Vec3::new(x, y, 1.0)),
+                ..Default::default()
+            })
+            .id();
+
         unsafe {
             M_COUNTER += 1;
         }
@@ -55,14 +67,13 @@ impl Monster {
             reward: 0,
             status: Status::Idle,
             transform: Transform::from_translation(Vec3::new(x, y, 1.0)),
-            sprite_bundle: SpriteBundle {
-                material: materials.add(texture_handle.into()),
-                sprite: Sprite::new(sprite_size),
+            sprite_bundle: SpriteSheetBundle {
+                texture_atlas: texture_atlas_handle.clone(),
                 transform: Transform::from_translation(Vec3::new(0.0, 0.0, 0.0)),
                 ..Default::default()
             },
-            start_point: (usize::MAX,usize::MAX),
-            current_point: (usize::MAX,usize::MAX),
+            start_point: (usize::MAX, usize::MAX),
+            current_point: (usize::MAX, usize::MAX),
             target_id: u32::MAX,
         }
     }
@@ -74,16 +85,14 @@ impl Monster {
 
     // Function to get the position of the monster
     pub fn get_position(&self) -> (f32, f32) {
-        (self.transform.translation.x / 32.0, self.transform.translation.y / 32.0)
+        (
+            self.transform.translation.x / 32.0,
+            self.transform.translation.y / 32.0,
+        )
     }
-    
+
     // Function to move the monster to the given position
-    pub fn travel(
-        &mut self,
-        x: f32,
-        y: f32,
-        commands: &mut Commands,
-    ) {
+    pub fn travel(&mut self, x: f32, y: f32, commands: &mut Commands) {
         let new_transform = Transform::from_translation(Vec3::new(x * 32.0, y * 32.0, 1.0));
         self.transform = new_transform;
         commands.entity(self.entity).insert(self.transform.clone());
@@ -111,8 +120,8 @@ impl Monster {
 
     // Function to add energy to the monster
     pub fn add_energy(&mut self, energy: u8) {
-        let new_energy = self.energy.saturating_add(energy); 
-        self.energy = new_energy.min(self.max_energy); 
+        let new_energy = self.energy.saturating_add(energy);
+        self.energy = new_energy.min(self.max_energy);
     }
 
     // Function to remove energy to the monster
@@ -161,13 +170,11 @@ impl Monster {
 
     // Function to add reward to the monster
     pub fn add_reward(&mut self, reward: u32) {
-        self.reward  = self.reward + reward; 
+        self.reward = self.reward + reward;
     }
 
     // Function to remove reward to the monster
     pub fn remove_reward(&mut self, reward: u32) {
         self.reward = self.reward.saturating_sub(reward);
     }
-    
-    
 }
