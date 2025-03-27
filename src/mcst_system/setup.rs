@@ -1,9 +1,14 @@
 use crate::components::Position;
 use crate::components::TileComponent;
 use crate::entities::agent::Agent;
+use crate::IterationCount;
+use crate::WorldRandom;
 use bevy::app::AppExit;
 use bevy::prelude::*;
-use bevy::render::render_resource::Texture;
+use std::fs::create_dir_all;
+use std::fs::File;
+use std::io::{BufWriter, Write};
+use std::path::Path;
 
 use crate::mcst_system::mcst_tree::mcst_tree::MCTSTree;
 use crate::tile::TileType;
@@ -17,21 +22,18 @@ use crate::{
 
 use super::mcst;
 
-const START_AGENT_COUNT: usize = 5;
+const START_AGENT_COUNT: usize = 10;
 const START_MONSTER_COUNT: usize = 5;
-#[derive(Default, Resource)]
-pub struct IterationCount(pub i32);
 
 pub fn setup(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
-    mut textures: ResMut<Assets<Image>>,
-    mut texture_atlases: ResMut<Assets<TextureAtlas>>, // Added for TextureAtlas
+    mut texture_atlases: ResMut<Assets<TextureAtlas>>,
     mut world: ResMut<GameWorld>,
     mut iteration_total: ResMut<IterationCount>,
+    mut world_sim: ResMut<WorldSim>,
+    mut world_random: ResMut<WorldRandom>,
 ) {
-    commands.insert_resource(IterationCount(0)); // Use your custom resource type here
-
     // Load the individual textures
     let forest_texture_handle = asset_server.load("textures/forest.png");
     let mountain_texture_handle = asset_server.load("textures/mountain.png");
@@ -93,16 +95,18 @@ pub fn setup(
         &asset_server,
     );
 
-    world.set_valid_spawns();
-    let valid_monster_spawns = world.find_valid_monster_spawns();
+    world.set_valid_monster_spawns();
+    let valid_monster_spawns = world.get_valid_monster_spawns();
     world.populate_monsters(
         valid_monster_spawns,
+        &mut world_random.0,
         START_MONSTER_COUNT,
         &mut commands,
         &mut texture_atlases,
         &asset_server,
     );
-    iteration_total.0 = 3; // Update the custom resource
+    iteration_total.0 = 50; // Update the custom resource
+    world_sim.0 = world.clone();
 }
 
 pub fn setup_tree(
@@ -110,6 +114,8 @@ pub fn setup_tree(
     mut mcst_total: ResMut<MCSTTotal>,
     mut agent_query: Query<&mut Agent>,
     mut score_tracker_res: ResMut<ScoreTracker>,
+    
+    //mut commands: Commands,
 ) {
     //If the tree is empty. It is the first iteration. Using startup_system does not work
     if tree.is_empty() {
@@ -122,6 +128,9 @@ pub fn setup_tree(
             let tuple = (agent.get_id(), 0);
             score_tracker.push(tuple);
             println!("Finished setup for agent {}", agent.get_id());
+
+            //commands.entity(agent.get_entity()).insert(Transform::from_translation(Vec3::new(1.0 * 32.0, 1.0 * 32.0, 1.0)));
+
         }
     }
 }
@@ -134,15 +143,30 @@ pub fn check_end(
     mcst_flag: ResMut<MCSTFlag>,
     running_flag: ResMut<RunningFlag>,
     mut app_exit_events: ResMut<Events<AppExit>>,
-    mut agent_query: Query<&mut Agent>,
-    score_tracker_res: ResMut<ScoreTracker>,
+    agent_query: Query<&Agent>,
+    tree: ResMut<mcst::SimulationTree>,
 ) {
+    //Neither running simulation or in mcst phase
     if !mcst_flag.0 && !running_flag.0 {
-        if mcst_current.0 == mcst_total.0 {
-            if iteration_counter.0 == iteration_total.0 {
-                for agent in agent_query.iter_mut() {
-                    println!("Debug in 'check_end '{}", agent.get_reward());
+        //If the current mcst loop is less than the total mcst loops allowed
+        if mcst_current.0 >= mcst_total.0 {
+            //If the total number of mcst simulations is less than the total iterations allowed
+            if iteration_counter.0 >= iteration_total.0 {
+                for agent in agent_query.iter() {
+                    println!("Result for agent {}: Score finish 'check_end '{}", agent.get_id(), agent.get_reward());
                 }
+                let data = tree.to_string();
+                let file_path = Path::new("results/result.txt");
+            
+                if let Some(parent) = file_path.parent() {
+                    create_dir_all(parent).expect("Unable to create directories");
+                }
+            
+                let file = File::create(&file_path).expect("Unable to create file");
+                let mut writer = BufWriter::new(file);
+                writer.write_all(data.as_bytes()).expect("Unable to write data");
+                writer.flush().expect("Failed to flush data to file");
+
                 app_exit_events.send(AppExit);
                 std::process::exit(0);
             }
@@ -174,6 +198,7 @@ pub fn change_state(
             running_flag.0 = true;
             mcst_current.0 = 0;
             iteration_counter.0 += 1;
+            println!("Entered regular simulation {} ", iteration_counter.0);
         }
     }
 }

@@ -1,21 +1,18 @@
 use bevy::prelude::*;
 
 use crate::{
-    entities::agent::Agent, FinishedRunningFlag, FinishedSelectionPhase, MCSTFlag, NpcActions,
-    NpcActionsCopy, RunningFlag,
+    entities::agent::Agent, FinishedSelectionPhase, MCSTFlag, NpcActions,
+    NpcActionsCopy,
 };
 
 use super::mcst::SimulationTree;
 
 pub fn select_expansion(
     mut simulation_tree: ResMut<SimulationTree>,
-    mut mcst_flag: ResMut<MCSTFlag>,
-    mut running_flag: ResMut<RunningFlag>,
-    finished_running_flag: ResMut<FinishedRunningFlag>,
+    mcst_flag: ResMut<MCSTFlag>,
     mut agent_query: Query<&mut Agent>,
     mut npc_actions_res: ResMut<NpcActions>,
     mut npc_actions_copy_res: ResMut<NpcActionsCopy>,
-
     mut selection_flag: ResMut<FinishedSelectionPhase>,
 ) {
     if mcst_flag.0 && !selection_flag.0 {
@@ -34,8 +31,9 @@ pub fn select_expansion(
                 .iter_mut()
                 .find(|(simulation_tree, _)| *simulation_tree == agent_id)
             {
+                let agent_opinions = agent.get_opinions().clone();
                 let (_, mcst_tree) = tree_tuple;
-                let result = mcst_tree.selection_phase();
+                let result = mcst_tree.selection_phase(agent_opinions);
                 npc_actions.push((agent_id, result.clone()));
                 npc_actions_copy.push((agent_id, result));
                 mcst_tree.calculate_height();

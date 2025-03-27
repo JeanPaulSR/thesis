@@ -4,18 +4,22 @@ use bevy::ecs::system::Res;
 use bevy::ecs::system::ResMut;
 use bevy::prelude::Commands;
 use bevy::prelude::Resource;
-use bevy::sprite::ColorMaterial;
 
 use bevy::sprite::TextureAtlas;
+use bevy::utils::HashSet;
 use rand::prelude::SliceRandom;
+use rand::rngs::StdRng;
 
 use crate::entities::agent::Agent;
+use crate::entities::agent::Target;
 use crate::entities::monster::Monster;
 use crate::entities::treasure::Treasure;
 
 use crate::errors::MyError;
+use crate::movement::find_path;
 use crate::tile::Tile;
 use crate::tile::TileType;
+use std::collections::BinaryHeap;
 use std::collections::HashMap;
 
 use std::sync::{Arc, Mutex};
@@ -23,8 +27,8 @@ use std::sync::{Arc, Mutex};
 // Primary world constructor with a default map
 pub fn create_world() -> GameWorld {
     let map_data: Vec<&str> = vec![
-        "vmfffffffffffffffffm",
-        "fmfffffffffffffffflm",
+        "mfffffffffffffffffm",
+        "vmfffffffffffffffflm",
         "fffffffvfffffffffllm",
         "ffffffffffffffffllfm",
         "fffffffffffffffllffm",
@@ -137,6 +141,65 @@ impl GameWorld {
         }
     }
 
+    pub fn is_next_to(&self, position: (usize, usize), target: Target, number: u32) -> bool {
+        // Define the directions to check for adjacency
+        let directions = [
+            (0, 1),   // Right
+            (1, 0),   // Down
+            (0, -1),  // Left
+            (-1, 0),  // Up
+            (-1, -1), // Up-Left
+            (-1, 1),  // Up-Right
+            (1, -1),  // Down-Left
+            (1, 1),   // Down-Right
+        ];
+
+        // Helper function to check bounds
+        let is_within_bounds = |x: isize, y: isize| -> Option<(usize, usize)> {
+            if x >= 0 && y >= 0 {
+                Some((x as usize, y as usize))
+            } else {
+                None
+            }
+        };
+
+        match target {
+            Target::Agent => {
+                if let Some(agents) = self.agents.lock().ok() {
+                    if let Some(&(x, y)) = agents.get(&number) {
+                        return directions.iter().any(|&(dx, dy)| {
+                            is_within_bounds(position.0 as isize + dx, position.1 as isize + dy)
+                                == Some((x, y))
+                        });
+                    }
+                }
+            }
+            Target::Monster => {
+                if let Some(monsters) = self.monsters.lock().ok() {
+                    if let Some(&(x, y)) = monsters.get(&number) {
+                        return directions.iter().any(|&(dx, dy)| {
+                            is_within_bounds(position.0 as isize + dx, position.1 as isize + dy)
+                                == Some((x, y))
+                        });
+                    }
+                }
+            }
+            Target::Treasure => {
+                if let Some(treasures) = self.treasures.lock().ok() {
+                    if let Some(&(x, y)) = treasures.get(&number) {
+                        return directions.iter().any(|&(dx, dy)| {
+                            is_within_bounds(position.0 as isize + dx, position.1 as isize + dy)
+                                == Some((x, y))
+                        });
+                    }
+                }
+            }
+            Target::Tile | Target::None => return false,
+        }
+
+        false
+    }
+
     // ___________.__.__
     // \__    ___/|__|  |   ____
     //   |    |   |  |  | _/ __ \
@@ -221,7 +284,7 @@ impl GameWorld {
             .collect()
     }
 
-    pub fn find_valid_monster_spawns(&self) -> Vec<Vec<(u32, u32)>> {
+    pub fn get_valid_monster_spawns(&self) -> Vec<Vec<(u32, u32)>> {
         let world = &self;
         let mut valid_spawns: Vec<Vec<(u32, u32)>> = Vec::new();
 
@@ -230,23 +293,9 @@ impl GameWorld {
 
             for (col_index, tile_mutex) in row.iter().enumerate() {
                 let tile = tile_mutex.lock().unwrap();
-                let tile_type = tile.get_tile_type();
 
-                // Check conditions for valid spawn
-                let mut is_valid_spawn = true;
-
-                // Check if within 5 tiles of an agent
-                for agent_pos in world.agents.lock().unwrap().values() {
-                    let agent_row = agent_pos.0;
-                    let agent_col = agent_pos.1;
-                    let distance_squared = ((row_index as isize - agent_row as isize).pow(2)
-                        + (col_index as isize - agent_col as isize).pow(2))
-                        as usize;
-
-                    if distance_squared <= 25 {
-                        is_valid_spawn = false;
-                        break;
-                    }
+                if !tile.is_monster_spawn() {
+                    continue;
                 }
 
                 // Check if atop another monster
@@ -257,30 +306,23 @@ impl GameWorld {
                     .values()
                     .any(|pos| pos == &(row_index, col_index))
                 {
-                    is_valid_spawn = false;
+                    continue;
                 }
 
-                // Check if within 10 tiles of a village
-                match tile_type {
-                    TileType::Village => {
-                        is_valid_spawn = false;
-                        break;
+                // Check if within 5 tiles of an agent
+                for agent_pos in world.agents.lock().unwrap().values() {
+                    let agent_row = agent_pos.0;
+                    let agent_col = agent_pos.1;
+                    let distance_squared = ((row_index as isize - agent_row as isize).pow(2)
+                        + (col_index as isize - agent_col as isize).pow(2))
+                        as usize;
+
+                    if distance_squared <= 25 {
+                        continue;
                     }
-                    _ => {}
                 }
 
-                // Check if on top of a Mountain or Lake
-                match tile_type {
-                    TileType::Mountain | TileType::Lake => {
-                        is_valid_spawn = false;
-                        break;
-                    }
-                    _ => {}
-                }
-
-                if is_valid_spawn {
-                    valid_row_spawns.push((row_index as u32, col_index as u32));
-                }
+                valid_row_spawns.push((row_index as u32, col_index as u32));
             }
 
             if !valid_row_spawns.is_empty() {
@@ -299,7 +341,7 @@ impl GameWorld {
             && (x as usize) < self.grid[y as usize].len()
     }
 
-    pub fn set_valid_spawns(&self) {
+    pub fn set_valid_monster_spawns(&self) {
         let world = &self;
         for (row_index, row) in world.grid.iter().enumerate() {
             for (col_index, tile_mutex) in row.iter().enumerate() {
@@ -375,6 +417,57 @@ impl GameWorld {
 
         result
     }
+
+
+    /// Finds the closest tile of the specified `TileType` from a given position.
+    ///
+    /// # Arguments
+    /// - `position`: The starting position `(x, y)` in grid coordinates.
+    /// - `tile_type`: The type of tile to search for (e.g., `TileType::Forest`).
+    ///
+    /// # Returns
+    /// - `Some((x, y))`: The position of the closest tile of the specified type.
+    /// - `None`: If no matching tile is found or no path exists.
+    pub fn find_closest_tiletype(
+        &self,
+        position: (usize, usize),
+        tile_type: TileType,
+    ) -> Option<(usize, usize)> {
+        let mut closest_tile = None;
+        let mut min_cost = i32::MAX;
+        let grid: Vec<Vec<Tile>> = self
+            .grid
+            .iter()
+            .map(|row| {
+                row.iter()
+                    .map(|tile| tile.lock().unwrap().clone())
+                    .collect()
+            })
+            .collect();
+        let mut target_positions = Vec::new();
+        for (y, row) in self.grid.iter().enumerate() {
+            for (x, tile) in row.iter().enumerate() {
+                let tile = tile.lock().unwrap();
+                if tile.get_tile_type() == tile_type {
+                    target_positions.push((x as i32, y as i32));
+                }
+            }
+        }
+        for &target_pos in &target_positions {
+            if let Some(path) = find_path(
+                grid.clone(),
+                (position.0 as i32, position.1 as i32),
+                target_pos,
+            ) {
+                let cost = path.len() as i32;
+                if cost < min_cost {
+                    min_cost = cost;
+                    closest_tile = Some((target_pos.0 as usize, target_pos.1 as usize));
+                }
+            }
+        }
+        closest_tile
+    }
     //    _____                         __
     //    /  _  \    ____   ____   _____/  |_
     //   /  /_\  \  / ___\_/ __ \ /    \   __\
@@ -422,7 +515,6 @@ impl GameWorld {
             *pos_x1 = pos_x2;
             *pos_y1 = pos_y2;
 
-            println!("Agent ID: {}, ({} , {})", agent_id, pos_y2, pos_x2);
             Ok(())
         } else {
             Err(MyError::AgentNotFound)
@@ -435,7 +527,7 @@ impl GameWorld {
         &mut self,
         start_agent_count: usize,
         commands: &mut Commands,
-        texture_atlases: &mut ResMut<Assets<TextureAtlas>>, // Update to use TextureAtlas
+        texture_atlases: &mut ResMut<Assets<TextureAtlas>>,
         asset_server: &Res<AssetServer>,
     ) {
         let mut villages: Vec<(usize, usize)> = Vec::new();
@@ -456,7 +548,7 @@ impl GameWorld {
                 village.1 as f32,
                 commands,
                 asset_server,
-                texture_atlases, // Pass texture_atlases instead of materials
+                texture_atlases,
             );
 
             // Try to add the agent to the world
@@ -500,6 +592,21 @@ impl GameWorld {
         result
     }
 
+    pub fn get_agent_positions(&self) -> Vec<(u32, (usize, usize))> {
+        // Lock the Mutex to safely access the agents HashMap
+        let agents_guard = self.agents.lock().unwrap();
+
+        // Initialize an empty vector to store the positions
+        let mut positions = Vec::new();
+        // Iterate over the agents and explicitly add each one to the vector
+        for (id, pos) in agents_guard.iter() {
+            positions.push((id.clone(), pos.clone()));
+        }
+
+        // Return the vector of positions
+        positions
+    }
+
     //     _____                          __
     //    /     \   ____   ____   _______/  |_  ___________
     //   /  \ /  \ /  _ \ /    \ /  ___/\   __\/ __ \_  __ \
@@ -539,15 +646,15 @@ impl GameWorld {
     pub fn populate_monsters(
         &mut self,
         valid_spawns: Vec<Vec<(u32, u32)>>,
+        random: &mut StdRng,
         max_monsters: usize,
         commands: &mut Commands,
-        texture_atlases: &mut ResMut<Assets<TextureAtlas>>, // Updated to use TextureAtlas
+        texture_atlases: &mut ResMut<Assets<TextureAtlas>>,
         asset_server: &Res<AssetServer>,
     ) {
-        let mut rng = rand::thread_rng();
         let mut monsters_added = 0;
         let mut all_spawns: Vec<(u32, u32)> = valid_spawns.into_iter().flatten().collect();
-        all_spawns.shuffle(&mut rng);
+        all_spawns.shuffle(random);
 
         for (row, col) in all_spawns {
             if monsters_added >= max_monsters {
@@ -567,10 +674,11 @@ impl GameWorld {
         }
     }
 
-    pub fn find_closest_monsters(&self) -> Vec<(u32, u32)> {
+    pub fn find_closest_monsters(&self) -> Vec<(u32, u32, (u32, u32))> {
         let agents = self.agents.lock().unwrap();
         let monsters = self.monsters.lock().unwrap();
         let mut result = Vec::new();
+        let mut position = (0, 0);
 
         for (&agent_id, &(x1, y1)) in agents.iter() {
             let mut closest_id = None;
@@ -582,11 +690,12 @@ impl GameWorld {
                 if distance < min_distance {
                     min_distance = distance;
                     closest_id = Some(monster_id);
+                    position = (x2 as u32, y2 as u32);
                 }
             }
 
             if let Some(id) = closest_id {
-                result.push((agent_id, id));
+                result.push((agent_id, id, position));
             }
         }
 
@@ -619,10 +728,11 @@ impl GameWorld {
         Err(MyError::TreasureNotFound)
     }
 
-    pub fn find_closest_treasures(&self) -> Vec<(u32, u32)> {
+    pub fn find_closest_treasures(&self) -> Vec<(u32, u32, (u32, u32))> {
         let agents = self.agents.lock().unwrap();
         let treasures = self.treasures.lock().unwrap();
         let mut result = Vec::new();
+        let mut position = (0, 0);
 
         for (&agent_id, &(x1, y1)) in agents.iter() {
             let mut closest_id = None;
@@ -634,11 +744,12 @@ impl GameWorld {
                 if distance < min_distance {
                     min_distance = distance;
                     closest_id = Some(treasure_id);
+                    position = (x2 as u32, y2 as u32);
                 }
             }
 
             if let Some(id) = closest_id {
-                result.push((agent_id, id));
+                result.push((agent_id, id, position));
             }
         }
 

@@ -3,9 +3,9 @@ use crate::mcst_system::mcst::NpcAction;
 use crate::movement::find_path;
 use crate::tile::Tile;
 use bevy::prelude::*;
-use rand::distributions::{Distribution, Uniform};
+use rand::distributions::Distribution;
 use std::collections::HashMap;
-use std::fmt;
+use std::{fmt, u32};
 use std::sync::atomic::{AtomicU32, Ordering};
 use std::sync::{Arc, Mutex};
 
@@ -19,9 +19,14 @@ pub enum Status {
     Moving,
     Dead,
     Following,
+    Retaliating,
+    Fleeing,
+    Recovering,
+    Attacking,
+    RequiresInstruction,
 }
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub enum Target {
     Agent,
     Monster,
@@ -37,6 +42,8 @@ pub enum GeneType {
     Social,
     SelfPreservation,
     Vision,
+    Stealth,
+    Perception,
 }
 
 #[derive(Clone, Debug)]
@@ -110,6 +117,8 @@ pub struct Agent {
     reward: u32,
     status: Status,
     target: Target,
+    retaliation_target: Target,
+    retaliation_target_id: u32,
     monster_target_id: u32,
     agent_target_id: u32,
     treasure_target_id: u32,
@@ -184,7 +193,7 @@ impl Agent {
             entity,
             transform: Transform::from_translation(Vec3::new(x, y, 0.0)),
             sprite_bundle: SpriteBundle {
-                texture: texture_handle.clone(), // Use texture instead of material
+                texture: texture_handle.clone(),
                 sprite: Sprite {
                     custom_size: Some(sprite_size),
                     ..Default::default()
@@ -198,14 +207,16 @@ impl Agent {
             action: NpcAction::None,
             status: Status::Idle,
             target: Target::None,
+            retaliation_target: Target::None,
+            retaliation_target_id: u32::MAX,
             monster_target_id: u32::MAX,
             agent_target_id: u32::MAX,
             treasure_target_id: u32::MAX,
             tile_target: None,
             path: None,
-            leader: false,
+            leader: true,
             follower: false,
-            leader_id: 0,
+            leader_id: u32::MAX,
             followers: Vec::new(),
         }
     }
@@ -220,10 +231,12 @@ impl Agent {
             id: 0,
             energy: 100,
             max_energy: 100,
+            reward: 0,
             action: NpcAction::None,
             status: Status::Idle,
             target: Target::None,
-            reward: 0,
+            retaliation_target: Target::None,
+            retaliation_target_id: u32::MAX,
             monster_target_id: u32::MAX,
             agent_target_id: u32::MAX,
             treasure_target_id: u32::MAX,
@@ -270,6 +283,36 @@ impl Agent {
 
     pub fn set_opinions(&mut self, opinions: Opinions) {
         self.opinions = opinions;
+    }
+
+    pub fn modify_opinion(&mut self, id: u32, amount: f32) {
+        let mut opinion_scores = self.opinions.opinion_scores.lock().unwrap();
+        let current_opinion = opinion_scores.entry(id).or_insert(0.5);
+        *current_opinion += amount;
+        if *current_opinion > 1.0 {
+            *current_opinion = 1.0;
+        } else if *current_opinion < 0.0 {
+            *current_opinion = 0.0;
+        }
+    }
+
+    pub fn get_agent_opinion(&self, id: u32) -> f32 {
+        let opinion_scores = self.opinions.opinion_scores.lock().unwrap();
+        *opinion_scores.get(&id).unwrap_or(&0.5)
+    }
+
+    pub fn influence_opinions(&mut self, influencing_opinions: Opinions) {
+        let influencing_opinion_scores = influencing_opinions.opinion_scores.lock().unwrap();
+        let mut current_opinion_scores = self.opinions.opinion_scores.lock().unwrap();
+        for (&id, &influencing_opinion) in influencing_opinion_scores.iter() {
+            let influence = if influencing_opinion > 0.5 {
+                0.1 * (influencing_opinion - 0.5)
+            } else {
+                -0.1 * (0.5 - influencing_opinion)
+            };
+            let current_opinion = current_opinion_scores.entry(id).or_insert(0.5);
+            *current_opinion = (*current_opinion + influence).clamp(0.0, 1.0);
+        }
     }
 
     pub fn get_energy(&self) -> u8 {
@@ -323,6 +366,22 @@ impl Agent {
 
     pub fn set_target(&mut self, target: Target) {
         self.target = target;
+    }
+
+    pub fn get_retaliation_target(&self) -> Target {
+        self.retaliation_target
+    }
+
+    pub fn set_retaliation_target(&mut self, target: Target) {
+        self.retaliation_target = target;
+    }
+
+    pub fn get_retaliation_target_id(&self) -> u32 {
+        self.retaliation_target_id
+    }
+
+    pub fn set_retaliation_target_id(&mut self, retaliation_target_id: u32) {
+        self.retaliation_target_id = retaliation_target_id;
     }
 
     pub fn get_agent_target_id(&self) -> u32 {
@@ -415,6 +474,10 @@ impl Agent {
         }
     }
 
+    pub fn has_followers(&self) -> bool {
+        !self.followers.is_empty()
+    }
+
     pub fn get_followers(&self) -> Vec<u32> {
         self.followers.clone()
     }
@@ -467,6 +530,11 @@ impl Agent {
             Status::Moving => println!("Agent {} is moving.", self.id),
             Status::Dead => println!("Agent {} is dead.", self.id),
             Status::Following => println!("Agent {} is following.", self.id),
+            Status::Retaliating => println!("Agent {} is Retaliating.", self.id),
+            Status::Fleeing => println!("Agent {} is Fleeing.", self.id),
+            Status::Recovering => println!("Agent {} is Recovering.", self.id),
+            Status::Attacking => println!("Agent {} is Attacking.", self.id),
+            Status::RequiresInstruction => println!("Agent {} is Awaiting Instructions.", self.id),
         }
     }
 
@@ -488,7 +556,7 @@ impl Agent {
             Target::Treasure => println!("Agent {} is targeting treasure.", self.id),
         }
     }
-
+    
     // Function to move the agent to a specific position
     pub fn move_to(&mut self, x: f32, y: f32, commands: &mut Commands) {
         let new_transform = Transform::from_translation(Vec3::new(x * 32.0, y * 32.0, 1.0));
@@ -497,31 +565,31 @@ impl Agent {
     }
 
     // Updated travel function to use the path
-    pub fn travel(&mut self, grid: Vec<Vec<Tile>>, commands: &mut Commands) -> Result<(), MyError> {
-        if self.get_position() == self.tile_target.unwrap_or_default() {
-            return Ok(());
-        }
+    // pub fn travel(&mut self, grid: Vec<Vec<Tile>>, commands: &mut Commands) -> Result<(), MyError> {
+    //     if self.get_position() == self.tile_target.unwrap_or_default() {
+    //         return Ok(());
+    //     }
 
-        if self.path.is_none() || self.path.as_ref().unwrap().is_empty() {
-            self.path = find_path(
-                grid,
-                (self.get_position().0 as i32, self.get_position().1 as i32),
-                (
-                    self.tile_target.unwrap_or_default().0 as i32,
-                    self.tile_target.unwrap_or_default().1 as i32,
-                ),
-            );
-        }
+    //     if self.path.is_none() || self.path.as_ref().unwrap().is_empty() {
+    //         self.path = find_path(
+    //             grid,
+    //             (self.get_position().0 as i32, self.get_position().1 as i32),
+    //             (
+    //                 self.tile_target.unwrap_or_default().0 as i32,
+    //                 self.tile_target.unwrap_or_default().1 as i32,
+    //             ),
+    //         );
+    //     }
 
-        if let Some(path) = &mut self.path {
-            if let Some((x, y)) = path.pop() {
-                self.move_to(x as f32, y as f32, commands);
-            }
-            Ok(())
-        } else {
-            Err(MyError::PathNotFound)
-        }
-    }
+    //     if let Some(path) = &mut self.path {
+    //         if let Some((x, y)) = path.pop() {
+    //             self.move_to(x as f32, y as f32, commands);
+    //         }
+    //         Ok(())
+    //     } else {
+    //         Err(MyError::PathNotFound)
+    //     }
+    // }
 
     pub fn print_agent_properties(query: Query<&Agent>) {
         for agent in query.iter() {
@@ -531,15 +599,55 @@ impl Agent {
         }
     }
 
+    pub fn flight_or_fight(&self, agent_id: u32, monster: bool) -> Status{
+        let agression = self.genes.return_type_score(GeneType::Aggression);
+        let fear = self.genes.return_type_score(GeneType::SelfPreservation);
+        if monster {
+            if agression > fear * (1.0 - (self.get_energy() as f32 / self.get_max_energy() as f32)){
+                return Status::Retaliating;
+            } else {
+                return Status::Fleeing;
+            }
+        } else {
+            let opinion_scores = self.opinions.opinion_scores.lock().unwrap();
+            let opinion = opinion_scores.get(&agent_id).cloned().unwrap_or(1.0);
+            if agression * (1.0 - opinion) > fear * (1.0 - (self.get_energy() as f32 / self.get_max_energy() as f32)){
+                return Status::Retaliating;
+            } else {
+                return Status::Fleeing;
+            }
+        }
+    }
+
+    pub fn notice_steal(&self, stealth_value: f32) -> bool {
+        let perception = self.genes.return_type_score(GeneType::Perception);
+        if perception > stealth_value{
+            return true;
+        }
+        return false;
+    }
+
+    pub fn retaliate_steal(&self, agent_id: u32) -> bool{
+        let agression = self.genes.return_type_score(GeneType::Aggression);
+        let fear = self.genes.return_type_score(GeneType::SelfPreservation);
+        
+        let opinion_scores = self.opinions.opinion_scores.lock().unwrap();
+        let opinion = opinion_scores.get(&agent_id).cloned().unwrap_or(1.0);
+        if agression * (1.0 - opinion) > fear * (1.0 - (self.get_energy() as f32 / self.get_max_energy() as f32)){
+            return true;
+        } else {
+            return false;
+        }
+        
+    }
+
     pub fn calculate_best_agent(&self, action: NpcAction, agent_ids: &Vec<u32>) -> u32 {
         match action {
             NpcAction::AttackAgent | NpcAction::Steal | NpcAction::Talk => {
                 let mut best_score = f32::MIN;
                 let mut best_agent_id = u32::MAX;
-
-                // Lock the Mutex to access the HashMap
+                
                 let opinion_scores = self.opinions.opinion_scores.lock().unwrap(); // Handle the possibility of poisoning in real code
-
                 for &agent_id in agent_ids {
                     let opinion_score = opinion_scores.get(&agent_id).cloned().unwrap_or(1.0);
 
@@ -564,7 +672,6 @@ impl Agent {
                         best_agent_id = agent_id;
                     }
                 }
-
                 best_agent_id
             }
             _ => u32::MAX,
@@ -577,17 +684,27 @@ impl Agent {
     }
 
     fn calculate_attack_score(&self, opinion_score: f32, gene_score: f32) -> f32 {
-        // Placeholder for attack score calculation formula
         opinion_score * gene_score
     }
 
     fn calculate_steal_score(&self, opinion_score: f32, gene_score: f32) -> f32 {
-        // Placeholder for steal score calculation formula
         opinion_score * gene_score
     }
 
     fn calculate_talk_score(&self, opinion_score: f32, gene_score: f32) -> f32 {
-        // Placeholder for talk score calculation formula
         opinion_score * gene_score
     }
+
+    //Given an agent id, calculate the likelhood of working together with them
+    pub fn calculate_cooperation_acceptance(&self, target_agent_id: u32) -> bool {
+        let opinion_scores = self.opinions.opinion_scores.lock().unwrap();
+        let opinion = opinion_scores.get(&target_agent_id).cloned().unwrap_or(1.0);
+        let gene_scores = self.genes.gene_scores.lock().unwrap();
+        let social_gene_value = gene_scores.get(&GeneType::Social).cloned().unwrap_or(1.0);
+        let cooperation_score = opinion * social_gene_value;
+    
+        // Placeholder for now
+        cooperation_score > 0.5
+    }
+    
 }

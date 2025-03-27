@@ -1,4 +1,3 @@
-use crate::debug_system;
 use bevy::prelude::*;
 
 pub fn debug(command: &str) {
@@ -12,10 +11,14 @@ fn test_movement() {
     println!("Running test_movement");
 }
 
+fn debug_system() {
+    debug("test_movement");
+}
+
 pub struct DebugPlugin;
 
 impl Plugin for DebugPlugin {
     fn build(&self, app: &mut App) {
-        app.add_startup_system(debug_system);
+        app.add_systems(Startup, debug_system);
     }
 }

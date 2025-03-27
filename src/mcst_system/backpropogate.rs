@@ -1,50 +1,47 @@
 use super::{
-    mcst::{NpcAction, SimulationTree},
+    mcst::SimulationTree,
     mcst_tree::mcst_tree::MCTSTree,
 };
 use crate::{
-    entities::agent::{Agent, Status},
-    AgentList, Backpropogate, MCSTCurrent, MCSTFlag, NpcActions, NpcActionsCopy, RunningFlag,
-    ScoreTracker, WorldSim,
+    entities::agent::{Agent, Status}, AgentList, Backpropogate, FinishedSelectingActions, MCSTCurrent, MCSTFlag, NpcActions, NpcActionsCopy, RunningFlag, ScoreTracker
 };
 use bevy::prelude::*;
 
 pub fn check_simulation_finish(
-    mut simulation_tree: ResMut<SimulationTree>,
     mut mcst_flag: ResMut<MCSTFlag>,
     mut score_tracker_res: ResMut<ScoreTracker>,
-    mut npc_actions_res: ResMut<NpcActions>,
     mut backpropogate_flag: ResMut<Backpropogate>,
     mut agent_query: Query<&mut Agent>,
-    mut mcstcurrent: ResMut<MCSTCurrent>,
+    finished_selecting: ResMut<FinishedSelectingActions>,
 ) {
     if mcst_flag.0 {
-        let score_tracker = &mut score_tracker_res.0;
-        let npc_actions = &mut npc_actions_res.0;
-        let mut finished = true;
+        if finished_selecting.0 {
+            let score_tracker = &mut score_tracker_res.0;
+            let mut finished = true;
 
-        for (score_id, score) in score_tracker.iter_mut() {
-            if score < &mut 0 {
-                let agent = agent_query
-                    .iter_mut()
-                    .find(|agent| agent.get_id() == *score_id);
-                match agent {
-                    Some(mut agent) => {
-                        if agent.get_status() != Status::Idle {
-                            finished = false;
-                            break;
+            for (score_id, score) in score_tracker.iter_mut() {
+                if score < &mut 0 {
+                    let agent = agent_query
+                        .iter_mut()
+                        .find(|agent| agent.get_id() == *score_id);
+                    match agent {
+                        Some(agent) => {
+                            if agent.get_status() != Status::Idle {
+                                finished = false;
+                                break;
+                            }
                         }
-                    }
-                    None => {
-                        println!("Agent with score_id {} not found.", *score_id);
+                        None => {
+                            println!("Agent with score_id {} not found.", *score_id);
+                        }
                     }
                 }
             }
-        }
 
-        if finished {
-            backpropogate_flag.0 = true;
-            mcst_flag.0 = false;
+            if finished {
+                backpropogate_flag.0 = true;
+                mcst_flag.0 = false;
+            }
         }
     }
 }
@@ -56,7 +53,6 @@ pub fn backpropogate(
     mut agent_copy_res: ResMut<AgentList>,
     mut score_tracker_res: ResMut<ScoreTracker>,
     mut npc_actions_copy_res: ResMut<NpcActionsCopy>,
-    mut running_flag: ResMut<RunningFlag>,
     mut commands: Commands,
     mut texture_atlases: ResMut<Assets<TextureAtlas>>,
     asset_server: Res<AssetServer>,
@@ -65,9 +61,9 @@ pub fn backpropogate(
         let agent_copy = agent_copy_res.0.clone();
         let npc_actions_copy = &mut npc_actions_copy_res.0;
         let score_tracker = &mut score_tracker_res.0;
-        let forest_guard: &mut std::sync::Arc<std::sync::Mutex<Vec<(u32, MCTSTree)>>> =
-            tree.get_forest();
+        let forest_guard: &mut std::sync::Arc<std::sync::Mutex<Vec<(u32, MCTSTree)>>> = tree.get_forest();
 
+        
         for (entity, mut agent) in agent_query.iter_mut() {
             let agent_id = agent.get_id(); // Call get_id on the `Agent` component
 
@@ -101,7 +97,6 @@ pub fn backpropogate(
         );
 
         backpropogate_flag.0 = false;
-        running_flag.0 = true;
         *npc_actions_copy_res = NpcActionsCopy(Vec::new());
     }
 }

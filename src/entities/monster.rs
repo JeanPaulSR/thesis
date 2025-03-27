@@ -67,9 +67,13 @@ impl Monster {
             reward: 0,
             status: Status::Idle,
             transform: Transform::from_translation(Vec3::new(x, y, 1.0)),
-            sprite_bundle: SpriteSheetBundle {
-                texture_atlas: texture_atlas_handle.clone(),
-                transform: Transform::from_translation(Vec3::new(0.0, 0.0, 0.0)),
+            sprite_bundle: SpriteBundle {
+                texture: texture_handle.clone(), // Use texture instead of material
+                sprite: Sprite {
+                    custom_size: Some(sprite_size),
+                    ..Default::default()
+                },
+                transform: Transform::from_translation(Vec3::new(0.0, 0.0, 1.0)),
                 ..Default::default()
             },
             start_point: (usize::MAX, usize::MAX),
@@ -176,5 +180,13 @@ impl Monster {
     // Function to remove reward to the monster
     pub fn remove_reward(&mut self, reward: u32) {
         self.reward = self.reward.saturating_sub(reward);
+    }
+
+    pub fn set_target_id(&mut self, target_id: u32) {
+        self.target_id = target_id;
+    }
+
+    pub fn get_target_id(&self) -> u32 {
+        self.target_id
     }
 }

@@ -14,3 +14,4 @@ bevy = "0.11"
 winit = "0.27"
 rand = "0.8.5"
 pathfinding = "3.0"
+clap = { version = "4.0", features = ["derive"] }

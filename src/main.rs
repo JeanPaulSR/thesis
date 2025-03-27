@@ -1,3 +1,5 @@
+//CURRENT GOAL IS TO SEPERATE LEADER MESSAGES AND FOLLOWER MESSAGES IN SOCIAL ORGANIZER
+
 #![allow(dead_code)]
 
 use bevy::prelude::*;
@@ -5,16 +7,16 @@ use camera::camera_drag_system;
 use camera::CameraDragging;
 
 // Module imports
-mod camera;
-mod components;
-mod debug;
-mod errors;
-mod movement;
 mod tile;
+mod components;
+mod camera;
 mod world;
+mod debug;
+mod movement;
+mod errors;
 mod entities {
-    pub mod agent;
     pub mod monster;
+    pub mod agent;
     pub mod treasure;
 }
 mod mcst_system {
@@ -24,9 +26,9 @@ mod mcst_system {
     }
     pub mod backpropogate;
     pub mod mcst;
-    pub mod selection_expansion;
     pub mod setup;
     pub mod simulation;
+    pub mod selection_expansion;
     pub mod systems;
 }
 mod tests {
@@ -34,27 +36,35 @@ mod tests {
     pub mod simple_agent;
 }
 
-// Use statements from mcst_system and standard libraries
-use crate::entities::agent::Agent;
-use crate::mcst_system::mcst::{NpcAction, SimulationTree};
-use crate::tile::Tile;
-use mcst_system::backpropogate::backpropgate;
+use clap::command;
+use clap::Parser;
+use mcst_system::backpropogate::backpropogate;
 use mcst_system::backpropogate::check_simulation_finish;
-use mcst_system::selection_expansion::select_expansion;
-use mcst_system::setup::IterationCount;
-use mcst_system::setup::{change_state, check_end, setup, setup_tree};
-use mcst_system::simulation::{run_actual, run_simulation, set_simulation_actions};
+use mcst_system::mcst;
+use mcst_system::simulation::check_actual_finish;
+use mcst_system::simulation::check_cooperation;
+use mcst_system::simulation::handle_current_agent_status;
+use mcst_system::simulation::set_actual_simulation_actions;
+use mcst_system::simulation::run_actual;
+use mcst_system::simulation::set_mcst_actions;
+use mcst_system::systems::agent_message_system_social;
+use mcst_system::systems::agent_movement_system;
 use mcst_system::systems::AgentMessages;
 use mcst_system::systems::MonsterMessages;
 use mcst_system::systems::TreasureMessages;
-use mcst_system::systems::{
-    agent_message_system, cleanup_system, monster_message_system, perform_action,
-    treasure_message_system,
-};
-use std::collections::VecDeque;
-use std::iter::empty;
-use std::sync::{Arc, Mutex};
+use mcst_system::systems::{agent_message_system, perform_action};
+use mcst_system::selection_expansion::select_expansion;
+use mcst_system::setup::{setup_tree, check_end, change_state, setup};
+use rand::rngs::StdRng;
+use rand::Rng;
+use rand::SeedableRng;
 use world::GameWorld;
+use crate::mcst_system::mcst::{NpcAction, SimulationTree};
+use crate::entities::agent::Agent;
+use std::collections::VecDeque;
+use std::sync::{Arc, Mutex};
+use std::iter::empty;
+use crate::tile::Tile;
 
 // Define resource structs
 #[derive(Resource)]
@@ -93,6 +103,7 @@ pub struct IterationCurrent(pub i32);
 #[derive(Resource)]
 pub struct IterationTotal(pub i32);
 
+///Simulation world
 #[derive(Resource)]
 pub struct WorldSim(pub GameWorld);
 
@@ -102,11 +113,18 @@ pub struct AgentList(pub Vec<Agent>);
 #[derive(Resource)]
 pub struct NpcActions(pub Vec<(u32, VecDeque<mcst::NpcAction>)>);
 
+///Used to save actions when updating simulation tree
 #[derive(Resource)]
 pub struct NpcActionsCopy(pub Vec<(u32, VecDeque<mcst::NpcAction>)>);
 
 #[derive(Resource)]
 pub struct ScoreTracker(pub Vec<(u32, i32)>);
+
+#[derive(Resource)]
+struct WorldRandom(StdRng);
+
+#[derive(Default, Resource)]
+pub struct IterationCount(pub i32);
 impl WorldSim {
     pub fn get_world(&self) -> &GameWorld {
         &self.0
@@ -119,14 +137,10 @@ impl WorldSim {
         let cloned_treasures = Arc::new(Mutex::new(world.treasures.lock().unwrap().clone()));
 
         // Clone the grid, ensuring that each Tile is properly cloned and the Arc<Mutex<Tile>> structure is maintained
-        let cloned_grid: Vec<Vec<Arc<Mutex<Tile>>>> = world
-            .grid
-            .iter()
-            .map(|row| {
-                row.iter()
-                    .map(|tile| Arc::new(Mutex::new(tile.lock().unwrap().clone())))
-                    .collect()
-            })
+        let cloned_grid: Vec<Vec<Arc<Mutex<Tile>>>> = world.grid.iter()
+            .map(|row| row.iter()
+                .map(|tile| Arc::new(Mutex::new(tile.lock().unwrap().clone())))
+                .collect())
             .collect();
 
         // Create a new WorldSim instance with the cloned contents
@@ -139,8 +153,27 @@ impl WorldSim {
     }
 }
 
+#[derive(Parser, Debug)]
+#[command(author, version, about, long_about = None)]
+struct Args {
+    /// Seed for the random number generator
+    #[arg(short, long, default_value_t = 0)]
+    seed: u64,
+}
+
 #[allow(dead_code)]
 fn main() {
+
+    // Parse the command-line arguments
+    let args = Args::parse();
+
+    // Use the seed from the command-line or generate a random seed
+    let seed = if args.seed != 0 { args.seed } else { rand::thread_rng().gen() };
+    println!("Using seed: {}", seed);
+
+    // Initialize a seeded RNG
+    let rng = StdRng::seed_from_u64(seed);
+    
     // Begin building the Bevy app using App::new().
     App::new()
         // Set the window properties, such as title, width, and height.
@@ -152,15 +185,10 @@ fn main() {
             }),
             ..Default::default()
         }))
-        // Add default Bevy plugins to the app. This includes basic functionality like rendering, input handling, etc.
-        .add_plugins(DefaultPlugins)
-        // Insert a GameWorld resource that contains the game world's grid.
+        // Insert various resources
         .insert_resource(world::create_world())
-        // Insert a WorldSim resource that can be modified for simulations.
         .insert_resource(WorldSim(GameWorld::new()))
-        // Insert the simulation tree.
         .insert_resource(SimulationTree::new_empty())
-        // Insert a CameraDragging resource to track the camera dragging state.
         .insert_resource(CameraDragging {
             is_dragging: false,
             previous_mouse_position: None,
@@ -179,61 +207,114 @@ fn main() {
         .insert_resource(NpcActions(Vec::new()))
         .insert_resource(NpcActionsCopy(Vec::new()))
         .insert_resource(ScoreTracker(Vec::new()))
-        .insert_resource(IterationTotal(0))
-        // Insert resources for messages and other systems.
+        .insert_resource(IterationTotal(3))
         .insert_resource(AgentMessages::new())
         .insert_resource(MonsterMessages::new())
         .insert_resource(TreasureMessages::new())
         .insert_resource(IterationCount(0))
-        // Add a system that handles camera drag functionality.
-        .add_system(camera_drag_system)
-        // Add a startup system that sets up the initial state of the game (e.g., camera, entities, etc.).
-        .add_startup_system(setup)
-        // Setup Phase Systems
-        .add_system(setup_tree.label("setup_tree"))
-        .add_system(check_end.after("setup_tree").label("check_end"))
-        .add_system(change_state.after("check_end").label("change_state"))
-        .add_system(
+        .insert_resource(WorldRandom(rng))
+        // Add systems using system sets for labels and ordering
+        .add_systems(Startup, (
+            setup,
+        )) // Startup system
+        .add_systems(Update, (
+            camera_drag_system,
+            setup_tree.in_set(SimulationSet::Setup),
+            //Will end after a certain amount of iterations (Default 3)
+            check_end.after(SimulationSet::Setup).in_set(SimulationSet::CheckEnd),
+            change_state.after(SimulationSet::CheckEnd).in_set(SimulationSet::ChangeState),
+            //MCST Selection & Expansion Phase
+            //Done
             select_expansion
-                .after("change_state")
-                .label("selection_expansion_phase"),
-        )
-        // Simulation Phase Systems
-        .add_system(
-            set_simulation_actions
-                .after("selection_expansion_phase")
-                .label("set_simulation_actions"),
-        )
-        .add_system(
-            run_simulation
-                .after("set_simulation_actions")
-                .label("simulation_actions"),
-        )
-        .add_system(
+                .after(SimulationSet::ChangeState)
+                .in_set(SimulationSet::SelectionExpansion),
+
+            //Sets the current actions by popping it out of the actions list for that agent
+            // Sets the action, the target and the tile target
+            set_mcst_actions
+                .after(SimulationSet::SelectionExpansion)
+                .in_set(SimulationSet::SetSimulationActions),
+
+            //Checks which agents will work together, ensuring targets where applicable
+            //Also sends group requests, where those that ask first get priority in being leaders
+            check_cooperation
+                .after(SimulationSet::SetSimulationActions)
+                .in_set(SimulationSet::CheckCooperation),
+
+            //Revamp the loop in this one
+            //Done
+            agent_message_system_social
+                .after(SimulationSet::CheckCooperation)
+                .in_set(SimulationSet::AgentSocialMessaging),
+                
+            //MCST Simulation Phase
+            //Sets the status and sends the first action message
+            //Handles follow up actions
+            //Current plan is to move messages to perform_action
+            handle_current_agent_status
+                .after(SimulationSet::AgentSocialMessaging)
+                .in_set(SimulationSet::RunSimulation),
+                //IF AGENT MOVING, CHECK PATHFINDING
+            agent_movement_system
+                .after(SimulationSet::RunSimulation)
+                .in_set(SimulationSet::MoveAgent),
+            agent_message_system
+                .after(SimulationSet::MoveAgent)
+                .in_set(SimulationSet::AgentMovement),
+            perform_action
+                .after(SimulationSet::AgentMovement)
+                .in_set(SimulationSet::PerformAction),
             check_simulation_finish
-                .after("simulation_actions")
-                .label("check_simulation_end"),
-        )
-        .add_system(
-            backpropgate
-                .after("check_simulation_end")
-                .label("backpropegate"),
-        )
-        // Running Phase System
-        .add_system(run_actual.after("backpropegate").label("running_actions"))
-        // Run the app
+                .after(SimulationSet::PerformAction)
+                .in_set(SimulationSet::CheckSimulationEnd),
+            //MCST Backpropegation Phase
+            backpropogate
+                .after(SimulationSet::CheckSimulationEnd)
+                .in_set(SimulationSet::Backpropogate),
+            //Actual Simulations
+            set_actual_simulation_actions
+                .after(SimulationSet::Backpropogate)
+                .in_set(SimulationSet::SetActualActions),
+            run_actual
+                .after(SimulationSet::SetActualActions)
+                .in_set(SimulationSet::RunActions),
+            check_actual_finish
+                .after(SimulationSet::RunActions)
+                .in_set(SimulationSet::CheckActualFinish),
+        ))
         .run();
 }
 
+#[derive(SystemSet, Debug, Hash, PartialEq, Eq, Clone)]
+enum SimulationSet {
+    Setup,
+    CheckEnd,
+    ChangeState,
+    SelectionExpansion,
+    SetSimulationActions,
+    CheckCooperation,
+    AgentSocialMessaging,
+    RunSimulation,
+    MoveAgent,
+    PerformAction,
+    AgentMovement,
+    CheckSimulationEnd,
+    Backpropogate,
+    SetActualActions,
+    RunActions,
+    CheckActualFinish,
+}
+
+
 fn debug(
-    mut query: Query<&mut Agent>,
+    mut query: Query<&mut Agent>, 
     //world: ResMut<GameWorld>,
     //mut agent_messages: ResMut<AgentMessages>,
     //commands: &mut Commands,
 ) {
     println!("Debuggng");
     // Query for all mutable Agent components
-    for mut agent in query.iter_mut() {
+    for agent in query.iter_mut() {
         if agent.get_id() == 1 {
             let (x, y) = agent.get_position();
             println!("Position for agent 1: ({},{})", x, y);
@@ -244,9 +325,14 @@ fn debug(
             //agent.perform_action(world, commands, agent_messages);
         }
     }
+
 }
 
-fn toggle_flag_system(keyboard_input: Res<Input<KeyCode>>, mut toggle_flag: ResMut<MCSTFlag>) {
+
+fn toggle_flag_system(
+    keyboard_input: Res<Input<KeyCode>>,
+    mut toggle_flag: ResMut<MCSTFlag>,
+) {
     if keyboard_input.just_pressed(KeyCode::X) {
         // Toggle the flag to true when X key is pressed
         toggle_flag.0 = !toggle_flag.0;

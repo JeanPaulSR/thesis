@@ -1,11 +1,18 @@
-use crate::entities::agent::{Agent, Status};
+use std::collections::{HashMap, HashSet};
+use std::fmt;
+
+use crate::entities::agent::{Agent, Opinions, Status, Target};
 use crate::entities::monster::Monster;
+use crate::errors::MyError;
+use crate::{MCSTFlag, RunningFlag, WorldSim};
 use bevy::prelude::*;
 use rand::{thread_rng, Rng};
 
 use crate::world::GameWorld;
 
-#[derive(Clone)]
+use super::mcst::NpcAction;
+
+#[derive(Clone, PartialEq, Eq)]
 #[allow(dead_code)]
 pub enum MessageType {
     Attack(u8),
@@ -15,12 +22,92 @@ pub enum MessageType {
     Reward(u32),
     Steal(u32),
     Cooperate(Vec<u32>),
+    CheckStartCooperate,
     BecomeFollower,
+    SetLeader(u32),
     StopCooperating,
     Move((u32, u32)),
+    Rest,
+    Talk,
     //True is add, false is remove
     Energy(bool, u8),
     Inherit(Vec<u32>, u32),
+}
+
+impl fmt::Display for MessageType {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            MessageType::Attack(value) => write!(f, "Attack({})", value),
+            MessageType::MonsterAttack(value) => write!(f, "MonsterAttack({})", value),
+            MessageType::GroupDamage(value) => write!(f, "GroupDamage({})", value),
+            MessageType::GroupReward(value) => write!(f, "GroupReward({})", value),
+            MessageType::Reward(value) => write!(f, "Reward({})", value),
+            MessageType::Steal(value) => write!(f, "Steal({})", value),
+            MessageType::Cooperate(vec) => write!(f, "Cooperate({:?})", vec),
+            MessageType::CheckStartCooperate => write!(f, "CheckStartCooperate"),
+            MessageType::BecomeFollower => write!(f, "BecomeFollower"),
+            MessageType::SetLeader(value) => write!(f, "SetLeader({})", value),
+            MessageType::StopCooperating => write!(f, "StopCooperating"),
+            MessageType::Move((x, y)) => write!(f, "Move({}, {})", x, y),
+            MessageType::Rest => write!(f, "Rest"),
+            MessageType::Talk => write!(f, "Talk"),
+            MessageType::Energy(add, value) => write!(f, "Energy({}, {})", add, value),
+            MessageType::Inherit(vec, value) => write!(f, "Inherit({:?}, {})", vec, value),
+        }
+    }
+}
+
+impl PartialOrd for MessageType {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+impl Ord for MessageType {
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        // Define the order of the variants
+        use MessageType::*;
+
+        let self_order = match self {
+            Attack(_) => 0,
+            MonsterAttack(_) => 1,
+            GroupDamage(_) => 2,
+            GroupReward(_) => 3,
+            Reward(_) => 4,
+            Steal(_) => 5,
+            Cooperate(_) => 6,
+            CheckStartCooperate => 7,
+            BecomeFollower => 8,
+            SetLeader(_) => 9,
+            StopCooperating => 10,
+            Move(_) => 11,
+            Energy(_, _) => 12,
+            Inherit(_, _) => 13,
+            Rest => 14,
+            Talk => 15,
+        };
+
+        let other_order = match other {
+            Attack(_) => 0,
+            MonsterAttack(_) => 1,
+            GroupDamage(_) => 2,
+            GroupReward(_) => 3,
+            Reward(_) => 4,
+            Steal(_) => 5,
+            Cooperate(_) => 6,
+            CheckStartCooperate => 7,
+            BecomeFollower => 8,
+            SetLeader(_) => 9,
+            StopCooperating => 10,
+            Move(_) => 11,
+            Energy(_, _) => 12,
+            Inherit(_, _) => 13,
+            Rest => 14,
+            Talk => 15,
+        };
+
+        self_order.cmp(&other_order)
+    }
 }
 
 impl MessageType {
@@ -33,12 +120,16 @@ impl MessageType {
             MessageType::Reward(val) => MessageType::Reward(*val),
             MessageType::Steal(val) => MessageType::Steal(*val),
             MessageType::Cooperate(vec) => MessageType::Cooperate(vec.clone()),
+            MessageType::CheckStartCooperate => MessageType::CheckStartCooperate,
             MessageType::StopCooperating => MessageType::StopCooperating,
             MessageType::BecomeFollower => MessageType::BecomeFollower,
+            MessageType::SetLeader(val) => MessageType::SetLeader(*val),
             MessageType::Move((val1, val2)) => MessageType::Move((*val1, *val2)),
             MessageType::Energy(flag, amount) => MessageType::Energy(*flag, *amount),
             MessageType::GroupReward(reward) => MessageType::GroupReward(*reward),
             MessageType::Inherit(agents, reward) => MessageType::Inherit(agents.clone(), *reward),
+            MessageType::Rest => MessageType::Rest,
+            MessageType::Talk => MessageType::Talk,
         }
     }
 }
@@ -98,230 +189,856 @@ impl AgentMessages {
     }
 }
 
-//Don't forget to handle the system for leaving a group
-//Don't forget the system for killing the leader of a group (as well as their next replacement)
-//Don't forget the case where an agent gets a reward after it is dead (create treasure in its place)?
-pub fn agent_message_system(
+//Missing talk action
+pub fn agent_message_system_social(
     mut agent_messages: ResMut<AgentMessages>,
-    mut monster_messages: ResMut<MonsterMessages>,
-    world: ResMut<GameWorld>,
-    mut query: Query<&mut Agent>,
-    mut commands: Commands,
+    mut agent_query: Query<&mut Agent>,
 ) {
-    let mut new_messages = AgentMessages::new();
-    // Handle received messages
     while !agent_messages.messages.is_empty() {
-        for message in &mut agent_messages.messages {
-            let receiver_id = message.receiver_id;
+        let mut cooperation_list: Vec<(u32, Vec<u32>)> = Vec::new();
 
-            for mut agent in query.iter_mut() {
-                if agent.get_status() != Status::Dead {
-                    if agent.get_id() == receiver_id {
-                        match message.message_type {
-                            //Agent is attacked
-                            //If agent is part of a group, send a GroupDamage
-                            //Otherwise, remove damage from single agent
-                            MessageType::Attack(damage) => {
-                                if agent.is_follower() {
-                                    // Send an attack message to the leader
-                                    let leader_id = agent.get_leader_id();
-                                    let new_message = AgentMessage::new(
-                                        agent.get_id(),
-                                        leader_id,
-                                        MessageType::Attack(damage),
-                                    );
-                                    new_messages.add_message(new_message);
-                                } else if agent.is_leader() {
-                                    let group_size = agent.get_group_size();
-                                    let damage_per_agent = damage / group_size as u8;
-                                    let remainder = damage % group_size as u8;
+        // 1. Remove all messages from 'agent_messages' and store them in a vector
+        let mut messages = std::mem::take(&mut agent_messages.messages);
 
-                                    // Send GroupDamage to all agents in the group
-                                    for follower_id in agent.get_followers() {
-                                        let new_message = AgentMessage::new(
-                                            agent.get_id(),
-                                            follower_id,
-                                            MessageType::GroupDamage(damage_per_agent),
-                                        );
-                                        new_messages.add_message(new_message);
-                                    }
+        // Sort the messages first by `receiver_id`, then by `sender_id`, and finally by `MessageType`
+        messages.sort_by(|a, b| {
+            a.receiver_id
+                .cmp(&b.receiver_id)
+                .then_with(|| a.sender_id.cmp(&b.sender_id))
+                .then_with(|| a.message_type.cmp(&b.message_type)) // Compare by MessageType as the final criterion
+        });
 
-                                    // Leader takes the remainder damage
-                                    agent.remove_energy(remainder + damage_per_agent);
-                                } else {
-                                    agent.remove_energy(damage);
-                                    if agent.get_status() == Status::Dead {
-                                        let new_message = AgentMessage::new(
-                                            agent.get_id(),
-                                            message.sender_id,
-                                            MessageType::Reward(agent.get_reward()),
-                                        );
-                                        new_messages.add_message(new_message);
-                                    }
-                                }
-                            }
-                            MessageType::GroupDamage(damage) => {
-                                agent.remove_energy(damage);
-                                if agent.get_status() == Status::Dead {
-                                    let new_message = AgentMessage::new(
-                                        agent.get_id(),
-                                        message.sender_id,
-                                        MessageType::Reward(agent.get_reward()),
-                                    );
-                                    new_messages.add_message(new_message);
-                                }
-                            }
+        // 3. Organize agents by `agent.get_id()`
+        let mut agents: Vec<_> = agent_query.iter_mut().collect();
+        agents.sort_by_key(|agent| agent.get_id());
 
-                            MessageType::Reward(reward) => {
-                                if agent.is_follower() {
-                                    // Send an attack message to the leader
-                                    let leader_id = agent.get_leader_id();
-                                    let new_message = AgentMessage::new(
-                                        agent.get_id(),
-                                        leader_id,
-                                        MessageType::Reward(reward),
-                                    );
-                                    new_messages.add_message(new_message);
-                                } else if agent.is_leader() {
-                                    if agent.get_status() == Status::Dead {
-                                        let new_leader =
-                                            agent.get_followers().first().unwrap().clone();
-                                        agent.remove_follower(new_leader);
-                                        let new_message = AgentMessage::new(
-                                            agent.get_id(),
-                                            new_leader,
-                                            MessageType::Inherit(
-                                                agent.get_followers().clone(),
-                                                agent.get_reward(),
-                                            ),
-                                        );
-                                        new_messages.add_message(new_message);
+        // 4. Initialize the message counter
+        let mut message_counter = 0;
 
-                                        let new_message_2 = AgentMessage::new(
-                                            agent.get_id(),
-                                            agent.get_followers().first().unwrap().clone(),
-                                            MessageType::Reward(reward),
-                                        );
-                                        new_messages.add_message(new_message_2);
-                                    } else {
-                                        let group_size = agent.get_group_size();
-                                        let reward_per_agent = reward / group_size;
-                                        let remainder = reward % group_size;
+        // 5. Process each message
+        while let Some(message) = messages.pop() {
+            let AgentMessage {
+                sender_id,
+                receiver_id,
+                message_type,
+            } = message;
 
-                                        // Send GroupReward to all agents in the group
-                                        for follower_id in agent.get_followers() {
-                                            let new_message = AgentMessage::new(
-                                                agent.get_id(),
-                                                follower_id,
-                                                MessageType::GroupReward(reward_per_agent),
-                                            );
-                                            new_messages.add_message(new_message);
-                                        }
+            // Iterate through the agents to find the matching receiver
+            while message_counter < agents.len() {
+                // Get the agent that should process this message
+                let agent = &mut agents[message_counter];
 
-                                        // Leader takes the remainder damage
-                                        agent.add_reward(remainder + reward_per_agent);
-                                    }
-                                } else {
-                                    agent.add_reward(reward)
-                                }
-                            }
-                            MessageType::GroupReward(reward) => agent.add_reward(reward),
+                if agent.get_id() == receiver_id {
+                    //Handle based on message type
+                    match message_type {
+                        //To enter here, the sender must first set itself to follower
+                        //Never Called
+                        // MessageType::Cooperate(followers_to_handle) => {
+                        //     if agent.is_follower(){
+                        //         send_agent_message(
+                        //             sender_id,
+                        //             agent.get_leader_id(),
+                        //             MessageType::Cooperate(followers_to_handle),
+                        //             &mut agent_messages,
+                        //         )
+                        //     } else {
+                        //         for agent_id in followers_to_handle {
+                        //             if agent.calculate_cooperation_acceptance(agent_id){
 
-                            MessageType::Steal(amount) => {
-                                let stealing_amount: u32;
+                        //                 send_agent_message(
+                        //                     agent.get_leader_id(),
+                        //                     agent_id,
+                        //                     MessageType::SetLeader(agent.get_id()),
+                        //                     &mut agent_messages,
+                        //                 )
+                        //             } else {
+                        //                 send_agent_message(
+                        //                     agent.get_leader_id(),
+                        //                     agent_id,
+                        //                     MessageType::StopCooperating,
+                        //                     &mut agent_messages,
+                        //                 )
 
-                                if amount == 0 {
-                                    stealing_amount = (agent.get_reward() / 10) as u32;
-                                // Perform integer division
-                                } else {
-                                    stealing_amount = amount;
-                                }
+                        //             }
+                        //         }
+                        //     }
+                        // }
 
-                                agent.remove_reward(stealing_amount);
-
-                                let new_message = AgentMessage::new(
-                                    agent.get_id(),
-                                    message.sender_id,
-                                    MessageType::Reward(stealing_amount),
-                                );
-                                new_messages.add_message(new_message);
-                            }
-                            MessageType::MonsterAttack(damage) => {
-                                agent.remove_energy(damage);
-                                if agent.get_status() == Status::Dead {
-                                    let new_message = MonsterMessage::new(
-                                        agent.get_id(),
-                                        message.sender_id,
-                                        MessageType::Reward(agent.get_reward()),
-                                    );
-                                    monster_messages.add_message(new_message);
-                                }
-                            }
-                            MessageType::Cooperate(ref agents) => {
-                                agent.set_is_leader(true);
-                                agent.set_is_follower(false);
-                                agent.add_follower(agents.clone());
-                                for id in agents {
-                                    let new_message = AgentMessage::new(
-                                        agent.get_id(),
-                                        *id,
+                        //If a follower, pass on message to leader
+                        MessageType::CheckStartCooperate => {
+                            //If follower, already someones follower
+                            //If leader, ask to become follower
+                            //If not leader but calculate cooperation acceptance fails, don't become follower
+                            if agent.is_follower() {
+                                if agent.calculate_cooperation_acceptance(sender_id) {
+                                    send_agent_message(
+                                        sender_id,
+                                        agent.get_leader_id(),
                                         MessageType::BecomeFollower,
+                                        &mut agent_messages,
+                                    )
+                                }
+                            } else if agent.is_leader() {
+                                if agent.calculate_cooperation_acceptance(sender_id) {
+                                    send_agent_message(
+                                        agent.get_id(),
+                                        sender_id,
+                                        MessageType::BecomeFollower,
+                                        &mut agent_messages,
                                     );
-                                    new_messages.add_message(new_message);
                                 }
-                            }
-                            MessageType::BecomeFollower => {
-                                //If its a leader or has followers, send error
-                                if agent.get_group_size() > 0 {
-                                    println!("Error in group size handling for BecomeFollower");
-                                }
-                                agent.set_is_leader(false);
-                                agent.set_is_follower(true);
-                                agent.set_leader_id(message.sender_id);
-                            }
-
-                            //It assumed the agent did the necessary removal from cooperating on its end
-                            MessageType::StopCooperating => {
-                                agent.remove_follower(message.sender_id);
-                                if agent.get_group_size() <= 0 {
-                                    agent.set_is_leader(false);
-                                }
-                            }
-
-                            MessageType::Move((x, y)) => {
-                                agent.move_to(x as f32, y as f32, &mut commands);
-                                // Call the move_between_tiles function to move the agent to the next position in the path
-                                match world.move_agent(agent.get_id(), x as usize, y as usize) {
-                                    Ok(it) => it,
-                                    Err(_) => println!("Invalid Move"),
-                                }
-                            }
-                            MessageType::Energy(flag, amount) => {
-                                if flag {
-                                    agent.add_energy(amount);
-                                } else {
-                                    agent.remove_energy(amount);
-                                }
-                            }
-                            MessageType::Inherit(ref followers, reward) => {
-                                let cloned_followers = followers.clone();
-                                agent.add_reward(reward);
-                                agent.add_follower(cloned_followers);
-                                agent.set_is_leader(true);
+                            } else {
+                                println!("Impossible statement on line {}", line!());
                             }
                         }
+                        MessageType::BecomeFollower => {
+                            //Check if agent is in the list already, if it is just push onto those interested in follow
+                            if let Some((_, follower_list)) = cooperation_list
+                                .iter_mut()
+                                .find(|(id, _)| *id == agent.get_id())
+                            {
+                                follower_list.push(sender_id);
+                            } else {
+                                //Otherwise add a new set of interested followers
+                                cooperation_list.push((agent.get_id(), vec![sender_id]));
+                            }
+                        }
+                        MessageType::SetLeader(leader_id) => {
+                            // Set agent as follower
+                            agent.set_leader_id(leader_id);
+                            agent.set_is_leader(false);
+                            agent.set_is_follower(true);
+                            agent.set_status(Status::Following);
+
+                            //If the agent has followers, give them to new leader
+                            if agent.has_followers() {
+                                // Separate mutable borrow for leader agent
+                                let followers = agent.get_followers();
+                                if let Some(leader_agent) =
+                                    agents.iter_mut().find(|agent| agent.get_id() == leader_id)
+                                {
+                                    leader_agent.add_follower(followers);
+                                } else {
+                                    println!("Error: Leader agent not found at line {}", line!());
+                                }
+                            }
+                        }
+                        MessageType::StopCooperating => {
+                            agent.remove_follower(sender_id);
+                            agent.set_status(Status::Idle);
+                        }
+                        _ => println!("Invalid Message type {} at line {}", message_type, line!()),
                     }
+                    break;
+                } else {
+                    message_counter += 1; // Move to the next agent
                 }
             }
         }
+        process_cooperation_list(cooperation_list, &mut agent_query);
+    }
+}
 
-        agent_messages.messages.clear();
-        // Add any messages in new_messages to agent_messages
-        for message in &new_messages.messages {
-            agent_messages.add_message(message.clone())
+//Move follower agents as well
+pub fn agent_movement_system(
+    mut agent_messages: ResMut<AgentMessages>,
+    mut agent_query: Query<&mut Agent>,
+    world_sim: ResMut<WorldSim>,
+    world_actual: ResMut<GameWorld>,
+    mcst_flag: ResMut<MCSTFlag>,
+    running_flag: ResMut<RunningFlag>,
+    mut commands: Commands,
+) {
+    let world;
+    if mcst_flag.0 {
+        world = &world_sim.0;
+    } else if running_flag.0 {
+        world = &world_actual;
+    } else {
+        return;
+    }
+
+    // 1. Remove all messages from `agent_messages` and store them in a vector
+    let mut messages = std::mem::take(&mut agent_messages.messages);
+
+    for message in messages {
+        let AgentMessage {
+            sender_id,
+            receiver_id,
+            message_type,
+        } = message;
+        if !matches!(message_type, MessageType::Move(_)) {
+            send_agent_message(sender_id, receiver_id, message_type, &mut agent_messages);
+            continue;
+        }
+        for mut agent in agent_query.iter_mut() {
+            if agent.get_id() == message.receiver_id && agent.get_status() == Status::Moving {
+                /* Debug */
+                //println!("Agent {} entered into agent_movement_system with {}, checking loop", agent.get_id(), message_type.to_string());
+                /* Debug */
+                match message_type {
+                    MessageType::Move((x, y)) => {
+                        match world.move_agent(agent.get_id(), x as usize, y as usize) {
+                            Ok(_) => {
+                                if running_flag.0 {
+                                    agent.move_to(x as f32, y as f32, &mut commands);
+                                    //commands.entity(agent.get_entity()).insert(Transform::from_translation(Vec3::new(x as f32 * 32.0, y as f32 * 32.0, 1.0)));
+                                }
+                            }
+                            Err(_) => println!(
+                                "Error processing Agent {} move at line {} in systems.rs",
+                                agent.get_id(),
+                                line!()
+                            ),
+                        }
+                    }
+                    _ => println!("Invalid Message type {} at line {}", message_type, line!()),
+                }
+                break; // Exit the loop as we found the correct agent
+            }
+        }
+    }
+}
+
+pub fn process_cooperation_list(
+    cooperation_list: Vec<(u32, Vec<u32>)>,
+    agent_query: &mut Query<&mut Agent>,
+) {
+    // Step 1: Group all agents into subsets
+    let mut agent_groups: Vec<HashSet<u32>> = Vec::new();
+    let mut leader_candidates: HashMap<u32, u32> = HashMap::new();
+
+    for (agent_id, followers) in &cooperation_list {
+        let mut group = HashSet::new();
+        group.insert(*agent_id);
+        for &follower_id in followers {
+            group.insert(follower_id);
         }
 
-        new_messages.messages.clear();
+        // Merge groups if they overlap
+        let mut merged = false;
+        for existing_group in &mut agent_groups {
+            if !group.is_disjoint(existing_group) {
+                existing_group.extend(&group);
+                merged = true;
+                break;
+            }
+        }
+        if !merged {
+            agent_groups.push(group);
+        }
+
+        *leader_candidates.entry(*agent_id).or_insert(0) += followers.len() as u32;
+    }
+
+    // Step 2: For each group, select the leader and process cooperation
+    for group in agent_groups {
+        let leader_id = group
+            .iter()
+            .max_by_key(|&&id| leader_candidates.get(&id).unwrap_or(&0))
+            .unwrap();
+
+        // Step 3: Process each agent in the group, including the leader
+        for &agent_id in &group {
+            // Fetch the agent (including the leader)
+            let mut agent = agent_query
+                .iter_mut()
+                .find(|agent| agent.get_id() == agent_id)
+                .unwrap();
+
+            if agent_id == *leader_id {
+                // Leader logic
+                agent.set_is_leader(true);
+            } else {
+                // Follower logic
+                // Agent was not originally interested in this leader
+                if !cooperation_list
+                    .iter()
+                    .any(|(id, followers)| *id == *leader_id && followers.contains(&agent_id))
+                {
+                    if agent.calculate_cooperation_acceptance(*leader_id) {
+                        // Agent accepts the cooperation
+                        agent.set_is_follower(true);
+                        agent.set_is_leader(false);
+                        agent.set_leader_id(*leader_id);
+
+                        // Fetch leader agent to add this follower
+                        let mut leader_agent = agent_query
+                            .iter_mut()
+                            .find(|agent| agent.get_id() == *leader_id)
+                            .unwrap();
+                        leader_agent.add_follower(vec![agent_id]);
+                    } else {
+                        // Agent did not accept the cooperation
+                        agent.set_leader_id(u32::MAX);
+                    }
+                // Agent was originally interested in this leader
+                } else {
+                    agent.set_is_follower(true);
+                    agent.set_leader_id(*leader_id);
+                    agent.set_status(Status::Following);
+
+                    // Fetch leader agent to add this follower
+                    let mut leader_agent = agent_query
+                        .iter_mut()
+                        .find(|agent| agent.get_id() == *leader_id)
+                        .unwrap();
+                    leader_agent.add_follower(vec![agent_id]);
+                }
+            }
+        }
+    }
+}
+
+//Don't forget to handle the system for leaving a group
+//Don't forget the system for killing the leader of a group (as well as their next replacement)
+//Don't forget the case where an agent gets a reward after it is dead (create treasure in its place)?
+//Add error handling if the target is gone/dead
+//Don't forget to handle the system for leaving a group
+//Don't forget to set status to following
+//Fix performing an invalid task until it dies
+//Move removing the energy into the message handling
+//Fix the movement issue of randomly moving to 0, as well as using th path isntead of the current position
+//Opinion fix for multiple talkers
+pub fn agent_message_system(
+    mut agent_messages: ResMut<AgentMessages>,
+    mut monster_messages: ResMut<MonsterMessages>,
+    mut agent_query: Query<&mut Agent>,
+    mcst_flag: ResMut<MCSTFlag>,
+    running_flag: ResMut<RunningFlag>,
+    world_sim: ResMut<WorldSim>,
+    world_actual: ResMut<GameWorld>,
+) {
+    let world;
+    if mcst_flag.0 {
+        world = &world_sim.0;
+    } else if running_flag.0 {
+        world = &world_actual;
+    } else {
+        return;
+    }
+    let closest_village_vec = world.find_closest_villages();
+    // 1. Remove all messages from `agent_messages` and store them in a vector
+    let mut messages = std::mem::take(&mut agent_messages.messages);
+
+    // Sort the messages first by `receiver_id`, then by `sender_id`, and finally by `MessageType`
+    messages.sort_by(|a, b| {
+        a.receiver_id
+            .cmp(&b.receiver_id)
+            .then_with(|| a.sender_id.cmp(&b.sender_id))
+            .then_with(|| a.message_type.cmp(&b.message_type)) // Compare by MessageType as the final criterion
+    });
+    // 3. Organize agents by `agent.get_id()`
+    let mut agents: Vec<_> = agent_query.iter_mut().collect();
+    agents.sort_by_key(|agent| agent.get_id());
+
+    /* DEBUG */
+    // for message in messages.clone(){
+    //     let AgentMessage { sender_id, receiver_id, message_type } = message;
+    //     println!("Sender ID: {:?}, Reciever ID: {:?}, Message: {:?}", sender_id, receiver_id, message_type.to_string());
+    // }
+    // for agent in agents.iter() {
+    //     println!("Agent ID: {:?}", agent.get_id());
+    // }
+    /* DEBUG */
+
+    // Process each message
+    while let Some(message) = messages.pop() {
+        let AgentMessage {
+            sender_id,
+            receiver_id,
+            message_type,
+        } = message;
+
+        // Match on the message_type first
+        match message_type {
+            MessageType::Attack(attack_value) => {
+                // Find the receiver agent
+                if let Some(agent_index) = agents
+                    .iter()
+                    .position(|agent| agent.get_id() == receiver_id)
+                {
+                    // Mutably borrow the agent
+                    let agent = &mut agents[agent_index];
+
+                    // Check conditions and process the agent
+                    if agent.get_followers().is_empty() && agent.is_leader() {
+                        agent.remove_energy(attack_value);
+                        if agent.get_status() != Status::Retaliating
+                            && agent.get_status() != Status::Fleeing
+                            && agent.get_status() != Status::Recovering
+                            && agent.get_status() != Status::Attacking
+                        {
+                            let status = agent.flight_or_fight(agent.get_agent_target_id(), false);
+                            agent.set_status(status.clone());
+
+                            if status == Status::Retaliating {
+                                agent.set_retaliation_target(Target::Agent);
+                                agent.set_retaliation_target_id(sender_id);
+                                send_agent_message(
+                                    agent.get_id(),
+                                    agent.get_retaliation_target_id(),
+                                    MessageType::Attack(5),
+                                    &mut agent_messages,
+                                );
+                            } else {
+                                if let Some(&(_, target_pos)) = closest_village_vec
+                                    .iter()
+                                    .find(|&&(id, _)| id == agent.get_id())
+                                {
+                                    agent.set_tile_target(Some(target_pos));
+                                }
+                            }
+                        }
+                    } else if agent.is_leader() {
+                        let followers_ids = agent.get_followers().clone();
+                        let num_followers = followers_ids.len();
+                        let mut total_score = 0.0;
+
+                        // Process the leader
+                        let leader_fight_result = agent.flight_or_fight(sender_id, false);
+                        if leader_fight_result == Status::Retaliating {
+                            total_score += 0.33; // Leader contributes 0.33 to the total score
+                        }
+                        // Each follower contributes a fraction of the remaining 0.66 to the total score
+                        let follower_contribution = if num_followers > 0 {
+                            0.66 / num_followers as f32
+                        } else {
+                            println!(
+                                "Error: Follower agent with no agents found at line {}",
+                                !line!()
+                            );
+                            0.0
+                        };
+                        // Process followers
+                        let _ = agent;
+                        for follower_id in followers_ids.clone() {
+                            if let Some(follower_index) = agents
+                                .iter()
+                                .position(|agent| agent.get_id() == follower_id)
+                            {
+                                let follower_agent = &mut agents[follower_index];
+                                let follower_fight_result =
+                                    follower_agent.flight_or_fight(sender_id, false);
+                                if follower_fight_result == Status::Retaliating {
+                                    total_score += follower_contribution;
+                                }
+                            } else {
+                                println!(
+                                    "Error: Follower agent with ID {} not found at line {}",
+                                    follower_id,
+                                    !line!()
+                                );
+                            }
+                        }
+                        let fight = total_score >= 0.5;
+                        let agent = &mut agents[agent_index];
+                        if fight {
+                            agent.set_status(Status::Retaliating);
+                            agent.set_retaliation_target(Target::Agent);
+                            agent.set_retaliation_target_id(sender_id);
+                            send_agent_message(
+                                agent.get_id(),
+                                agent.get_retaliation_target_id(),
+                                MessageType::Attack((3 * (num_followers + 1)) as u8),
+                                &mut agent_messages,
+                            );
+                        } else {
+                            agent.set_status(Status::Fleeing);
+                            if let Some(&(_, target_pos)) = closest_village_vec
+                                .iter()
+                                .find(|&&(id, _)| id == agent.get_id())
+                            {
+                                agent.set_tile_target(Some(target_pos));
+                            }
+                        }
+
+                        let mut rng = rand::thread_rng();
+                        let random_index = rng.gen_range(0..num_followers);
+                        let selected_agent_id = if random_index == 0 {
+                            agent.get_id()
+                        } else {
+                            followers_ids[random_index - 1]
+                        };
+                        if let Some(selected_agent) = agents
+                            .iter_mut()
+                            .find(|agent| agent.get_id() == selected_agent_id)
+                        {
+                            selected_agent.remove_energy(attack_value);
+                        } else {
+                            println!(
+                                "Error: Selected agent with ID {} not found",
+                                selected_agent_id
+                            );
+                        }
+                    } else {
+                        send_agent_message(
+                            sender_id,
+                            agent.get_leader_id(),
+                            MessageType::Attack(attack_value),
+                            &mut agent_messages,
+                        );
+                    }
+                } else {
+                    println!("Error: Agent with ID {} not found", receiver_id);
+                }
+            }
+            MessageType::MonsterAttack(attack_value) => {
+                // Find the receiver agent
+                if let Some(agent_index) = agents
+                    .iter()
+                    .position(|agent| agent.get_id() == receiver_id)
+                {
+                    // Mutably borrow the agent
+                    let agent = &mut agents[agent_index];
+
+                    // Check conditions and process the agent
+                    if agent.get_followers().is_empty() && agent.is_leader() {
+                        agent.remove_energy(attack_value);
+                        if agent.get_status() != Status::Retaliating
+                            && agent.get_status() != Status::Fleeing
+                            && agent.get_status() != Status::Recovering
+                            && agent.get_status() != Status::Attacking
+                        {
+                            let status = agent.flight_or_fight(sender_id, true);
+                            agent.set_status(status.clone());
+
+                            if status == Status::Retaliating {
+                                agent.set_retaliation_target(Target::Monster);
+                                agent.set_retaliation_target_id(sender_id);
+                                send_monster_message(
+                                    agent.get_id(),
+                                    agent.get_retaliation_target_id(),
+                                    MessageType::Attack(5),
+                                    &mut monster_messages,
+                                );
+                            } else {
+                                if let Some(&(_, target_pos)) = closest_village_vec
+                                    .iter()
+                                    .find(|&&(id, _)| id == agent.get_id())
+                                {
+                                    agent.set_tile_target(Some(target_pos));
+                                }
+                            }
+                        }
+                    } else if agent.is_leader() {
+                        let followers_ids = agent.get_followers().clone();
+                        let num_followers = followers_ids.len();
+                        let mut total_score = 0.0;
+
+                        // Process the leader
+                        let leader_fight_result = agent.flight_or_fight(sender_id, true);
+                        if leader_fight_result == Status::Retaliating {
+                            total_score += 0.33; // Leader contributes 0.33 to the total score
+                        }
+                        // Each follower contributes a fraction of the remaining 0.66 to the total score
+                        let follower_contribution = if num_followers > 0 {
+                            0.66 / num_followers as f32
+                        } else {
+                            println!(
+                                "Error: Follower agent with no agents found at line {}",
+                                !line!()
+                            );
+                            0.0
+                        };
+                        // Process followers
+                        let _ = agent;
+                        for follower_id in followers_ids.clone() {
+                            if let Some(follower_index) = agents
+                                .iter()
+                                .position(|agent| agent.get_id() == follower_id)
+                            {
+                                let follower_agent = &mut agents[follower_index];
+                                let follower_fight_result =
+                                    follower_agent.flight_or_fight(sender_id, false);
+                                if follower_fight_result == Status::Retaliating {
+                                    total_score += follower_contribution;
+                                }
+                            } else {
+                                println!(
+                                    "Error: Follower agent with ID {} not found at line {}",
+                                    follower_id,
+                                    !line!()
+                                );
+                            }
+                        }
+                        let fight = total_score >= 0.5;
+                        let agent = &mut agents[agent_index];
+                        if fight {
+                            agent.set_status(Status::Retaliating);
+                            agent.set_retaliation_target(Target::Agent);
+                            agent.set_retaliation_target_id(sender_id);
+                            send_monster_message(
+                                agent.get_id(),
+                                agent.get_retaliation_target_id(),
+                                MessageType::Attack((3 * (num_followers + 1)) as u8),
+                                &mut monster_messages,
+                            );
+                        } else {
+                            agent.set_status(Status::Fleeing);
+                            if let Some(&(_, target_pos)) = closest_village_vec
+                                .iter()
+                                .find(|&&(id, _)| id == agent.get_id())
+                            {
+                                agent.set_tile_target(Some(target_pos));
+                            }
+                        }
+
+                        let mut rng = rand::thread_rng();
+                        let random_index = rng.gen_range(0..num_followers);
+                        let selected_agent_id = if random_index == 0 {
+                            agent.get_id()
+                        } else {
+                            followers_ids[random_index - 1]
+                        };
+                        if let Some(selected_agent) = agents
+                            .iter_mut()
+                            .find(|agent| agent.get_id() == selected_agent_id)
+                        {
+                            selected_agent.remove_energy(attack_value);
+                        } else {
+                            println!(
+                                "Error: Selected agent with ID {} not found",
+                                selected_agent_id
+                            );
+                        }
+                    } else {
+                        send_agent_message(
+                            sender_id,
+                            agent.get_leader_id(),
+                            MessageType::MonsterAttack(5),
+                            &mut agent_messages,
+                        );
+                    }
+                } else {
+                    println!("Error: Agent with ID {} not found", receiver_id);
+                }
+            }
+            MessageType::Reward(reward_value) => {
+                if let Some(agent_index) = agents
+                    .iter()
+                    .position(|agent| agent.get_id() == receiver_id)
+                {
+                    let agent = &mut agents[agent_index];
+
+                    if agent.get_followers().is_empty() && agent.is_leader() {
+                        agent.add_reward(reward_value);
+                    } else if agent.is_leader() {
+                        let followers_ids = agent.get_followers().clone();
+                        let new_amount = (reward_value as f32) / 0.66;
+                        let rounded_amount = new_amount.ceil() as u32;
+                        agent.add_reward(rounded_amount);
+                        let _ = agent;
+                        for follower_id in followers_ids.clone() {
+                            if let Some(follower_index) = agents
+                                .iter()
+                                .position(|agent| agent.get_id() == follower_id)
+                            {
+                                let follower_agent = &mut agents[follower_index];
+                                follower_agent.add_reward(rounded_amount);
+                            } else {
+                                println!(
+                                    "Error: Follower agent with ID {} not found at line {}",
+                                    follower_id,
+                                    !line!()
+                                );
+                            }
+                        }
+                    } else {
+                        agent.add_reward(reward_value);
+                    }
+                } else {
+                    println!("Error: Agent with ID {} not found", receiver_id);
+                }
+            }
+            MessageType::Steal(steal_amount) => {
+                let mut stealth_value = 0.0;
+                if let Some(agent_index) =
+                    agents.iter().position(|agent| agent.get_id() == sender_id)
+                {
+                    let agent = &mut agents[agent_index];
+                    let genes = agent.get_genes();
+                    stealth_value =
+                        genes.return_type_score(crate::entities::agent::GeneType::Stealth);
+                } else {
+                    println!("Error: Agent with ID {} not found", sender_id);
+                }
+                if let Some(agent_index) = agents
+                    .iter()
+                    .position(|agent| agent.get_id() == receiver_id)
+                {
+                    let agent = &mut agents[agent_index];
+
+                    if agent.get_followers().is_empty() && agent.is_leader() {
+                        let current_amount = agent.get_reward();
+                        agent.remove_reward(steal_amount);
+                        let new_amount = agent.get_reward();
+                        let stolen_amount = current_amount - new_amount;
+
+                        send_agent_message(
+                            agent.get_id(),
+                            sender_id,
+                            MessageType::Reward(stolen_amount),
+                            &mut agent_messages,
+                        );
+                        if agent.notice_steal(stealth_value) {
+                            agent.modify_opinion(sender_id, -0.1);
+                            if agent.retaliate_steal(sender_id) {
+                                if agent.get_status() != Status::Retaliating
+                                    && agent.get_status() != Status::Fleeing
+                                    && agent.get_status() != Status::Recovering
+                                    && agent.get_status() != Status::Attacking
+                                {
+                                    agent.set_status(Status::Retaliating);
+                                    agent.set_retaliation_target(Target::Agent);
+                                    agent.set_retaliation_target_id(sender_id);
+                                    send_agent_message(
+                                        agent.get_id(),
+                                        agent.get_retaliation_target_id(),
+                                        MessageType::Attack(5),
+                                        &mut agent_messages,
+                                    );
+                                }
+                            }
+                        }
+                    } else if agent.is_leader() {
+                        let followers_ids = agent.get_followers().clone();
+
+                        let current_amount = agent.get_reward();
+                        agent.remove_reward(steal_amount);
+                        let new_amount = agent.get_reward();
+                        let stolen_amount = current_amount - new_amount;
+                        send_agent_message(
+                            agent.get_id(),
+                            sender_id,
+                            MessageType::Reward(stolen_amount),
+                            &mut agent_messages,
+                        );
+                        if agent.notice_steal(stealth_value) {
+                            agent.modify_opinion(sender_id, -0.1);
+
+                            let mut total_score = 0.0;
+                            if agent.retaliate_steal(sender_id) {
+                                total_score += 0.33;
+                            }
+                            let num_followers = followers_ids.len();
+                            let _ = agent;
+                            // Each follower contributes a fraction of the remaining 0.66 to the total score
+                            let follower_contribution = if num_followers > 0 {
+                                0.66 / num_followers as f32
+                            } else {
+                                println!(
+                                    "Error: Follower agent with no agents found at line {}",
+                                    !line!()
+                                );
+                                0.0
+                            };
+
+                            for follower_id in followers_ids.clone() {
+                                if let Some(follower_index) = agents
+                                    .iter_mut()
+                                    .position(|agent| agent.get_id() == follower_id)
+                                {
+                                    let follower_agent = &mut agents[follower_index];
+                                    follower_agent.modify_opinion(sender_id, -0.1);
+                                    if follower_agent.retaliate_steal(sender_id) {
+                                        total_score += follower_contribution;
+                                    }
+                                } else {
+                                    println!(
+                                        "Error: Follower agent with ID {} not found at line {}",
+                                        follower_id,
+                                        !line!()
+                                    );
+                                }
+                            }
+                            let agent = &mut agents[agent_index];
+                            if total_score >= 0.5 {
+                                if agent.get_status() != Status::Retaliating
+                                    && agent.get_status() != Status::Fleeing
+                                    && agent.get_status() != Status::Recovering
+                                    && agent.get_status() != Status::Attacking
+                                {
+                                    agent.set_status(Status::Retaliating);
+                                    agent.set_retaliation_target(Target::Agent);
+                                    agent.set_retaliation_target_id(sender_id);
+                                    send_agent_message(
+                                        agent.get_id(),
+                                        agent.get_retaliation_target_id(),
+                                        MessageType::Attack((3 * (num_followers + 1)) as u8),
+                                        &mut agent_messages,
+                                    );
+                                }
+                            }
+                        }
+                    } else {
+                        let current_amount = agent.get_reward();
+                        agent.remove_reward(steal_amount);
+                        let new_amount = agent.get_reward();
+                        let stolen_amount = current_amount - new_amount;
+
+                        send_agent_message(
+                            agent.get_id(),
+                            sender_id,
+                            MessageType::Reward(stolen_amount),
+                            &mut agent_messages,
+                        );
+                        send_agent_message(
+                            sender_id,
+                            agent.get_leader_id(),
+                            MessageType::Reward(0),
+                            &mut agent_messages,
+                        );
+                    }
+                } else {
+                    println!("Error: Agent with ID {} not found", receiver_id);
+                }
+            }
+            MessageType::Rest => {
+                if let Some(agent_index) = agents
+                    .iter()
+                    .position(|agent| agent.get_id() == receiver_id)
+                {
+                    let agent = &mut agents[agent_index];
+
+                    agent.add_energy(10);
+                    if agent.get_energy() == agent.get_max_energy() {
+                        agent.set_status(Status::Idle);
+                    }
+                } else {
+                    println!("Error: Agent with ID {} not found", receiver_id);
+                }
+            }
+            MessageType::Talk => {
+                let talker_opinions;
+
+                if let Some(agent_index) =
+                    agents.iter().position(|agent| agent.get_id() == sender_id)
+                {
+                    let talker_agent = &mut agents[agent_index];
+                    talker_opinions = talker_agent.get_opinions().clone();
+                } else {
+                    println!("Error: Agent with ID {} not found", sender_id);
+                    continue;
+                }
+
+                if let Some(agent_index) = agents
+                    .iter_mut()
+                    .position(|agent| agent.get_id() == receiver_id)
+                {
+                    let agent = &mut agents[agent_index];
+                    agent.influence_opinions(talker_opinions);
+                } else {
+                    println!("Error: Agent with ID {} not found", receiver_id);
+                }
+            }
+            _ => {
+                println!("Unhandled message type at line {}", line!());
+            } //
+              // MessageType::Cooperate(_) =>todo!(),
+              // MessageType::Energy(_, _) => todo!(),
+              // MessageType::Inherit(_, _) => todo!(),
+        }
     }
 }
 
@@ -399,6 +1116,7 @@ pub fn monster_message_system(
                     MessageType::GroupReward(_) => todo!(),
                     MessageType::Inherit(_, _) => todo!(),
                     MessageType::BecomeFollower => todo!(),
+                    _ => todo!(),
                 }
             }
         }
@@ -491,6 +1209,7 @@ pub fn treasure_message_system(
                     MessageType::GroupReward(_) => todo!(),
                     MessageType::Inherit(_, _) => todo!(),
                     MessageType::BecomeFollower => todo!(),
+                    _ => todo!(),
                 }
             }
         }
@@ -548,234 +1267,74 @@ pub fn cleanup_system(
 }
 
 #[allow(unused_variables)]
-//Add error handling if the target is gone/dead
-//Don't forget to handle the system for leaving a group
-//Don't forget to set status to following
-//Fix performing an invalid task until it dies
-//Move removing the energy into the message handling
-//Fix the movement issue of randomly moving to 0, as well as using th path isntead of the current position
 pub fn perform_action(
-    mut query: Query<&mut Agent>,
-    world: ResMut<GameWorld>,
     commands: Commands,
-    agent_messages: ResMut<AgentMessages>,
+    mut treasure_messages: ResMut<TreasureMessages>,
+    mcst_flag: ResMut<MCSTFlag>,
+    mut agent_query: Query<&mut Agent>,
+    world_sim: ResMut<WorldSim>,
+    mut agent_messages: ResMut<AgentMessages>,
     monster_messages: ResMut<MonsterMessages>,
-    treasure_messages: ResMut<TreasureMessages>,
 ) {
-    for mut agent in query.iter_mut() {
-        agent.set_status(Status::Idle);
-        let mut rng = thread_rng();
-        let reward = rng.gen_range(10..=100);
-        agent.add_reward(reward);
-    }
-    //for mut agent in query.iter_mut() {
-    //    if !(agent.is_leader() && !agent.get_followers().is_empty()) {
-    //        let current_target = agent.get_target();
-    //        match current_target {
-    //            Target::Agent => {
-    //                match world.get_agent_position(agent.get_agent_target_id()) {
-    //                    Ok(agent_position) => {
-    //                        let (x, y) = agent_position;
-    //                        agent.set_tile_target(Some((x as u32, y as u32)));
-    //                    }
-    //                    Err(MyError::AgentNotFound) => {
-    //                        println!("Agent not found in system::perform_action line {} from agent {}",284, agent.get_id());
-    //                    }
-    //                    _ => {} // Handle other errors if needed
-    //                }
-    //            }
-    //            Target::Monster => {
-    //                match world.get_monster_position(agent.get_monster_target_id()) {
-    //                    Ok(monster_position) => {
-    //                        let (x, y) = monster_position;
-    //                        agent.set_tile_target(Some((x as u32, y as u32)));
-    //                    }
-    //                    Err(MyError::MonsterNotFound) => {
-    //                        println!("Monster not found in system::perform_action line {}",296);
-    //                    }
-    //                    _ => {} // Handle other errors if needed
-    //                }
-    //            }
-    //            Target::Treasure => {
-    //                match world.get_treasure_position(agent.get_treasure_target_id()) {
-    //                    Ok(treasure_position) => {
-    //                        let (x, y) = treasure_position;
-    //                        agent.set_tile_target(Some((x as u32, y as u32)));
-    //                    }
-    //                    Err(MyError::TreasureNotFound) => {
-    //                        println!("Treasure not found.");
-    //                    }
-    //                    _ => {} // Handle other errors if needed
-    //                }
-    //            }
-    //            Target::None => {
-    //                println!("Invalid Target in system::perform_action line {} from agent {}",296, agent.get_id());
-    //            }
-    //            Target::Tile => {
-    //                todo!()
-    //            }
-    //        }
-
-    //        // Check if the agent's current position is equal to the tile target
-    //        let (x, y) = agent.get_position();
-    //        if (x, y) == agent.get_tile_target().unwrap_or_default() {
-    //        //     // Continue with action logic
-    //            let action = agent.get_action();
-    //            //Match the type of action
-    //            match action {
-    //                NpcAction::Attack => {
-    //                    //Match the current target for the Attack action
-    //                    match current_target{
-    //                        //For the target Agent of the Attack action
-    //                        Target::Agent => {
-    //                            let id = agent.get_agent_target_id();
-    //                            let message = MessageType::Attack(10);
-    //                            follower_actions(
-    //                                agent.clone(),
-    //                                message,
-    //                                id,
-    //                                &mut agent_messages,
-    //                            );
-    //                            send_agent_message(
-    //                                agent.get_id(),
-    //                                id,
-    //                                MessageType::Attack(10),
-    //                                &mut agent_messages,
-    //                            );
-    //                            agent.remove_energy(5);
-    //                            agent.set_status(Status::Working);
-    //                        },
-    //                        Target::Monster => {
-    //                            let id = agent.get_monster_target_id();
-    //                            send_monster_message(
-    //                                agent.get_id(),
-    //                                id,
-    //                                MessageType::Attack(10),
-    //                                &mut monster_messages,
-    //                            );
-    //                            agent.remove_energy(5);
-    //                            if agent.is_leader() && agent.get_followers().len() > 0{
-    //                                for agent_id in agent.get_followers(){
-    //                                    send_agent_message(
-    //                                        agent.get_id(),
-    //                                        id,
-    //                                        MessageType::Energy(false, 5),
-    //                                        &mut agent_messages,
-    //                                    );
-    //                                }
-    //                            }
-    //                            agent.set_status(Status::Working);
-    //                        },
-    //                        _ => println!("Invalid Target in system::perform_action line {}",506),
-    //                    }
-    //                }
-    //                NpcAction::Steal => {
-    //                    //Match the current target for the Attack action
-    //                    match current_target{
-    //                        //For the target Agent of the Attack action
-    //                        Target::Agent => {
-
-    //                            let id = agent.get_agent_target_id();
-    //                            send_agent_message(
-    //                                agent.get_id(),
-    //                                id,
-    //                                MessageType::Steal(10),
-    //                                &mut agent_messages,
-    //                            );
-    //                            agent.remove_energy(20);
-    //                        },
-    //                        Target::Treasure => {
-    //                            let id = agent.get_agent_target_id();
-    //                            send_treasure_message(
-    //                                agent.get_id(),
-    //                                id,
-    //                                MessageType::Steal(10),
-    //                                &mut treasure_messages,
-    //                            );
-    //                            let _treasure = world.remove_treasure(id);
-    //                            agent.remove_energy(5);
-    //                        },
-    //                        _ => println!("Invalid Target in system::perform_action line {}",536),
-    //                    }
-    //                }
-    //                NpcAction::Rest => {
-    //                    //Match the current target for the rest action
-    //                    match current_target{
-    //                        Target::Tile => {
-    //                            agent.add_energy(10);
-    //                            if agent.get_energy() == agent.get_max_energy() {
-    //                                agent.set_status(Status::Idle);
-    //                            }
-    //                        },
-    //                        _ => println!("Invalid Target in system::perform_action line {}",548)
-    //                    }
-    //                }
-    //                NpcAction::Talk => {
-    //                    // Logic for moving to a monster
-    //                }
-    //                NpcAction::None => {
-    //                    // Logic for moving to a monster
-    //                }
-    //            }
-    //        } else {
-
-    //            // If the agent is not at the target position, initiate travel
-    //            match agent.travel(world.get_grid(), &mut commands) {
-    //                Ok(_) => {
-    //                    if agent.is_leader() && agent.get_followers().len() > 0{
-    //                        for agent_id in agent.get_followers(){
-    //                            send_agent_message(
-    //                                agent.get_id(),
-    //                                agent_id,
-    //                                MessageType::Move(agent.get_position()),
-    //                                &mut agent_messages,
-    //                            );
-    //                        }
-    //                    }
-    //                },
-    //                Err(_) => println!("Invalid Target in system::perform_action line {}",573),
-    //            };
-    //            agent.set_status(Status::Moving);
-    //            // Call the move_between_tiles function to move the agent to the next position in the path
-
-    //            match world.move_agent(agent.get_id(), x as usize, y as usize){
-    //                Ok(it) => it,
-    //                Err(_) => println!("Invalid Move"),
-    //            }
-    //        }
-    //    }
-
-    //}
-}
-
-fn follower_actions(
-    agent: Agent,
-    message: MessageType,
-    target_id: u32,
-    agent_messages: &mut AgentMessages,
-) {
-    if agent.is_leader() && agent.get_followers().len() > 0 {
-        for agent_id in agent.get_followers() {
-            send_agent_message(agent_id, target_id, message.copy(), agent_messages);
-            send_agent_message(
-                agent_id,
-                agent_id,
-                match message {
-                    MessageType::Attack(_) => MessageType::Energy(false, 5),
-                    MessageType::MonsterAttack(_) => todo!(),
-                    MessageType::Reward(_) => todo!(),
-                    MessageType::Steal(_) => todo!(),
-                    MessageType::Cooperate(_) => todo!(),
-                    MessageType::StopCooperating => todo!(),
-                    MessageType::Move(_) => todo!(),
-                    MessageType::Energy(_, _) => todo!(),
-                    MessageType::GroupDamage(_) => todo!(),
-                    MessageType::GroupReward(_) => todo!(),
-                    MessageType::Inherit(_, _) => todo!(),
-                    MessageType::BecomeFollower => todo!(),
+    if mcst_flag.0 {
+        for agent in agent_query.iter_mut() {
+            match agent.get_status() {
+                Status::Working => match agent.get_action() {
+                    NpcAction::Steal => {
+                        let mut steal_amount = 5;
+                        let current_followers = agent.get_followers();
+                        if !current_followers.is_empty() {
+                            steal_amount = 5 * (current_followers.iter().count() as u32);
+                        }
+                        send_agent_message(
+                            agent.get_id(),
+                            agent.get_agent_target_id(),
+                            MessageType::Steal(steal_amount),
+                            &mut agent_messages,
+                        );
+                    }
+                    NpcAction::TreasureHunt => {
+                        let mut steal_amount = 5;
+                        let current_followers = agent.get_followers();
+                        if !current_followers.is_empty() {
+                            steal_amount = 5 * (current_followers.iter().count() as u32);
+                        }
+                        send_treasure_message(
+                            agent.get_id(),
+                            agent.get_treasure_target_id(),
+                            MessageType::Steal(steal_amount),
+                            &mut treasure_messages,
+                        );
+                    }
+                    NpcAction::Talk => {
+                        send_agent_message(
+                            agent.get_id(),
+                            agent.get_agent_target_id(),
+                            MessageType::Talk,
+                            &mut agent_messages,
+                        );
+                    }
+                    _ => {
+                        println!("Error incorrect action for status in simulation::run_action on line {}", line!())
+                    }
                 },
-                agent_messages,
-            );
+                Status::Attacking => {
+                    let mut attack_amount = 5;
+                    let current_followers = agent.get_followers();
+                    if !current_followers.is_empty() {
+                        attack_amount = 5 * (current_followers.iter().count() as u32);
+                    }
+                    send_agent_message(
+                        agent.get_id(),
+                        agent.get_agent_target_id(),
+                        MessageType::Attack(attack_amount.try_into().unwrap()),
+                        &mut agent_messages,
+                    );
+                }
+                _ => {
+                    //Nothing to do
+                }
+            }
         }
     }
 }

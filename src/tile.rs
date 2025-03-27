@@ -36,7 +36,7 @@ impl Tile {
         self.valid_monster_spawn = spawn;
     }
 
-    pub fn is_monster_spawn(&mut self) -> bool {
+    pub fn is_monster_spawn(&self) -> bool {
         self.valid_monster_spawn
     }
 }

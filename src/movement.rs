@@ -109,6 +109,6 @@ fn reconstruct_path(
     }
     path.reverse();
     path.remove(0);
-    path.reverse();
+    //path.reverse();
     path
 }

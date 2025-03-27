@@ -5,7 +5,7 @@ use bevy::prelude::*;
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 
-use crate::entities::agent::Genes;
+use crate::entities::agent::{Genes, Opinions};
 use rand::Rng;
 
 use super::mcst_tree::mcst_tree::MCTSTree;
@@ -54,48 +54,44 @@ impl ActionRating {
 
         ActionRating { actions }
     }
-
-    //MODIFY VALUES WITH GENES
-    //pub enum GeneType {
-    //    Greed,
-    //    Aggression,
-    //    Social,
-    //    SelfPreservation,
-    //    Vision,
-    //}
-
-    //#[derive(Clone, Debug)]
-    //pub struct Genes {
-    //    pub gene_scores: HashMap<GeneType, f32>,
-    //}
+    
     pub fn generate_ratings(&mut self, genes: Genes) {
         self.actions.clear();
+        //Attack Agent Action
+        let agression = genes.return_type_score(Aggression);
+        let self_preservation = genes.return_type_score(SelfPreservation);
+        let attack_score = 0.5 + (((agression - 0.5) - (self_preservation - 0.5) )/2.0);
+
         self.actions.insert(
             NpcAction::AttackAgent,
-            1.0 * genes.return_type_score(Aggression)
-                * (1.0 - genes.return_type_score(SelfPreservation)),
+            attack_score,
         );
+
+        
         self.actions.insert(
             NpcAction::AttackMonster,
-            1.0 * genes.return_type_score(Aggression)
-                * (1.0 - genes.return_type_score(SelfPreservation)),
+            attack_score,
         );
+        
+        let greed= genes.return_type_score(Greed);
+        let wealth_score = 0.5 + (((greed - 0.5) - (self_preservation - 0.5) )/2.0);
+
         self.actions.insert(
             NpcAction::Steal,
-            1.0 * genes.return_type_score(Greed)
-                * (1.0 - genes.return_type_score(SelfPreservation)),
+            wealth_score,
         );
         self.actions.insert(
-            NpcAction::Steal,
-            1.0 * genes.return_type_score(Greed)
-                * (1.0 - genes.return_type_score(SelfPreservation)),
+            NpcAction::TreasureHunt,
+            wealth_score,
         );
+
         self.actions.insert(
             NpcAction::Rest,
-            1.0 * genes.return_type_score(SelfPreservation),
+            self_preservation,
         );
+
         self.actions
-            .insert(NpcAction::Talk, 1.0 * genes.return_type_score(Social));
+            .insert(NpcAction::Talk, genes.return_type_score(Social));
         self.actions.insert(NpcAction::None, 0.0);
     }
 
@@ -180,7 +176,7 @@ impl ActionsTaken {
         self.action_rating.clone()
     }
 
-    pub fn select_action(&self) -> Option<NpcAction> {
+    pub fn select_action(&self, opinions: Opinions ) -> Option<NpcAction> {
         let total_visits: f64 = self
             .actions_vec
             .iter()
@@ -211,6 +207,8 @@ impl ActionsTaken {
         }
         best_action
     }
+
+    
 }
 
 #[derive(Resource)]
@@ -277,11 +275,28 @@ impl SimulationTree {
         if let Some(forest) = &self.forest {
             let locked_forest = forest.lock().unwrap();
             println!("Printing all trees in the forest:");
-            for (tree_id, _) in locked_forest.iter() {
+            for (tree_id, tree) in locked_forest.iter() {
                 println!("Tree ID: {}", tree_id);
+                tree.print_tree();
             }
         } else {
             println!("Forest is empty");
         }
+    }
+    
+
+    pub fn to_string(&self) -> String {
+        let mut result = String::new();
+        if let Some(forest) = &self.forest {
+            let locked_forest = forest.lock().unwrap();
+            for (tree_id, tree) in locked_forest.iter() {
+                result.push_str(&format!("Tree ID: {}\n", tree_id));
+                result.push_str(&tree.to_string());
+                result.push('\n'); 
+            }
+        } else {
+            result.push_str("Forest is empty\n");
+        }
+        result
     }
 }
