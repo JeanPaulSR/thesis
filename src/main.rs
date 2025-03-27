@@ -7,10 +7,14 @@ use camera::camera_drag_system;
 use camera::CameraDragging;
 
 // Module imports
-mod tile;
 mod components;
 mod camera;
-mod world;
+mod gameworld {
+    pub mod world;
+    pub mod position;
+    pub mod tile;
+    pub mod tile_types;
+}
 mod debug;
 mod movement;
 mod errors;
@@ -38,6 +42,7 @@ mod tests {
 
 use clap::command;
 use clap::Parser;
+use gameworld::world;
 use mcst_system::backpropogate::backpropogate;
 use mcst_system::backpropogate::check_simulation_finish;
 use mcst_system::mcst;
@@ -59,12 +64,12 @@ use rand::rngs::StdRng;
 use rand::Rng;
 use rand::SeedableRng;
 use world::GameWorld;
-use crate::mcst_system::mcst::{NpcAction, SimulationTree};
+use crate::mcst_system::mcst::SimulationTree;
 use crate::entities::agent::Agent;
+use std::collections::HashMap;
 use std::collections::VecDeque;
 use std::sync::{Arc, Mutex};
-use std::iter::empty;
-use crate::tile::Tile;
+use crate::gameworld::tile::Tile;
 
 // Define resource structs
 #[derive(Resource)]
@@ -149,6 +154,11 @@ impl WorldSim {
             monsters: cloned_monsters,
             treasures: cloned_treasures,
             grid: cloned_grid,
+            tiles: world.get_tiles().clone(),
+            width_mind: world.get_width_mind(),
+            height_min: world.get_height_min(),
+            width_max: world.get_width_max(),
+            height_max: world.get_height_max(),
         })
     }
 }
@@ -173,6 +183,7 @@ fn main() {
 
     // Initialize a seeded RNG
     let rng = StdRng::seed_from_u64(seed);
+    let game_world = world::initialize("test").expect("Failed to initialize the game world");
     
     // Begin building the Bevy app using App::new().
     App::new()
@@ -186,7 +197,7 @@ fn main() {
             ..Default::default()
         }))
         // Insert various resources
-        .insert_resource(world::create_world())
+        .insert_resource(game_world)
         .insert_resource(WorldSim(GameWorld::new()))
         .insert_resource(SimulationTree::new_empty())
         .insert_resource(CameraDragging {

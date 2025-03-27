@@ -11,7 +11,7 @@ use std::io::{BufWriter, Write};
 use std::path::Path;
 
 use crate::mcst_system::mcst_tree::mcst_tree::MCTSTree;
-use crate::tile::TileType;
+use crate::gameworld::tile_types::TileType;
 use crate::AgentList;
 use crate::FinishedSelectionPhase;
 use crate::ScoreTracker;

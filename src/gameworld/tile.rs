@@ -1,16 +1,12 @@
+
+use crate::gameworld;
+use gameworld::tile_types::TileType;
+
+
 #[derive(Clone)]
 pub struct Tile {
     tile_type: TileType,
     valid_monster_spawn: bool,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq)]
-pub enum TileType {
-    Forest,
-    Mountain,
-    Lake,
-    Village,
-    Dungeon,
 }
 
 impl Tile {

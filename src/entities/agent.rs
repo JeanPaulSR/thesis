@@ -1,7 +1,4 @@
-use crate::errors::MyError;
 use crate::mcst_system::mcst::NpcAction;
-use crate::movement::find_path;
-use crate::tile::Tile;
 use bevy::prelude::*;
 use rand::distributions::Distribution;
 use std::collections::HashMap;

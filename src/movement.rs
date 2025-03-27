@@ -1,7 +1,11 @@
-use crate::tile::{Tile, TileType};
+
+use crate::gameworld;
+use crate::gameworld::tile_types::TileType;
+use gameworld::tile::Tile;
 use std::cmp::Ordering;
 use std::collections::BinaryHeap;
 use std::collections::HashMap;
+
 
 //Using A* to caclulate path
 pub fn find_path(

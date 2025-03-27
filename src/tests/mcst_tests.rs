@@ -1,9 +1,6 @@
 use std::sync::{Arc, Mutex};
 
-use crate::{
-    tile::{Tile, TileType},
-    world::GameWorld,
-};
+use crate::gameworld::{tile::Tile, tile_types::TileType, world::GameWorld};
 
 #[cfg(test)]
 mod tests {

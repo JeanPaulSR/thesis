@@ -1,13 +1,9 @@
 use std::collections::HashMap;
-use std::sync::{Arc, Mutex};
-use std::thread::current;
 
-use bevy::a11y::accesskit::Action;
 //Runs a simulation with the agents actions, assumed best actions on all other agents, and random actions otherwise
 //For loop over all agent actions
 //Don't care about synchronicity for now
 use bevy::prelude::*;
-use bevy::render::render_resource::ShaderType;
 use rand::{thread_rng, Rng};
 
 use crate::entities::agent::Agent;
@@ -17,13 +13,12 @@ use crate::errors::MyError;
 use crate::mcst_system::mcst::NpcAction;
 use crate::movement::find_path;
 use crate::{
-    AgentMessages, FinishedSelectingActions, GameWorld, MCSTFlag, MonsterMessages, NpcActions,
-    NpcActionsCopy, RunningFlag, ScoreTracker, TreasureMessages, WorldSim,
+    AgentMessages, FinishedSelectingActions, GameWorld, MCSTFlag, MonsterMessages, NpcActions, RunningFlag, ScoreTracker, TreasureMessages, WorldSim,
 };
 
 use super::mcst::SimulationTree;
 use super::systems::{
-    send_agent_message, send_monster_message, send_treasure_message, AgentMessage, MessageType,
+    send_agent_message, send_treasure_message, AgentMessage, MessageType,
 };
 
 //Missing what to do if target is gone
@@ -231,8 +226,8 @@ pub fn set_actual_simulation_actions(
     mut game_world: ResMut<GameWorld>,
     running_flag: ResMut<RunningFlag>,
     mut tree: ResMut<SimulationTree>,
-    mut finished_selecting: ResMut<FinishedSelectingActions>,
-    mut score_tracker_res: ResMut<ScoreTracker>,
+    finished_selecting: ResMut<FinishedSelectingActions>,
+    score_tracker_res: ResMut<ScoreTracker>,
     mut agent_query: Query<&mut Agent>,
 ) {
     if running_flag.0 {
@@ -373,7 +368,7 @@ pub fn set_actual_simulation_actions(
 }
 
 pub fn run_actual(
-    mut running_flag: ResMut<RunningFlag>,
+    running_flag: ResMut<RunningFlag>,
     mcst_flag: ResMut<MCSTFlag>,
     mut agent_query: Query<&mut Agent>,
     world_sim: ResMut<WorldSim>,
@@ -597,7 +592,7 @@ pub fn handle_current_agent_status(
     mcst_flag: ResMut<MCSTFlag>,
     running_flag: ResMut<RunningFlag>,
     mut agent_query: Query<&mut Agent>,
-    mut agent_monster: Query<&mut Monster>,
+    agent_monster: Query<&mut Monster>,
     world_sim: ResMut<WorldSim>,
     world_actual: ResMut<GameWorld>,
     mut agent_messages: ResMut<AgentMessages>,
@@ -669,7 +664,7 @@ pub fn handle_current_agent_status(
                 }
                 NpcAction::Rest => {
                     let closest_village =
-                        world.find_closest_tiletype(agent_position, crate::tile::TileType::Village);
+                        world.find_closest_tiletype(agent_position, crate::gameworld::tile_types::TileType::Village);
                     match closest_village {
                         Some((v1, v2)) => {
                             if agent.get_position() == (v1 as u32, v2 as u32) {
@@ -748,7 +743,7 @@ pub fn handle_current_agent_status(
                 }
             } else if agent_action == NpcAction::Rest {
                 let closest_village =
-                    world.find_closest_tiletype(agent_position, crate::tile::TileType::Village);
+                    world.find_closest_tiletype(agent_position, crate::gameworld::tile_types::TileType::Village);
                 match closest_village {
                     Some((v1, v2)) => {
                         if agent.get_position() == (v1 as u32, v2 as u32) {
@@ -796,7 +791,7 @@ pub fn handle_current_agent_status(
                 }
                 if fight_or_flight == Status::Fleeing {
                     let closest_village =
-                        world.find_closest_tiletype(agent_position, crate::tile::TileType::Village);
+                        world.find_closest_tiletype(agent_position, crate::gameworld::tile_types::TileType::Village);
                     match closest_village {
                         Some((v1, v2)) => {
                             agent.set_status(Status::Fleeing);
@@ -864,7 +859,7 @@ pub fn handle_current_agent_status(
                     }
                     NpcAction::Rest => {
                         let closest_village = world
-                            .find_closest_tiletype(agent_position, crate::tile::TileType::Village);
+                            .find_closest_tiletype(agent_position, crate::gameworld::tile_types::TileType::Village);
                         match closest_village {
                             Some((v1, v2)) => {
                                 if agent.get_position() == (v1 as u32, v2 as u32) {

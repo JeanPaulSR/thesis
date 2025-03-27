@@ -1,78 +1,29 @@
-use bevy::asset::AssetServer;
-use bevy::asset::Assets;
-use bevy::ecs::system::Res;
-use bevy::ecs::system::ResMut;
-use bevy::prelude::Commands;
-use bevy::prelude::Resource;
-
+// Bevy imports
+use bevy::asset::{AssetServer, Assets};
+use bevy::ecs::system::{Res, ResMut};
+use bevy::prelude::{Commands, Resource};
 use bevy::sprite::TextureAtlas;
-use bevy::utils::HashSet;
+
+// External crate imports
 use rand::prelude::SliceRandom;
 use rand::rngs::StdRng;
 
-use crate::entities::agent::Agent;
-use crate::entities::agent::Target;
-use crate::entities::monster::Monster;
-use crate::entities::treasure::Treasure;
-
-use crate::errors::MyError;
-use crate::movement::find_path;
-use crate::tile::Tile;
-use crate::tile::TileType;
-use std::collections::BinaryHeap;
+// Standard library imports
 use std::collections::HashMap;
-
+use std::fs::File;
+use std::io::{self, BufRead};
+use std::path::Path;
 use std::sync::{Arc, Mutex};
 
-// Primary world constructor with a default map
-pub fn create_world() -> GameWorld {
-    let map_data: Vec<&str> = vec![
-        "mfffffffffffffffffm",
-        "vmfffffffffffffffflm",
-        "fffffffvfffffffffllm",
-        "ffffffffffffffffllfm",
-        "fffffffffffffffllffm",
-        "ffffffffffffffllfffm",
-        "fffffffffffffllffffm",
-        "ffffffffffffffmffllm",
-        "ffffmmfffffffffmlllm",
-        "ffffmfffffffffmllllm",
-        "fffffmffffffffffmllm",
-        "fffffffmfffffmmmmllm",
-        "mmmmmmmmmmmfmmmmlllm",
-        "fffffffffffffffflllm",
-        "fffffffffffffffflllm",
-        "fffffffffffffffflllm",
-        "ffffffllfffffffflllm",
-        "ffffffffvffffffflllm",
-        "fmfffffffffffffflllm",
-        "fmfffffffffffffflllm",
-        "fmfffffffffffffflllm",
-    ];
-
-    let mut world = GameWorld::new();
-    world.grid = Vec::new();
-
-    for row_str in map_data.iter() {
-        let mut row = Vec::new();
-        for c in row_str.chars() {
-            let tile_type = match c {
-                'm' => TileType::Mountain,
-                'l' => TileType::Lake,
-                'v' => TileType::Village,
-                'd' => TileType::Dungeon,
-                'f' => TileType::Forest,
-                _ => panic!("Invalid tile character: {}", c),
-            };
-
-            let tile = Arc::new(Mutex::new(Tile::new(tile_type)));
-            row.push(tile);
-        }
-        world.grid.push(row);
-    }
-
-    world
-}
+// Internal crate imports
+use crate::entities::agent::{Agent, Target};
+use crate::entities::monster::Monster;
+use crate::entities::treasure::Treasure;
+use crate::errors::MyError;
+use crate::gameworld::position::Position;
+use crate::gameworld::tile::Tile;
+use crate::gameworld::tile_types::TileType;
+use crate::movement::find_path;
 
 #[derive(Clone, Resource)]
 pub struct GameWorld {
@@ -80,48 +31,160 @@ pub struct GameWorld {
     pub monsters: Arc<Mutex<HashMap<u32, (usize, usize)>>>,
     pub treasures: Arc<Mutex<HashMap<u32, (usize, usize)>>>,
     pub grid: Vec<Vec<Arc<Mutex<Tile>>>>,
+    pub tiles: HashMap<Position, Arc<Mutex<Tile>>>,
+    pub width_mind : i32,
+    pub height_min : i32,
+    pub width_max : i32,
+    pub height_max : i32,
 }
 
+/// Standalone function to initialize the game world.
+pub fn initialize(text_file_name: &str) -> io::Result<GameWorld> {
+    GameWorld::initialize(text_file_name)
+}
+
+
 impl GameWorld {
+    /// Reads a text file and returns a vector of strings, where each string represents a row in the world map.
+    pub fn read_world(text_file_name: &str) -> io::Result<Vec<String>> {
+        let file_path = format!("./worlds/{}.txt", text_file_name);
+        let path = Path::new(&file_path);
+
+        let file = File::open(path)?;
+        let reader = io::BufReader::new(file);
+
+        let map_data: Vec<String> = reader.lines().collect::<Result<_, _>>()?;
+        Ok(map_data)
+    }
+
     //Construct a empty world
     pub fn new() -> Self {
         let agents = Arc::new(Mutex::new(HashMap::new()));
         let monsters = Arc::new(Mutex::new(HashMap::new()));
         let treasures = Arc::new(Mutex::new(HashMap::new()));
-
-        let mut grid: Vec<Vec<Arc<Mutex<Tile>>>> = Vec::new();
-        for _ in 0..30 {
-            let row = (0..30)
-                .map(|_| Arc::new(Mutex::new(Tile::new(TileType::Forest))))
-                .collect();
-            grid.push(row);
-        }
-
+    
+        let grid: Vec<Vec<Arc<Mutex<Tile>>>> = Vec::new();
+        let tiles: HashMap<Position, Arc<Mutex<Tile>>> = HashMap::new();
+    
         GameWorld {
             agents,
             monsters,
             treasures,
             grid,
+            tiles,
+            width_mind: i32::MAX,
+            height_min: i32::MAX,
+            width_max: i32::MIN,
+            height_max: i32::MIN,
         }
+    }
+
+    /// Creates a world using a vector of strings as the map data.
+    pub fn create_world(map_data: Vec<String>) -> Self {
+        let mut world = GameWorld::new();
+        world.grid = Vec::new();
+
+        // Initialize min and max values
+        let mut min_x = i32::MAX;
+        let mut min_y = i32::MAX;
+        let mut max_x = i32::MIN;
+        let mut max_y = i32::MIN;
+
+        for (y, row_str) in map_data.iter().enumerate() {
+            let mut row = Vec::new();
+            for (x, c) in row_str.chars().enumerate() {
+                let tile_type = match c {
+                    'm' => TileType::Mountain,
+                    'l' => TileType::Lake,
+                    'v' => TileType::Village,
+                    'd' => TileType::Dungeon,
+                    'f' => TileType::Forest,
+                    _ => panic!("Invalid tile character: {}", c),
+                };
+
+                let tile = Arc::new(Mutex::new(Tile::new(tile_type)));
+                row.push(tile.clone());
+
+                // Add the tile to the tiles HashMap with its position
+                let position = Position { x: x as i32, y: y as i32 };
+                world.tiles.insert(position, tile);
+
+                // Update min and max values
+                if position.x < min_x {
+                    min_x = position.x;
+                }
+                if position.y < min_y {
+                    min_y = position.y;
+                }
+                if position.x > max_x {
+                    max_x = position.x;
+                }
+                if position.y > max_y {
+                    max_y = position.y;
+                }
+            }
+            world.grid.push(row);
+        }
+
+        // Store the min and max values in the world
+        world.width_mind = min_x;
+        world.height_min = min_y;
+        world.width_max = max_x;
+        world.height_max = max_y;
+
+        world
+    }
+
+
+    pub fn initialize(text_file_name: &str) -> io::Result<Self> {
+        let map_data = Self::read_world(text_file_name)?;
+        Ok(Self::create_world(map_data))
     }
 
     // Function to check if the position (x, y) is within the grid's bounds
     fn is_valid_position(&self, x: usize, y: usize) -> Result<(), MyError> {
-        if let Some(row) = self.grid.get(y) {
-            if let Some(_) = row.get(x) {
-                return Ok(());
-            }
+        let position = Position { x: x as i32, y: y as i32 };
+        if self.tiles.contains_key(&position) {
+            Ok(())
+        } else {
+            println!("Asked for position ({}, {}), was not found.", x, y);
+            Err(MyError::PositionError)
         }
-        println!("Asked for position ({}, {}), was not found.", x, y);
-        Err(MyError::PositionError)
     }
+
+    pub fn get_tiles(&self) -> &HashMap<Position, Arc<Mutex<Tile>>> {
+        &self.tiles
+    }
+
+    pub fn get_width_mind(&self) -> i32 {
+        self.width_mind
+    }
+
+    pub fn get_height_min(&self) -> i32 {
+        self.height_min
+    }
+
+    pub fn get_width_max(&self) -> i32 {
+        self.width_max
+    }
+
+    pub fn get_height_max(&self) -> i32 {
+        self.height_max
+    }
+
+//      __  ______     __________     __  ____________  ______
+//     / / / / __ \   /_  __/ __ \   / / / / ____/ __ \/ ____/
+//    / / / / /_/ /    / / / / / /  / /_/ / __/ / /_/ / __/   
+//   / /_/ / ____/    / / / /_/ /  / __  / /___/ _, _/ /___   
+//   \____/_/        /_/  \____/  /_/ /_/_____/_/ |_/_____/
 
     //Creates a copy of the world
     pub fn copy(&self) -> Self {
         let agents = Arc::new(Mutex::new(self.agents.lock().unwrap().clone()));
         let monsters = Arc::new(Mutex::new(self.monsters.lock().unwrap().clone()));
         let treasures = Arc::new(Mutex::new(self.treasures.lock().unwrap().clone()));
-
+    
+        // Deep copy the grid
         let mut new_grid = Vec::with_capacity(self.grid.len());
         for row in &self.grid {
             let mut new_row = Vec::with_capacity(row.len());
@@ -132,12 +195,25 @@ impl GameWorld {
             }
             new_grid.push(new_row);
         }
-
+    
+        // Deep copy the tiles HashMap
+        let mut new_tiles = HashMap::new();
+        for (position, tile_arc_mutex) in &self.tiles {
+            let tile_mutex = Mutex::new(tile_arc_mutex.lock().unwrap().clone());
+            let arc_tile = Arc::new(tile_mutex);
+            new_tiles.insert(*position, arc_tile);
+        }
+    
         GameWorld {
             agents,
             monsters,
             treasures,
             grid: new_grid,
+            tiles: new_tiles,
+            width_mind: self.width_mind,
+            height_min: self.height_min,
+            width_max: self.width_max,
+            height_max: self.height_max,
         }
     }
 
@@ -754,5 +830,10 @@ impl GameWorld {
         }
 
         result
+    }
+
+    // Function to get a tile by its position using the tiles HashMap
+    pub fn get_tile_by_position(&self, position: &Position) -> Option<Arc<Mutex<Tile>>> {
+        self.tiles.get(position).cloned()
     }
 }

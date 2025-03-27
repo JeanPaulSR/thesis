@@ -1,14 +1,13 @@
 use std::collections::{HashMap, HashSet};
 use std::fmt;
 
-use crate::entities::agent::{Agent, Opinions, Status, Target};
+use crate::entities::agent::{Agent, Status, Target};
 use crate::entities::monster::Monster;
-use crate::errors::MyError;
 use crate::{MCSTFlag, RunningFlag, WorldSim};
 use bevy::prelude::*;
-use rand::{thread_rng, Rng};
+use rand::Rng;
 
-use crate::world::GameWorld;
+use crate::gameworld::world::GameWorld;
 
 use super::mcst::NpcAction;
 
@@ -359,7 +358,7 @@ pub fn agent_movement_system(
     }
 
     // 1. Remove all messages from `agent_messages` and store them in a vector
-    let mut messages = std::mem::take(&mut agent_messages.messages);
+    let messages = std::mem::take(&mut agent_messages.messages);
 
     for message in messages {
         let AgentMessage {

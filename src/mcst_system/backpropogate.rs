@@ -3,7 +3,7 @@ use super::{
     mcst_tree::mcst_tree::MCTSTree,
 };
 use crate::{
-    entities::agent::{Agent, Status}, AgentList, Backpropogate, FinishedSelectingActions, MCSTCurrent, MCSTFlag, NpcActions, NpcActionsCopy, RunningFlag, ScoreTracker
+    entities::agent::{Agent, Status}, AgentList, Backpropogate, FinishedSelectingActions, MCSTFlag, NpcActionsCopy, ScoreTracker
 };
 use bevy::prelude::*;
 
@@ -50,10 +50,10 @@ pub fn backpropogate(
     mut backpropogate_flag: ResMut<Backpropogate>,
     mut tree: ResMut<SimulationTree>,
     mut agent_query: Query<(Entity, &mut Agent)>,
-    mut agent_copy_res: ResMut<AgentList>,
+    agent_copy_res: ResMut<AgentList>,
     mut score_tracker_res: ResMut<ScoreTracker>,
     mut npc_actions_copy_res: ResMut<NpcActionsCopy>,
-    mut commands: Commands,
+    commands: Commands,
     mut texture_atlases: ResMut<Assets<TextureAtlas>>,
     asset_server: Res<AssetServer>,
 ) {
@@ -64,7 +64,7 @@ pub fn backpropogate(
         let forest_guard: &mut std::sync::Arc<std::sync::Mutex<Vec<(u32, MCTSTree)>>> = tree.get_forest();
 
         
-        for (entity, mut agent) in agent_query.iter_mut() {
+        for (entity, agent) in agent_query.iter_mut() {
             let agent_id = agent.get_id(); // Call get_id on the `Agent` component
 
             if let Some((_tree_id, mcst_tree)) = forest_guard
