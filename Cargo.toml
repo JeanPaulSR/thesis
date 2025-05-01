@@ -11,7 +11,12 @@ opt-level = 3
 
 [dependencies]
 bevy = "0.11"
+eframe = "0.22"
+egui = "0.22"
+bevy_egui = "0.21"
 winit = "0.27"
 rand = "0.8.5"
 pathfinding = "3.0"
 clap = { version = "4.0", features = ["derive"] }
+
+[dev-dependencies]

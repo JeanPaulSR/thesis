@@ -1,4 +1,7 @@
-use crate::entities::agent::{Agent, Genes, Status, Target};
+use crate::npcs::agent::Agent;
+use crate::npcs::npc_components::genes::Genes;
+use crate::npcs::npc_components::target::Target;
+use crate::npcs::npc_components::npc_status::Status;
 
 static mut SA_COUNTER: u32 = 0;
 
@@ -6,7 +9,7 @@ static mut SA_COUNTER: u32 = 0;
 #[derive(Clone)]
 pub struct SimpleAgent {
     genes: Genes,
-    id: u32,
+    id: i32,
     position: (u32, u32),
     reward: u32,
     energy: u8,

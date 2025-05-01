@@ -1,0 +1,11 @@
+Handle if the target is the monster in avoidance
+Handle if the target is within the avoidance area
+
+Handle code for when to stop attacking, stealing or working
+
+Handle all the cases where target can't be found in handle_selected_action_system (set to finished)
+
+
+Have Retaliation setting to flee happen after an attack (so that they can decide to run on their turn)
+
+Finish Talking action

@@ -1,0 +1,237 @@
+Turn-Based MCTS System Implementation Checklist
+
+This document outlines the steps necessary to implement a turn-based MCTS system in Bevy. It is designed to be modular, scalable, and aligned with Bevy's ECS architecture.
+
+---
+
+1. Define Turn States
+   - Use Bevy's state system to manage the phases of the turn-based simulation.
+   - Define the following states:
+     - PlayerTurn
+     - MCTSPhase
+     - ExecutionPhase
+     - EndTurn
+
+Example:
+#[derive(Debug, Clone, Eq, PartialEq, Hash)]
+pub enum TurnState {
+    PlayerTurn,
+    MCTSPhase,
+    ExecutionPhase,
+    EndTurn,
+}
+
+---
+
+2. Add Turn States to Bevy App
+   - Add the state to the Bevy app in `main.rs`.
+   - Ensure systems are added for each phase.
+
+Example:
+fn main() {
+    App::new()
+        .add_plugins(DefaultPlugins)
+        .add_state(TurnState::PlayerTurn)
+        .add_startup_system(setup.system())
+        .add_systems(Update, (
+            player_turn_system.run_if(in_state(TurnState::PlayerTurn)),
+            mcts_selection_system.run_if(in_state(TurnState::MCTSPhase)),
+            mcts_expansion_system.run_if(in_state(TurnState::MCTSPhase)),
+            mcts_simulation_system.run_if(in_state(TurnState::MCTSPhase)),
+            mcts_backpropagation_system.run_if(in_state(TurnState::MCTSPhase)),
+            execution_system.run_if(in_state(TurnState::ExecutionPhase)),
+            end_turn_system.run_if(in_state(TurnState::EndTurn)),
+        ))
+        .run();
+}
+
+---
+
+3. Implement Systems for Each Phase
+
+3.1 Player Turn System
+   - Handle the player's input during their turn.
+   - Transition to the MCTS phase when the player ends their turn.
+
+Example:
+pub fn player_turn_system(
+    mut state: ResMut<State<TurnState>>,
+    input: Res<Input<KeyCode>>,
+) {
+    if input.just_pressed(KeyCode::Space) {
+        state.set(TurnState::MCTSPhase).unwrap();
+    }
+}
+
+---
+
+3.2 MCTS Phase Systems
+
+3.2.1 Selection System
+   - Select the next action for each agent using MCTS.
+
+Example:
+pub fn mcts_selection_system(
+    mut agents_query: Query<&mut Agent>,
+    mut mcts_tree: ResMut<SimulationTree>,
+) {
+    for mut agent in agents_query.iter_mut() {
+        if agent.get_status() == Status::Idle {
+            let action = mcts_tree.select_action(agent.get_id());
+            agent.set_action(action);
+        }
+    }
+}
+
+3.2.2 Expansion System
+   - Expand the MCTS tree if a leaf node is reached.
+
+Example:
+pub fn mcts_expansion_system(
+    mut mcts_tree: ResMut<SimulationTree>,
+    agents_query: Query<&Agent>,
+) {
+    for agent in agents_query.iter() {
+        if mcts_tree.is_leaf(agent.get_id()) {
+            mcts_tree.expand(agent.get_id());
+        }
+    }
+}
+
+3.2.3 Simulation System
+   - Simulate random actions beyond the leaf node.
+
+Example:
+pub fn mcts_simulation_system(
+    mut mcts_tree: ResMut<SimulationTree>,
+    agents_query: Query<&Agent>,
+) {
+    for agent in agents_query.iter() {
+        mcts_tree.simulate(agent.get_id());
+    }
+}
+
+3.2.4 Backpropagation System
+   - Backpropagate the results of the simulation.
+
+Example:
+pub fn mcts_backpropagation_system(
+    mut mcts_tree: ResMut<SimulationTree>,
+    agents_query: Query<&Agent>,
+) {
+    for agent in agents_query.iter() {
+        mcts_tree.backpropagate(agent.get_id());
+    }
+}
+
+---
+
+3.3 Execution Phase Systems
+
+3.3.1 Handle Selected Action System
+   - Determine the agent's status and next action.
+
+Example:
+pub fn handle_selected_action_system(
+    mut agents_query: Query<(&mut Agent, &NPCBase)>,
+    agent_query: Query<(&Position, &Agent, &NPCBase)>,
+    monster_query: Query<(&Position, &Monster, &NPCBase)>,
+    treasure_query: Query<(&Position, &Treasure, &NPCBase)>,
+    world: Res<GameWorld>,
+) {
+    for (mut agent, npc_base) in agents_query.iter_mut() {
+        handle_selected_action_system(
+            &mut agent,
+            npc_base,
+            &agent_query,
+            &monster_query,
+            &treasure_query,
+            &world,
+        );
+    }
+}
+
+3.3.2 Movement System
+   - Move agents along their paths.
+
+Example:
+pub fn movement_system(
+    mut agents_query: Query<(&mut NPCBase, &mut Agent)>,
+    world: Res<GameWorld>,
+) {
+    for (mut npc_base, mut agent) in agents_query.iter_mut() {
+        if let Some(mut path) = agent.get_path() {
+            handle_movement(&mut npc_base, &world, &mut path);
+            agent.set_path(path);
+        }
+    }
+}
+
+3.3.3 Action Execution System
+   - Execute the selected actions.
+
+Example:
+pub fn action_execution_system(
+    mut agents_query: Query<(&mut Agent, &NPCBase)>,
+) {
+    for (mut agent, npc_base) in agents_query.iter_mut() {
+        match agent.get_action() {
+            NpcAction::AttackAgent => {
+                // Handle attacking another agent
+            }
+            NpcAction::TreasureHunt => {
+                // Handle treasure hunting
+            }
+            _ => {}
+        }
+    }
+}
+
+---
+
+3.4 End Turn System
+   - Transition to the next turn.
+
+Example:
+pub fn end_turn_system(
+    mut state: ResMut<State<TurnState>>,
+) {
+    state.set(TurnState::PlayerTurn).unwrap();
+}
+
+---
+
+4. Resources and Utilities
+
+4.1 MCTS Tree Resource
+   - Store the MCTS tree as a Bevy resource.
+
+Example:
+#[derive(Default, Resource)]
+pub struct SimulationTree {
+    // Tree data structure for MCTS
+}
+
+impl SimulationTree {
+    pub fn select_action(&mut self, agent_id: i32) -> NpcAction {
+        // Implement MCTS selection logic
+    }
+
+    pub fn expand(&mut self, agent_id: i32) {
+        // Implement MCTS expansion logic
+    }
+
+    pub fn simulate(&mut self, agent_id: i32) {
+        // Implement MCTS simulation logic
+    }
+
+    pub fn backpropagate(&mut self, agent_id: i32) {
+        // Implement MCTS backpropagation logic
+    }
+}
+
+---
+
+5. Integration in `main.rs`
+
+Ensure all systems are added to the Bevy app:

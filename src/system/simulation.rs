@@ -6,9 +6,10 @@ use std::collections::HashMap;
 use bevy::prelude::*;
 use rand::{thread_rng, Rng};
 
-use crate::entities::agent::Agent;
-use crate::entities::agent::{Status, Target};
-use crate::entities::monster::Monster;
+use crate::npcs::agent::Agent;
+use crate::npcs::npc_components::npc_status::Status;
+use crate::npcs::npc_components::target::Target;
+use crate::npcs::monster::Monster;
 use crate::errors::MyError;
 use crate::mcst_system::mcst::NpcAction;
 use crate::movement::find_path;

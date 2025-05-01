@@ -1,9 +1,10 @@
 
 use crate::gameworld;
+use bevy::ecs::component::Component;
 use gameworld::tile_types::TileType;
 
 
-#[derive(Clone)]
+#[derive(Clone, Component)]
 pub struct Tile {
     tile_type: TileType,
     valid_monster_spawn: bool,

@@ -1,8 +1,10 @@
 use std::collections::{HashMap, HashSet};
 use std::fmt;
-
-use crate::entities::agent::{Agent, Status, Target};
-use crate::entities::monster::Monster;
+use crate::npcs::npc_components::gene_type::GeneType;
+use crate::npcs::npc_components::npc_status::Status;
+use crate::npcs::agent::Agent;
+use crate::npcs::npc_components::target::Target;
+use crate::npcs::monster::Monster;
 use crate::{MCSTFlag, RunningFlag, WorldSim};
 use bevy::prelude::*;
 use rand::Rng;
@@ -858,7 +860,7 @@ pub fn agent_message_system(
                     let agent = &mut agents[agent_index];
                     let genes = agent.get_genes();
                     stealth_value =
-                        genes.return_type_score(crate::entities::agent::GeneType::Stealth);
+                        genes.return_type_score(GeneType::Stealth);
                 } else {
                     println!("Error: Agent with ID {} not found", sender_id);
                 }
