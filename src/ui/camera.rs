@@ -3,6 +3,7 @@ use bevy::input::ButtonState;
 use bevy::prelude::*;
 use bevy::render::camera::Camera;
 use bevy::window::PrimaryWindow;
+use bevy_egui::EguiContexts;
 
 /// Sets up a 2D camera and centers it on the specified grid dimensions.
 pub fn setup_camera(commands: &mut Commands, half_grid_width: f32, half_grid_height: f32) {
@@ -20,60 +21,54 @@ pub struct CameraDragging {
 }
 
 pub fn camera_drag_system(
+    mut egui_ctx: EguiContexts,
     mut ev_mouse: EventReader<MouseButtonInput>,
     mut ev_scroll: EventReader<MouseWheel>,
     mut camera_dragging: ResMut<CameraDragging>,
     mut query: Query<(&Camera, &mut Transform)>,
     window_query: Query<&Window, With<PrimaryWindow>>,
 ) {
-    // Access the primary window using the query
-    let window = window_query.get_single().expect("Primary window not found");
+    let ctx = egui_ctx.ctx_mut();
 
-    // Handle mouse button inputs for dragging
+    // 1) If any egui widget wants the pointer or scroll, do nothing.
+    if ctx.wants_pointer_input() {
+        return;
+    }
+
+    // 2) Handle right‐click drag start/stop
+    let window = window_query.single();
     for event in ev_mouse.iter() {
         if event.button == MouseButton::Right {
             if event.state == ButtonState::Pressed {
                 camera_dragging.is_dragging = true;
                 camera_dragging.previous_mouse_position = window.cursor_position();
-            } else if event.state == ButtonState::Released {
+            } else {
                 camera_dragging.is_dragging = false;
             }
         }
     }
 
-    // Handle camera dragging
+    // 3) Perform panning
     if camera_dragging.is_dragging {
-        if let Some(current_mouse_position) = window.cursor_position() {
-            if let Some(prev_mouse_position) = camera_dragging.previous_mouse_position {
-                let delta = current_mouse_position - prev_mouse_position;
-                for (_, mut transform) in query.iter_mut() {
-                    // Adjust movement speed based on zoom level
-                    let zoom_adjustment = transform.scale.x;
-                    transform.translation.x -= delta.x * zoom_adjustment;
-                    transform.translation.y += delta.y * zoom_adjustment;
-                }
+        if let (Some(curr), Some(prev)) = (window.cursor_position(), camera_dragging.previous_mouse_position) {
+            let delta = curr - prev;
+            for (_, mut transform) in &mut query {
+                let zoom = transform.scale.x;
+                transform.translation.x -= delta.x * zoom;
+                transform.translation.y += delta.y * zoom;
             }
-            camera_dragging.previous_mouse_position = Some(current_mouse_position);
+            camera_dragging.previous_mouse_position = Some(curr);
         }
     }
 
-    // Handle zooming with the mouse wheel
+    // 4) Handle zoom with scroll
     for event in ev_scroll.iter() {
-        for (_, mut transform) in query.iter_mut() {
-            let zoom_factor = 1.1;
-            let min_scale = 0.1;
-            let max_scale = 5.0;
-
-            if event.y > 0.0 {
-                transform.scale /= zoom_factor;
-            } else if event.y < 0.0 {
-                transform.scale *= zoom_factor;
-            }
-
-            // Clamp the scale to prevent zooming too far in or out
-            transform.scale = transform.scale.clamp(Vec3::splat(min_scale), Vec3::splat(max_scale));
-
-            // Ensure the camera doesn't move out of the view bounds
+        for (_, mut transform) in &mut query {
+            let factor = 1.1;
+            let (min, max) = (0.1, 5.0);
+            if event.y > 0.0 { transform.scale /= factor; }
+            else if event.y < 0.0 { transform.scale *= factor; }
+            transform.scale = transform.scale.clamp(Vec3::splat(min), Vec3::splat(max));
             transform.translation.z = transform.scale.x.max(0.1);
         }
     }

@@ -1,12 +1,13 @@
 use bevy::prelude::*;
-use bevy::sprite::MaterialMesh2dBundle;
-use bevy_egui::{egui, EguiContexts};
+use bevy_egui::egui;
 use crate::npcs::agent::Agent;
 use crate::system::mcst_tree::mcst_tree::MCTSTree;
 use crate::ui::setup_ui::AgentActionButton;
 use crate::{SelectedNPC, SimulationTree};
 use crate::npcs::npc_components::npc_base::NPCBase;
 use crate::npcs::npc_components::npc_type::NPCType;
+
+use super::tree_app::TreeCamera;
 
 // Marker component for nodes
 #[derive(Component)]
@@ -17,6 +18,7 @@ pub struct NodeMarker;
 pub struct DisplayTreeWindowState {
     pub is_open: bool,
     pub tree: Option<MCTSTree>,
+    pub camera: TreeCamera, // Add the TreeCamera field
 }
 
 // Add a system to toggle the visibility of the button based on the selected NPC
@@ -41,7 +43,6 @@ pub fn update_agent_action_button_visibility(
     }
 }
 
-// Add a system to handle button interaction (e.g., open a window with "Test")
 pub fn agent_action_button_system(
     mut interaction_query: Query<&Interaction, (Changed<Interaction>, With<AgentActionButton>)>,
     mut window_state: ResMut<DisplayTreeWindowState>,
@@ -51,34 +52,34 @@ pub fn agent_action_button_system(
 ) {
     for interaction in interaction_query.iter_mut() {
         if *interaction == Interaction::Pressed {
-            println!("Button clicked!"); // Debug log to confirm the button is clicked
+            println!("Button clicked!"); // Debug log
 
             if let Some(selected_entity) = selected_npc.0 {
-                if let Ok((agent, npc_base)) = npc_query.get(selected_entity) {
+                if let Ok((agent, _npc_base)) = npc_query.get(selected_entity) {
                     let agent_id = agent.get_id();
-                    println!("Selected agent ID: {}", agent_id); // Debug log for agent ID
+                    println!("Selected agent ID: {}", agent_id); // Debug log
 
                     if let Some(tree) = simulation_tree.get_tree(agent_id as i32) {
-                        println!("Tree found for agent ID: {}", agent_id); // Debug log for tree existence
+                        println!("Tree found for agent ID: {}", agent_id); // Debug log
 
                         // Toggle the tree display window
                         if window_state.is_open {
                             window_state.is_open = false;
                             window_state.tree = None;
-                            println!("Tree window closed."); // Debug log for window state
+                            println!("Tree window closed."); // Debug log
                         } else {
                             window_state.is_open = true;
                             window_state.tree = Some(tree.clone());
-                            println!("Tree window opened."); // Debug log for window state
+                            println!("Tree window opened."); // Debug log
                         }
                     } else {
-                        println!("No tree found for agent ID: {}", agent_id); // Debug log for missing tree
+                        println!("No tree found for agent ID: {}", agent_id);
                     }
                 } else {
-                    println!("No agent found for selected entity."); // Debug log for missing agent
+                    println!("No agent found for selected entity.");
                 }
             } else {
-                println!("No NPC selected."); // Debug log for missing selection
+                println!("No NPC selected.");
             }
         }
     }
